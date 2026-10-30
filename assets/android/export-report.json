@@ -1,0 +1,15 @@
+{
+  "layer_px": 1080,
+  "layer_dp": 108,
+  "safe_circle_dp": 66,
+  "alpha_bbox": [
+    295,
+    290,
+    785,
+    792
+  ],
+  "visible_radius_px": 282.3118842698621,
+  "play_bytes": 267183,
+  "xml_files": 8,
+  "android_build_verified": false
+}
