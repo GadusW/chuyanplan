@@ -2,6 +2,8 @@
 
 ## GitHub 推送与安装包
 
+- 每次完成项目改动后，都要创建 Git 提交并推送到对应的 GitHub 仓库。
+
 用户已明确要求：以后向本项目 GitHub 仓库推送更改时，同步上传对应版本的 Android 安装包，不能只推送源码后就报告完成。
 
 - APK 放在 GitHub Releases 的 Assets 中，不加入 Git 提交历史。
