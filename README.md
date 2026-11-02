@@ -10,17 +10,33 @@
 
 栖声 · Stillune 是一个面向 **Android** 的本地音乐播放器项目，致力于将高品质播放、声音分析、从容的聆听体验与听力关怀融为一体。让珍藏的音乐长久相伴，也让双耳适时休憩。
 
-目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.8.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、体感沉浸及播放历史恢复。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。听力关怀等仍是后续规划，尚未实现。
+目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.9.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸及播放历史恢复。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。听力关怀等仍是后续规划，尚未实现。
 
 ## 下载安装
 
-当前提供 **0.8.0 开发预览版（调试签名）**：
+当前提供 **0.9.0 开发预览版（调试签名）**：
 
-- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.8.0/Stillune-0.8.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
-- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.8.0/Stillune-0.8.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
-- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.8.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
+- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.9.0/Stillune-0.9.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
+- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.9.0/Stillune-0.9.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
+- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.9.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
 
 最低 Android 8.0。后续推送会同步对应版本的安装包至 [GitHub Releases](https://github.com/GadusW/chuyanplan/releases)。
+
+## 0.9.0 更新
+
+在「音频分析 → 实时分析」开启：
+
+- **响度**：同时显示 Short Term、Integrated、Momentary Max 与当前 M，另含 LRA、4× 过采样 True Peak；提供 EBU R128、ATSC A/85 短节目、Spotify Normal / Quiet 及自定义目标参考。
+- **频谱与电平**：实时对数 FFT 曲线、频点查看、FFT / 平均 / 斜率设置；L / R Peak、RMS 与峰值保持电平条。
+- **瀑布与声场**：二维／三维频谱历史、五个相机角度、L / R / M / S 数据源；Polar Sample、Polar Level、原始 X=L / Y=R 的 Lissajous 与相关性。图表可独立放大。
+
+测量使用独立的 48 kHz 浮点源文件 PCM，不采集麦克风，不改变播放输出。**累计读数属于本次连续测量片段，跳转、换曲或离开实时页面会重新累计；不代表系统／蓝牙／硬件实际输出，也不是交付认证。** 实时处理会增加计算开销，后台停止，原有离线缓存选项保留。
+
+算法、输入范围、目标口径、官方资料与验证依据见 [实时分析说明](docs/realtime-analysis.md)。
+
+验证通过 **30 项单元测试、21 项 API 36 模拟器设备测试，Lint 无错误**。包括五格式浮点 PCM、实际播放时暂停／跳转、FFT 与目标／视角操作；合成稳态及动态节目读数与 FFmpeg ebur128 对照。详见 [0.9.0 验证记录](docs/validation/android-0.9.0.json)。真机耗电、发热及长时间同步偏差尚待验收。
+
+实际运行截图：[响度](docs/screenshots/realtime-loudness-v9.png) · [频谱](docs/screenshots/realtime-spectrum-v9.png) · [三维瀑布](docs/screenshots/realtime-waterfall-v9.png) · [极坐标声场](docs/screenshots/realtime-field-v9.png) · [李萨如](docs/screenshots/realtime-lissajous-v9.png)。试音与封面为原创合成素材。当前多声道源下混为立体声，未提供独立环绕声通道测量。
 
 ## 0.8.0 更新
 
@@ -54,7 +70,7 @@
 - **沉浸式播放**：播放页右上角可进入／退出全屏，隐藏底部导航和系统栏；返回键先退出全屏。背景保留克制的柔焦与毛玻璃层次，模式使用下划线选择，分析内容以细线分区，减少重复卡片。Android 12+ 使用实际模糊，旧系统以柔和渐变降级。
 - **封面与歌词**：读取音频内嵌封面；点封面显示歌词，单击歌词或「返回封面」按钮切回，底部开关保留。支持导入本地 LRC / TXT、已授权目录的同名歌词自动关联、LRC 逐行跟随与双击跳转。没有歌词时提供导入入口，不显示编造歌词，也不联网抓取。
 - **五维媒体库**：按歌曲、专辑、艺术家、文件夹和音频编码格式浏览，可与搜索、无损筛选叠加。
-- **播放模式**：「极简」「音频分析」之外，新增「体感沉浸」。分析模式后台预先缓存整曲 FFT 频谱概览、代表片段的 DR 估算和立体声声场；频谱可点按跳转，不做实时频谱或 DR 计算。首次入库小批分析，其余在充电空闲时补齐，开始播放会让出计算资源。
+- **播放模式**：「极简」「音频分析」之外，提供「体感沉浸」。音频分析可选离线声音画像，或按需开启实时响度、频谱、电平、瀑布与声场。离线画像缓存整曲 FFT 概览、代表片段 DR 估算及声场，频谱可点按跳转；首次入库小批分析，其余充电空闲补齐，开始播放让出离线计算资源。实时分析不计算 DR，按本次连续片段累计测量。
 - **悬浮导航与系统播放卡片**：半透明底部导航带轻量按压回弹；媒体通知同步歌曲、专辑、封面及播放进度，可从系统控制播放、暂停、切歌或回到播放页。外观由手机系统决定，详见 [通知与交互说明](docs/media-controls.md)。
 - **体感沉浸**：封面视差、节奏波纹、节奏粒子三种效果，融合低通滤波后的倾斜与当前播放的实时 RMS。单击显示控制，闲置 10 秒隐藏，连续三击或系统返回退出。仅节奏效果按需请求 Android 波形接口所需的「录音」权限，不采集麦克风。详见 [体感沉浸说明](docs/immersive-mode.md)。
 - **播放历史**：保留上次歌曲、队列、位置和随机／循环设置，重开时保持暂停；乐库右上角可浏览最近 100 首音乐。详见 [历史与恢复说明](docs/playback-history.md)。

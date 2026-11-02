@@ -1,0 +1,91 @@
+{
+  "version": "0.9.0",
+  "checked_utc": "2026-11-02T14:47:55.059933+00:00",
+  "unit_tests": 30,
+  "instrumentation": "OK (21 tests)",
+  "device": "API 36 x86_64 emulator",
+  "lint_errors": 0,
+  "lint_warnings": 37,
+  "artifacts": [
+    {
+      "file": "Stillune-0.9.0-arm64-debug.apk",
+      "bytes": 74563394,
+      "sha256": "2f37b3ac2dabce5714ad9f10c88a91da53e3ab5c06a5821dfd0af713d07fe7cc",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "file": "Stillune-0.9.0-universal-debug.apk",
+      "bytes": 229471033,
+      "sha256": "3aa3988d9f082910e8a7931499bb3b844e1d46d9fa1fcf3472e7b90634179720",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "independent_reference": {
+    "reference": "ffmpeg version 7.1-essentials_build-www.gyan.dev Copyright (c) 2000-2024 the FFmpeg developers",
+    "algorithm": "FFmpeg ebur128, peak=true",
+    "results": [
+      {
+        "recipe": "steady",
+        "channels": 2,
+        "sample_rate": 48000,
+        "seconds": 5,
+        "integrated_lufs": -20.0,
+        "lra_lu": 0.0,
+        "true_peak_dbtp": -20.0
+      },
+      {
+        "recipe": "steady",
+        "channels": 1,
+        "sample_rate": 48000,
+        "seconds": 5,
+        "integrated_lufs": -23.0,
+        "lra_lu": 0.0,
+        "true_peak_dbtp": -20.0
+      },
+      {
+        "recipe": "dynamic",
+        "channels": 2,
+        "sample_rate": 48000,
+        "seconds": 36,
+        "integrated_lufs": -13.1,
+        "lra_lu": 18.1,
+        "true_peak_dbtp": -9.9
+      }
+    ]
+  },
+  "checks": [
+    "K-weighted stereo and mono sine references; gated dynamic programme / LRA / true peak vs FFmpeg",
+    "Silence and non-finite samples do not fabricate valid loudness or correlation",
+    "Quarter-rate phase-shifted sine recovers >2.5 dB intersample crest using 4x FIR",
+    "Antiphase stereo retains FFT energy, M nulls and S retains actual signal",
+    "Peak/RMS difference, finite peak hold and cumulative true peak",
+    "Bounded spectrum history, visual setting changes preserve loudness integration",
+    "Actual native Float32 PCM reads MP3/WAV/FLAC/AAC/ALAC; repeated cancellation drains pipe without FD accumulation",
+    "Playhead start skips early L-only section and reads later R-only section",
+    "Concurrent actual playback: source analysis follows, pause freezes, seek resets integration",
+    "Native UI: targets, FFT settings, input source, camera, fullscreen, compact transport menu and lyrics return",
+    "Existing library, history/migrations, media notifications, lyrics and immersion regressions",
+    "APK signer unchanged from 0.8.0; ARM64/universal DEX identical"
+  ],
+  "limits": [
+    "No full EBU/ITU certification test-set run; 0.01 LU histogram quantization",
+    "Near-real-time source-file proxy, not captured AudioTrack/system/Bluetooth/DAC output",
+    "Analysis uses 48 kHz Float32 stereo; multichannel sources are downmixed, independent surround channels not implemented",
+    "Cumulative meters describe the current uninterrupted measured segment, not unmeasured programme sections",
+    "Physical-phone thermal, battery, OEM behavior and long-session latency not benchmarked"
+  ],
+  "manual": [
+    "Native API 36 screenshots of actual original stereo test playback: loudness, FFT, 3D waterfall, polar and Lissajous",
+    "Font scale 1.3 uses horizontal per-meter rows; landscape keeps compact transport visible",
+    "Emulator font and rotation settings restored after visual checks"
+  ]
+}

@@ -87,7 +87,10 @@ fun StilluneApp(
     var group by rememberSaveable { mutableStateOf<String?>(null) }
     var losslessOnly by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(scan.message) { scan.message?.let { snackbar.showSnackbar(it); model.clearMessage() } }
+    LaunchedEffect(scan.message, playerOpen) {
+        // Scan summaries wait for the library so they cannot cover player transport buttons.
+        if (!playerOpen) scan.message?.let { snackbar.showSnackbar(it); model.clearMessage() }
+    }
     LaunchedEffect(playback.error) { playback.error?.let { snackbar.showSnackbar(it); model.clearError() } }
     BackHandler(playerOpen || group != null) {
         when { immersive -> immersive = false; fullScreen -> fullScreen = false; playerOpen -> playerOpen = false; else -> group = null }

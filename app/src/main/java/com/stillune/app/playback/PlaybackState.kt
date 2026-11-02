@@ -19,6 +19,8 @@ data class PlaybackState(
     val output: String = "系统音频输出",
     val error: String? = null,
     val audioSessionId: Int = 0,
+    val timelineRevision: Long = 0,
+    val positionTimestampMs: Long = 0,
 ) { val track: Track? get() = queue.getOrNull(index) }
 
 @Singleton

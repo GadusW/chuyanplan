@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.rounded.NoteAdd
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
@@ -76,6 +77,7 @@ internal fun PlayerPage(
 ) {
     val analysisMode by model.analysisMode.collectAsStateWithLifecycle()
     val analysis by model.analysis.collectAsStateWithLifecycle()
+    var realtime by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         MoonlitBackdrop(artwork, Modifier.matchParentSize())
         val landscape = maxWidth > maxHeight
@@ -112,17 +114,20 @@ internal fun PlayerPage(
                 Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                     Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                         if (analysisMode) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                            Box(Modifier.fillMaxWidth().height(if (lyricsVisible) 180.dp else 80.dp)) {
+                            if (!realtime) Box(Modifier.fillMaxWidth().height(if (lyricsVisible) 180.dp else 80.dp)) {
                                 PlayerVisual(lyrics, lyricsVisible, artwork, state, model, onImportLyrics, Modifier.fillMaxSize())
                             }
-                            AnalysisContent(analysis, state, model::requestAnalysis, model::seek)
+                            AnalysisSwitcher(analysis, state, model.realtimeAnalysis, model::requestAnalysis, model::seek,realtime,{realtime=it})
                         }
                         else PlayerVisual(lyrics, lyricsVisible, artwork, state, model, onImportLyrics, Modifier.fillMaxSize())
                     }
                     Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) {
-                        TrackHeading(state, compact = true, analysisMode)
-                        PlayerControls(state, model, compact = true, onImport)
-                        PlayerActions(lyricsVisible, model::toggleLyrics, state, onImportLyrics, onQueue, onOutput)
+                        if (analysisMode && realtime) RealtimeTransport(state,model,onImportLyrics,onQueue,onOutput)
+                        else {
+                            TrackHeading(state, compact = true, analysisMode)
+                            PlayerControls(state, model, compact = true, onImport)
+                            PlayerActions(lyricsVisible, model::toggleLyrics, state, onImportLyrics, onQueue, onOutput)
+                        }
                     }
                 }
             } else {
@@ -130,7 +135,7 @@ internal fun PlayerPage(
                     if (analysisMode) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         if (lyricsVisible) Box(Modifier.fillMaxWidth().height(200.dp)) {
                             PlayerVisual(lyrics, true, artwork, state, model, onImportLyrics, Modifier.fillMaxSize())
-                        } else Row(Modifier.fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically,
+                        } else if (!realtime) Row(Modifier.fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             Box(Modifier.size(64.dp)) { PlayerVisual(lyrics, false, artwork, state, model, onImportLyrics, Modifier.fillMaxSize()) }
                             Column {
@@ -138,12 +143,57 @@ internal fun PlayerPage(
                                 Text("点封面查看歌词", color = Quiet, fontSize = 12.sp)
                             }
                         }
-                        AnalysisContent(analysis, state, model::requestAnalysis, model::seek)
+                        AnalysisSwitcher(analysis, state, model.realtimeAnalysis, model::requestAnalysis, model::seek,realtime,{realtime=it})
                     } else PlayerVisual(lyrics, lyricsVisible, artwork, state, model, onImportLyrics, Modifier.fillMaxSize())
                 }
-                TrackHeading(state, compact, analysisMode)
-                PlayerControls(state, model, compact || analysisMode, onImport)
-                PlayerActions(lyricsVisible, model::toggleLyrics, state, onImportLyrics, onQueue, onOutput)
+                if (analysisMode && realtime) RealtimeTransport(state,model,onImportLyrics,onQueue,onOutput)
+                else {
+                    TrackHeading(state, compact, analysisMode)
+                    PlayerControls(state, model, compact || analysisMode, onImport)
+                    PlayerActions(lyricsVisible, model::toggleLyrics, state, onImportLyrics, onQueue, onOutput)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun RealtimeTransport(state: PlaybackState, model: LibraryViewModel, onImportLyrics: () -> Unit,
+                              onQueue: () -> Unit, onOutput: () -> Unit) {
+    var menu by remember {mutableStateOf(false)}
+    var drag by remember(state.track?.uri) {mutableStateOf<Float?>(null)}
+    Column(Modifier.fillMaxWidth().padding(top=8.dp)) {
+        HorizontalDivider(color=Quiet.copy(alpha=.15f))
+        Row(Modifier.fillMaxWidth().padding(top=8.dp),verticalAlignment=Alignment.CenterVertically) {
+            Text(state.track?.title ?: "先选择一首音乐",Modifier.weight(1f),color=Moon,fontSize=13.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text("${playerTime(state.positionMs)} / ${playerTime(state.durationMs)}",color=Quiet,fontSize=10.sp,modifier=Modifier.padding(start=8.dp))
+        }
+        Slider(value=drag ?: (state.positionMs.toFloat()/state.durationMs.coerceAtLeast(1)).coerceIn(0f,1f),
+            onValueChange={drag=it},onValueChangeFinished={drag?.let {model.seek((it*state.durationMs).toLong())};drag=null},
+            enabled=state.track!=null && state.durationMs>0,
+            modifier=Modifier.fillMaxWidth().height(32.dp).semantics {contentDescription="实时分析播放进度"},
+            thumb={Box(Modifier.size(9.dp).background(Moon,CircleShape))},
+            track={slider ->SliderDefaults.Track(slider,Modifier.height(3.dp),
+                colors=SliderDefaults.colors(activeTrackColor=Moon.copy(alpha=.8f),inactiveTrackColor=Quiet.copy(alpha=.22f)),
+                thumbTrackGapSize=0.dp,drawStopIndicator=null)})
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+            IconButton(onClick=model::shuffle) {Icon(Icons.Rounded.Shuffle,"随机播放",tint=if (state.shuffle) Moon else Quiet)}
+            IconButton(onClick=model::previous,enabled=state.track!=null) {Icon(Icons.Rounded.SkipPrevious,"上一首",tint=Moon)}
+            FilledIconButton(onClick=model::toggle,enabled=state.track!=null) {
+                Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,if (state.playing) "暂停" else "播放")
+            }
+            IconButton(onClick=model::next,enabled=state.track!=null) {Icon(Icons.Rounded.SkipNext,"下一首",tint=Moon)}
+            IconButton(onClick=model::repeat) {Icon(if (state.repeat==RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                "切换循环模式",tint=if (state.repeat==RepeatMode.OFF) Quiet else Moon)}
+            Box {
+                IconButton(onClick={menu=true}) {Icon(Icons.Rounded.MoreVert,"实时分析播放选项",tint=Quiet)}
+                DropdownMenu(menu,{menu=false}) {
+                    DropdownMenuItem(text={Text("封面 / 歌词")},onClick={menu=false; model.toggleLyrics()})
+                    DropdownMenuItem(text={Text("导入歌词")},onClick={menu=false;onImportLyrics()})
+                    DropdownMenuItem(text={Text("播放队列")},onClick={menu=false;onQueue()})
+                    DropdownMenuItem(text={Text("输出设备")},onClick={menu=false;onOutput()})
+                }
             }
         }
     }

@@ -114,7 +114,7 @@ class PlaybackService : Service() {
             while (isActive) {
                 if (s.playing) {
                     if (!wakeLock.isHeld) wakeLock.acquire(30 * 60 * 1000L)
-                    store.mutable.update { it.copy(positionMs = player.time.coerceAtLeast(0), durationMs = player.length.coerceAtLeast(it.track?.durationMs ?: 0)) }
+                    store.mutable.update { it.copy(positionMs = player.time.coerceAtLeast(0), durationMs = player.length.coerceAtLeast(it.track?.durationMs ?: 0), positionTimestampMs = SystemClock.elapsedRealtime()) }
                     updateSession()
                     if (SystemClock.elapsedRealtime() - lastCheckpointAt >= 3000) {
                         lastCheckpointAt = SystemClock.elapsedRealtime()
@@ -186,7 +186,7 @@ class PlaybackService : Service() {
         descriptor?.close(); descriptor = null
         pendingSeekMs = startPositionMs.coerceAtLeast(0).let { if (track.durationMs > 0 && it >= track.durationMs - 100) 0 else it }
         store.mutable.update { it.copy(loading = true, playing = false, positionMs = pendingSeekMs, durationMs = track.durationMs,
-            error = null, audioSessionId = visualSessionId) }
+            error = null, audioSessionId = visualSessionId, timelineRevision = it.timelineRevision + 1, positionTimestampMs = SystemClock.elapsedRealtime()) }
         // Publish a complete session before the first MediaStyle notification. System UI can
         // inspect this synchronously while creating the media card.
         artworkJob?.cancel()
@@ -218,7 +218,7 @@ class PlaybackService : Service() {
                     when (event.type) {
                         MediaPlayer.Event.Playing -> {
                             if (pendingSeekMs > 0) { player.time = pendingSeekMs; pendingSeekMs = 0 }
-                            store.mutable.update { it.copy(playing = true, loading = false, error = null) }
+                            store.mutable.update { it.copy(playing = true, loading = false, error = null, positionTimestampMs = SystemClock.elapsedRealtime()) }
                             memory.checkpoint(s, visit = true)
                             if (!wakeLock.isHeld) wakeLock.acquire(30 * 60 * 1000L)
                             updateSession(); notifyPlayback()
@@ -262,7 +262,7 @@ class PlaybackService : Service() {
         if (s.durationMs <= 0) return
         val pos = positionMs.coerceIn(0, s.durationMs)
         if (descriptor != null) player.time = pos
-        store.mutable.update { it.copy(positionMs = pos) }; updateSession()
+        store.mutable.update { it.copy(positionMs = pos, timelineRevision = it.timelineRevision + 1, positionTimestampMs = SystemClock.elapsedRealtime()) }; updateSession()
         memory.checkpoint(s)
     }
     fun next(automatic: Boolean = false) {

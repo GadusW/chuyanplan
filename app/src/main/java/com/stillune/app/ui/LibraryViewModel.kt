@@ -22,6 +22,7 @@ class LibraryViewModel @Inject constructor(
     private val analysisRepository: AnalysisRepository,
     private val scheduler: AnalysisScheduler,
     private val memory: PlaybackMemory,
+    val realtimeAnalysis: RealtimeAnalysisRepository,
 ) : ViewModel() {
     val tracks = library.tracks.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val playback = store.state
