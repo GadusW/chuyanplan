@@ -5,8 +5,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- Visualizer only: reads our playback session, never opens the microphone. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Visualizer, plus a separately opt-in local microphone environment trend monitor. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
@@ -26,5 +28,7 @@
         </activity>
         <service android:name=".playback.PlaybackService" android:exported="false"
             android:foregroundServiceType="mediaPlayback" android:stopWithTask="false" />
+        <service android:name=".health.EnvironmentMonitorService" android:exported="false"
+            android:foregroundServiceType="microphone" android:stopWithTask="false" />
     </application>
 </manifest>

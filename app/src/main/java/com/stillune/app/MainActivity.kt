@@ -23,6 +23,7 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private var openPlayerRequest by mutableIntStateOf(0)
+    private var openHealthRequest by mutableIntStateOf(0)
     private val model: LibraryViewModel by viewModels()
     private var options = ScanOptions()
     private var lyricTarget: Track? = null
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent?.action == OPEN_PLAYER) openPlayerRequest++
+        if (intent?.action == OPEN_HEALTH) openHealthRequest++
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         setContent {
@@ -80,13 +82,18 @@ class MainActivity : ComponentActivity() {
                     onFolder = { selected -> options = selected; folderPicker.launch(null) },
                     onImport = { filePicker.launch(arrayOf("*/*")) },
                     onImportLyrics = { model.playback.value.track?.let { lyricTarget = it; lyricPicker.launch(arrayOf("*/*")) } },
-                    openPlayerRequest = openPlayerRequest)
+                    openPlayerRequest = openPlayerRequest, openHealthRequest = openHealthRequest)
             }
         }
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         if (intent.action == OPEN_PLAYER) openPlayerRequest++
+        if (intent.action == OPEN_HEALTH) openHealthRequest++
     }
-    companion object { const val OPEN_PLAYER = "com.stillune.app.OPEN_PLAYER" }
+    companion object {
+        const val OPEN_PLAYER = "com.stillune.app.OPEN_PLAYER"
+        const val OPEN_HEALTH = "com.stillune.app.OPEN_HEALTH"
+    }
 }

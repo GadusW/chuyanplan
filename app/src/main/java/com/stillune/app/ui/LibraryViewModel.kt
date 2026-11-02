@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.stillune.app.data.*
 import com.stillune.app.playback.*
 import com.stillune.app.analysis.*
+import com.stillune.app.health.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.*
@@ -23,7 +24,11 @@ class LibraryViewModel @Inject constructor(
     private val scheduler: AnalysisScheduler,
     private val memory: PlaybackMemory,
     val realtimeAnalysis: RealtimeAnalysisRepository,
+    val hearing: HearingRepository,
 ) : ViewModel() {
+    val hearingRecords = hearing.records.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun pauseForRest() = connection.command { it.pause() }
+    fun lowerVolume() = connection.command { it.lowerVolume() }
     val tracks = library.tracks.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val playback = store.state
     val recentHistory = memory.history.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

@@ -10,17 +10,31 @@
 
 栖声 · Stillune 是一个面向 **Android** 的本地音乐播放器项目，致力于将高品质播放、声音分析、从容的聆听体验与听力关怀融为一体。让珍藏的音乐长久相伴，也让双耳适时休憩。
 
-目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.9.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸及播放历史恢复。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。听力关怀等仍是后续规划，尚未实现。
+目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.10.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
 
 ## 下载安装
 
-当前提供 **0.9.0 开发预览版（调试签名）**：
+当前提供 **0.10.0 开发预览版（调试签名）**：
 
-- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.9.0/Stillune-0.9.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
-- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.9.0/Stillune-0.9.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
-- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.9.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
+- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.10.0/Stillune-0.10.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
+- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.10.0/Stillune-0.10.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
+- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.10.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
 
 最低 Android 8.0。后续推送会同步对应版本的安装包至 [GitHub Releases](https://github.com/GadusW/chuyanplan/releases)。
+
+## 0.10.0 更新：护耳，先从真实记录开始
+
+底部新增 **乐库｜此刻｜护耳**。开启护耳后，离开页面、切换播放模式和后台播放都会继续记录本应用可观测的收听时长。
+
+- **收听与提醒**：今日、滚动 7 日及最近七个自然日记录；20 / 40 / 60 分钟提醒，可选提醒时自动暂停。另有自选系统音量档位提醒与“降低一档”。暂停、静音不累计，拖动歌曲进度不补算时长。
+- **耳机与环境**：本机耳机档案与佩戴建议。环境趋势需另行同意并授权麦克风，通过前台服务持续比较输入能量，不保存录音；支持在页面或通知中停止，总开关关闭时一起停止。
+- **静默赏析**：三篇栖声原创音乐小札，约 3–5 分钟。阅读前暂停，退出不自动续播；也可以只休息，不必阅读。
+
+**音量百分比不等于入耳声压；未校准的环境变化也不等于 dBA。** 本版不以 60 dB 作医学禁用线，不显示虚构分贝、听力评分或剂量百分比；没有录到的数据不会当作零暴露。详细范围、隐私说明、权威依据与后续校准路线见 [护耳说明](docs/hearing-care.md)。
+
+验证通过 **35 项单元测试、27 项 API 36 模拟器设备测试，Lint 无错误**。最终文案另复核 2 项原生护耳界面测试；实际后台计时与麦克风服务启停已覆盖，真实耳机声压及厂商功耗仍需真机验证。见 [0.10.0 验证记录](docs/validation/android-0.10.0.json)。
+
+实际界面：[护耳概览](docs/screenshots/hearing-overview-v10.png) · [环境与赏析](docs/screenshots/hearing-environment-v10.png) · [麦克风同意说明](docs/screenshots/hearing-microphone-consent-v10.png) · [静默小札](docs/screenshots/hearing-reading-v10.png) · [大字体](docs/screenshots/hearing-large-font-v10.png)。截图中的时长来自模拟器实际试音，未伪造历史。
 
 ## 0.9.0 更新
 
@@ -74,6 +88,7 @@
 - **悬浮导航与系统播放卡片**：半透明底部导航带轻量按压回弹；媒体通知同步歌曲、专辑、封面及播放进度，可从系统控制播放、暂停、切歌或回到播放页。外观由手机系统决定，详见 [通知与交互说明](docs/media-controls.md)。
 - **体感沉浸**：封面视差、节奏波纹、节奏粒子三种效果，融合低通滤波后的倾斜与当前播放的实时 RMS。单击显示控制，闲置 10 秒隐藏，连续三击或系统返回退出。仅节奏效果按需请求 Android 波形接口所需的「录音」权限，不采集麦克风。详见 [体感沉浸说明](docs/immersive-mode.md)。
 - **播放历史**：保留上次歌曲、队列、位置和随机／循环设置，重开时保持暂停；乐库右上角可浏览最近 100 首音乐。详见 [历史与恢复说明](docs/playback-history.md)。
+- **护耳起步功能**：独立入口、跨页面与后台收听记录、时长／音量档位提醒、耳机档案、可选麦克风环境趋势与原创静默小札。声学 SPL、能量剂量及经过校准的智能音量推荐尚待硬件验证，详见 [护耳说明](docs/hearing-care.md)。
 
 声音画像的取样范围、计算口径与后台策略见 [音频分析说明](docs/audio-analysis.md)。DR 是约 1/3 处最多 20 秒的**片段估算**，不是整曲认证或音质评分；频谱覆盖整曲时间轴，来自独立的整曲离线抽样 FFT。
 

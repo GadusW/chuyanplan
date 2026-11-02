@@ -19,10 +19,14 @@ import com.stillune.app.data.Track
 import com.stillune.app.data.PlayerAssetsRepository
 import com.stillune.app.data.PlaybackMemory
 import com.stillune.app.di.IoDispatcher
+import com.stillune.app.health.*
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collect
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
@@ -33,6 +37,7 @@ class PlaybackService : Service() {
     @Inject @IoDispatcher lateinit var io: CoroutineDispatcher
     @Inject lateinit var assets: PlayerAssetsRepository
     @Inject lateinit var memory: PlaybackMemory
+    @Inject lateinit var hearing: HearingRepository
     inner class LocalBinder : Binder() { val service get() = this@PlaybackService }
     private val binder = LocalBinder()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -107,11 +112,22 @@ class PlaybackService : Service() {
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "音乐播放", NotificationManager.IMPORTANCE_LOW).apply { setShowBadge(false) })
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel("stillune_hearing", "护耳提醒", NotificationManager.IMPORTANCE_DEFAULT).apply { setShowBadge(false) })
         ContextCompat.registerReceiver(this, noisy, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), ContextCompat.RECEIVER_NOT_EXPORTED)
         audio.registerAudioDeviceCallback(devices, Handler(Looper.getMainLooper()))
         updateOutput()
         scope.launch {
+            store.state.map { it.playing }.distinctUntilChanged().collect { sampleHearing(it) }
+        }
+        scope.launch {
+            hearing.live.map { it.notice }.distinctUntilChanged().collect { notice ->
+                if (notice != null && hearing.settings.value.pauseOnReminder) pause()
+            }
+        }
+        scope.launch {
             while (isActive) {
+                sampleHearing(s.playing)
                 if (s.playing) {
                     if (!wakeLock.isHeld) wakeLock.acquire(30 * 60 * 1000L)
                     store.mutable.update { it.copy(positionMs = player.time.coerceAtLeast(0), durationMs = player.length.coerceAtLeast(it.track?.durationMs ?: 0), positionTimestampMs = SystemClock.elapsedRealtime()) }
@@ -292,6 +308,14 @@ class PlaybackService : Service() {
         memory.checkpoint(s)
     }
     fun clearError() { store.mutable.update { it.copy(error = null) } }
+    fun lowerVolume() { audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI) }
+    private fun sampleHearing(playing: Boolean) {
+        val connected = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { it.type in setOf(
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES, AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_BLUETOOTH_A2DP) ||
+            (Build.VERSION.SDK_INT >= 31 && it.type == AudioDeviceInfo.TYPE_BLE_HEADSET) }
+        hearing.sample(playing, audio, connected)
+    }
 
     private fun updateOutput() {
         val outputs = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
@@ -364,6 +388,8 @@ class PlaybackService : Service() {
         stopSelf()
     }
     override fun onDestroy() {
+        sampleHearing(false)
+        hearing.flushPending()
         memory.checkpoint(s)
         scope.cancel(); player.setEventListener(null); player.release(); vlc.release()
         descriptor?.close(); releaseWakeLock(); audio.abandonAudioFocusRequest(focusRequest)

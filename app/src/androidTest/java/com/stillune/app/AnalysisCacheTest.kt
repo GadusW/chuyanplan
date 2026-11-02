@@ -31,7 +31,7 @@ class AnalysisCacheTest {
             old.execSQL("INSERT INTO audio_analysis (uri,signature,state,durationMs,sampleStartMs,sampleDurationMs,sourceChannels,sourceRate,drEstimate,spectrum,scatter,analyzedAt) VALUES ('cached','same','ready',6000,2000,4000,2,44100,9.5,X'0102',X'0304',123)")
             old.version = 2
         }
-        val db = Room.databaseBuilder(context,LibraryDatabase::class.java,name).addMigrations(LibraryDatabase.MIGRATION_2_3).build()
+        val db = Room.databaseBuilder(context,LibraryDatabase::class.java,name).addMigrations(LibraryDatabase.MIGRATION_2_3, LibraryDatabase.MIGRATION_3_4).build()
         try {
             assertEquals("Cached Song",db.tracks().get("cached")?.title)
             val cache = requireNotNull(db.analysis().get("cached"))
@@ -54,7 +54,7 @@ class AnalysisCacheTest {
             old.execSQL("INSERT INTO tracks VALUES ('existing','Old Song','Artist','Album',6000,100,'a.flac','Music/','media','FLAC',44100,16,'primary:Music/a.flac')")
             old.version = 1
         }
-        val db = Room.databaseBuilder(context, LibraryDatabase::class.java, name).addMigrations(LibraryDatabase.MIGRATION_1_2,LibraryDatabase.MIGRATION_2_3).build()
+        val db = Room.databaseBuilder(context, LibraryDatabase::class.java, name).addMigrations(LibraryDatabase.MIGRATION_1_2,LibraryDatabase.MIGRATION_2_3,LibraryDatabase.MIGRATION_3_4).build()
         try {
             assertEquals("Old Song", db.tracks().observe().first().single().title)
             assertEquals(0L, db.tracks().observe().first().single().modifiedAt)

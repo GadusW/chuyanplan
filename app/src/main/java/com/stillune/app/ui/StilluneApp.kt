@@ -47,6 +47,7 @@ import com.stillune.app.R
 import com.stillune.app.data.*
 import com.stillune.app.playback.*
 import com.stillune.app.immersion.ImmersionStyle
+import com.stillune.app.health.AppreciationLibrary
 import java.util.Calendar
 import java.util.Locale
 
@@ -57,11 +58,16 @@ fun StilluneApp(
     onScan: (ScanOptions) -> Unit, onFolder: (ScanOptions) -> Unit, onImport: () -> Unit,
     onImportLyrics: () -> Unit = {},
     openPlayerRequest: Int = 0,
+    openHealthRequest: Int = 0,
 ) {
     var playerOpen by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(openPlayerRequest) { if (openPlayerRequest > 0) playerOpen = true }
+    var healthOpen by rememberSaveable { mutableStateOf(false) }
+    var articleId by rememberSaveable { mutableStateOf<String?>(null) }
+    val hearingLive by model.hearing.live.collectAsStateWithLifecycle()
+    LaunchedEffect(openPlayerRequest) { if (openPlayerRequest > 0) { playerOpen = true; healthOpen = false } }
     var fullScreen by rememberSaveable { mutableStateOf(false) }
     var immersive by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(openHealthRequest) { if (openHealthRequest > 0) { healthOpen = true; playerOpen = false; immersive = false; fullScreen = false } }
     var immersionChooser by rememberSaveable { mutableStateOf(false) }
     var immersionStyle by rememberSaveable { mutableStateOf(ImmersionStyle.PARALLAX.name) }
     val lyrics by model.lyrics.collectAsStateWithLifecycle()
@@ -87,13 +93,13 @@ fun StilluneApp(
     var group by rememberSaveable { mutableStateOf<String?>(null) }
     var losslessOnly by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(scan.message, playerOpen) {
+    LaunchedEffect(scan.message, playerOpen, healthOpen) {
         // Scan summaries wait for the library so they cannot cover player transport buttons.
-        if (!playerOpen) scan.message?.let { snackbar.showSnackbar(it); model.clearMessage() }
+        if (!playerOpen && !healthOpen) scan.message?.let { snackbar.showSnackbar(it); model.clearMessage() }
     }
     LaunchedEffect(playback.error) { playback.error?.let { snackbar.showSnackbar(it); model.clearError() } }
-    BackHandler(playerOpen || group != null) {
-        when { immersive -> immersive = false; fullScreen -> fullScreen = false; playerOpen -> playerOpen = false; else -> group = null }
+    BackHandler(playerOpen || healthOpen || group != null) {
+        when { immersive -> immersive = false; fullScreen -> fullScreen = false; healthOpen -> healthOpen = false; playerOpen -> playerOpen = false; else -> group = null }
     }
     val filtered = remember(tracks, query, group, tab, losslessOnly) {
         tracks.filter {
@@ -107,23 +113,25 @@ fun StilluneApp(
         bottomBar = {
             if (!fullScreen && !immersive) Column(Modifier.navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
                 AnimatedVisibility(!playerOpen && playback.track != null, enter = fadeIn() + expandVertically(), exit = shrinkVertically() + fadeOut()) {
-                    MiniPlayer(playback, onOpen = { playerOpen = true }, onToggle = model::toggle, onNext = model::next)
+                    MiniPlayer(playback, onOpen = { playerOpen = true; healthOpen = false }, onToggle = model::toggle, onNext = model::next)
                 }
-                FloatingNavigation(playerOpen, { playerOpen = false }, { playerOpen = true })
+                FloatingNavigation(playerOpen, { playerOpen = false; healthOpen = false }, { playerOpen = true; healthOpen = false },
+                    healthOpen = healthOpen, onHealth = { healthOpen = true; playerOpen = false })
             }
         }) { padding ->
         Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding(),
-            bottom = if (playerOpen) padding.calculateBottomPadding() else 0.dp)
+            bottom = if (playerOpen || healthOpen) padding.calculateBottomPadding() else 0.dp)
             .then(if (immersive) Modifier else Modifier.padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()))
             .background(Brush.verticalGradient(listOf(Color(0xFF1D2F4B), Night, Night)))) {
             if (!playerOpen) MoonlitBackdrop(null, Modifier.matchParentSize())
-            AnimatedContent(playerOpen, transitionSpec = {
+            AnimatedContent(if (healthOpen) 2 else if (playerOpen) 1 else 0, transitionSpec = {
                 (fadeIn(tween(240)) + slideInHorizontally(tween(280)) { it / 10 }) togetherWith fadeOut(tween(160))
-            }, label = "library-player") { showPlayer ->
-                if (showPlayer && immersive) ImmersivePlayer(playback, artwork, ImmersionStyle.valueOf(immersionStyle),
+            }, label = "library-player") { destination ->
+                if (destination == 2) HealthPage(model, onRead = { articleId = it })
+                else if (destination == 1 && immersive) ImmersivePlayer(playback, artwork, ImmersionStyle.valueOf(immersionStyle),
                     onStyle = { immersionStyle = it.name }, onToggle = model::toggle,
                     onPrevious = model::previous, onNext = model::next, onSeek = model::seek, onExit = { immersive = false })
-                else if (showPlayer) PlayerPage(playback, model, lyrics, lyricsVisible, artwork, fullScreen,
+                else if (destination == 1) PlayerPage(playback, model, lyrics, lyricsVisible, artwork, fullScreen,
                     onBack = { fullScreen = false; playerOpen = false }, onFullScreen = { fullScreen = !fullScreen },
                     onImportLyrics = onImportLyrics, onImport = { importOpen = true },
                     onQueue = { queueOpen = true }, onOutput = { outputOpen = true }, onImmersion = { immersionChooser = true })
@@ -203,6 +211,18 @@ fun StilluneApp(
             }
         }
     }
+    hearingLive.notice?.let { notice ->
+        AlertDialog(onDismissRequest = model.hearing::dismissNotice, title = { Text(notice.title) },
+            text = { Text(notice.message + "\n\n推荐：${AppreciationLibrary.articles.first().title}，约 3–5 分钟的原创静默阅读。") },
+            confirmButton = { TextButton(onClick = {
+                model.pauseForRest(); model.hearing.dismissNotice()
+                immersive = false; fullScreen = false; playerOpen = false; healthOpen = true
+                articleId = AppreciationLibrary.articles.first().id
+            }) { Text("暂停并阅读") } }, dismissButton = { TextButton(onClick = model.hearing::dismissNotice) { Text("知道了") } })
+    }
+    articleId?.let { id -> AppreciationLibrary.articles.firstOrNull { it.id == id }?.let { article ->
+        AppreciationReader(article, onClose = { articleId = null })
+    } }
     if (immersionChooser) ModalBottomSheet(onDismissRequest = { immersionChooser = false }, containerColor = Panel,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp),
@@ -350,14 +370,16 @@ internal fun LibraryTabs(selected: String, onSelect: (String) -> Unit) {
 }
 
 @Composable
-internal fun FloatingNavigation(playerOpen: Boolean, onLibrary: () -> Unit, onPlayer: () -> Unit) {
+internal fun FloatingNavigation(playerOpen: Boolean, onLibrary: () -> Unit, onPlayer: () -> Unit,
+    healthOpen: Boolean = false, onHealth: () -> Unit = {}) {
     Row(Modifier.padding(horizontal = 24.dp, vertical = 10.dp).widthIn(max = 400.dp).fillMaxWidth()
         .clip(RoundedCornerShape(32.dp)).background(Color(0xFF263950).copy(alpha = .82f))
         .border(1.dp, Color.White.copy(alpha = .13f), RoundedCornerShape(32.dp))
         .padding(6.dp).semantics { contentDescription = "悬浮导航" },
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        NavItem("乐库", Icons.Rounded.LibraryMusic, !playerOpen, Modifier.weight(1f), onLibrary)
-        NavItem("此刻", Icons.Rounded.NightsStay, playerOpen, Modifier.weight(1f), onPlayer)
+        NavItem("乐库", Icons.Rounded.LibraryMusic, !playerOpen && !healthOpen, Modifier.weight(1f), onLibrary)
+        NavItem("此刻", Icons.Rounded.NightsStay, playerOpen && !healthOpen, Modifier.weight(1f), onPlayer)
+        NavItem("护耳", Icons.Rounded.Hearing, healthOpen, Modifier.weight(1f), onHealth)
     }
 }
 
@@ -371,13 +393,13 @@ private fun NavItem(label: String, icon: ImageVector, selected: Boolean, modifie
     val fill by animateColorAsState(if (selected) Moon.copy(alpha = .12f) else Color.Transparent, tween(180), label = "nav-selection")
     Row(modifier.heightIn(min = 52.dp).clip(RoundedCornerShape(26.dp)).background(fill)
         .selectable(selected, interactionSource = interactions, indication = ripple(), role = Role.Tab, onClick = onClick)
-        .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
+        .padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center) {
         Icon(icon, null, Modifier.size(22.dp).graphicsLayer {
             scaleX = scale; scaleY = scale; translationY = lift.dp.toPx()
         }, tint = if (selected) Moon else Quiet)
-        Spacer(Modifier.width(10.dp))
-        Text(label, fontSize = 13.sp, color = if (selected) Moon else Quiet)
+        Spacer(Modifier.width(6.dp))
+        Text(label, fontSize = 13.sp, maxLines = 1, softWrap = false, color = if (selected) Moon else Quiet)
     }
 }
 

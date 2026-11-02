@@ -6,6 +6,8 @@ import com.stillune.app.analysis.AnalysisCache
 import com.stillune.app.analysis.AnalysisDao
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.stillune.app.health.HearingMinute
+import com.stillune.app.health.HearingDao
 
 @Dao
 interface TrackDao {
@@ -17,12 +19,18 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE uri = :uri") suspend fun get(uri: String): Track?
 }
 
-@Database(entities = [Track::class, AnalysisCache::class, ResumeRecord::class, HistoryRecord::class], version = 3, exportSchema = true)
+@Database(entities = [Track::class, AnalysisCache::class, ResumeRecord::class, HistoryRecord::class, HearingMinute::class], version = 4, exportSchema = true)
 abstract class LibraryDatabase : RoomDatabase() {
     abstract fun tracks(): TrackDao
     abstract fun analysis(): AnalysisDao
     abstract fun memory(): PlaybackMemoryDao
+    abstract fun hearing(): HearingDao
     companion object {
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS hearing_minutes (startMs INTEGER NOT NULL PRIMARY KEY, listenedMs INTEGER NOT NULL, headphoneMs INTEGER NOT NULL, abovePreferenceMs INTEGER NOT NULL)")
+            }
+        }
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS playback_resume (id INTEGER NOT NULL PRIMARY KEY, queueJson TEXT NOT NULL, trackIndex INTEGER NOT NULL, positionMs INTEGER NOT NULL, shuffle INTEGER NOT NULL, repeatMode TEXT NOT NULL)")

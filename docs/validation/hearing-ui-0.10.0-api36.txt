@@ -1,0 +1,5 @@
+com.stillune.app.HearingUiTest:..
+
+Time: 9.108
+
+OK (2 tests)

@@ -1,6 +1,6 @@
 # 栖声 Android 开发与验收说明
 
-当前版本：0.9.0。原生 Kotlin / Compose 应用，最低 Android 8.0，目标 API 36。已实现全屏／歌词、五维媒体库、离线声音画像、可选实时音频分析、系统播放卡片、体感沉浸与播放历史恢复。详见 [更新日志](../CHANGELOG.md)、[声音画像](audio-analysis.md)、[实时分析](realtime-analysis.md)、[体感沉浸](immersive-mode.md) 和 [播放历史](playback-history.md)。
+当前版本：0.10.0。原生 Kotlin / Compose 应用，最低 Android 8.0，目标 API 36。已实现全屏／歌词、五维媒体库、离线声音画像、可选实时音频分析、系统播放卡片、体感沉浸、播放历史恢复与护耳起步功能。详见 [更新日志](../CHANGELOG.md)、[声音画像](audio-analysis.md)、[实时分析](realtime-analysis.md)、[体感沉浸](immersive-mode.md) 和 [播放历史](playback-history.md)。
 
 ## 导入与音乐库
 
@@ -48,7 +48,7 @@
 
 已完成：
 
-- 当前 0.9.0：30 项单元测试、21 项 API 36 设备测试，Lint 无错误；覆盖实时 PCM 五格式、跳转重置与暂停保持、仪表操作及 FFmpeg 数值对照，见 [验证报告](validation/android-0.9.0.json)。
+- 0.9.0 验证：30 项单元测试、21 项 API 36 设备测试，Lint 无错误；覆盖实时 PCM 五格式、跳转重置与暂停保持、仪表操作及 FFmpeg 数值对照，见 [验证报告](validation/android-0.9.0.json)。
 - 0.8.0：21 个单元测试、17 个 API 36 设备测试、Lint 无错误；覆盖真实音频瞬态和渲染响应，见 [验证报告](validation/android-0.8.0.json)。
 - 0.7.0：15 个 JVM 单元测试、15 个设备测试、Lint 无错误；版本与 APK 校验记录见 [验证报告](validation/android-0.7.0.json)。设备回归含 24 次波形效果器建立／释放、24 次沉浸界面切换，以及数据库 1→3／2→3 迁移、历史保存、重开恢复与非零位置解码。
 
@@ -62,7 +62,7 @@
 
 仍需真机验收：不同 Android 版本与厂商后台策略、蓝牙设备／编码、有线及 USB 输出、不同位深／采样率与超大曲库、持久授权撤销和大字体布局。没有进行物理耳机、蓝牙或 DAC 的实际音频测量。
 
-本版暂不包括听力保护策略、用户歌单编辑、在线音乐、在线／音频内嵌歌词、无缝播放承诺、ReplayGain、USB 独占驱动及商店发布。离线画像不包含认证整曲动态；可选实时分析提供源 PCM 的 LUFS／LRA／真峰值、FFT 与声场，但未认证、不测硬件输出、不做实时 DR。体感模式继续使用轻量实时 RMS 及运动数据驱动视觉。
+本版护耳提供记录与行为提醒，尚未提供声学校准、入耳 SPL、声学剂量及综合量化推荐；详见 [护耳说明](hearing-care.md)。其余暂不包括用户歌单编辑、在线音乐、在线／音频内嵌歌词、无缝播放承诺、ReplayGain、USB 独占驱动及商店发布。离线画像不包含认证整曲动态；可选实时分析提供源 PCM 的 LUFS／LRA／真峰值、FFT 与声场，但未认证、不测硬件输出、不做实时 DR。体感模式继续使用轻量实时 RMS 及运动数据驱动视觉。
 
 ## 依据
 
@@ -70,3 +70,7 @@
 - [Android 文档及文件夹授权](https://developer.android.com/training/data-storage/shared/documents-files)
 - [VideoLAN 官方 Android 工程的 LibVLC 版本配置](https://github.com/videolan/vlc-android/blob/master/build.gradle)
 - [Media3 格式支持与额外软件解码器区别](https://developer.android.com/media/media3/exoplayer/supported-formats)
+
+护耳新增的环境趋势检测另需明确同意和麦克风授权，使用独立 microphone 前台服务；普通播放及体感波形本身仍不采集麦克风。
+
+0.10.0：35 项单元测试、27 项 API 36 设备测试、最终护耳文案的 2 项 UI 复核及 Lint 无错误。见 [护耳范围](hearing-care.md) 和 [验证记录](validation/android-0.10.0.json)。

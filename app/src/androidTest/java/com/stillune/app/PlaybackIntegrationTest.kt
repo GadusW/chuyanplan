@@ -16,6 +16,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.filters.SdkSuppress
 import com.stillune.app.data.*
 import com.stillune.app.playback.PlaybackService
+import com.stillune.app.health.HearingSettings
+import com.stillune.app.health.EnvironmentMonitorService
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +66,8 @@ class PlaybackIntegrationTest {
     @Test fun fiveFormatsScanImportDecodeSeekAndPlayInBackground() = runBlocking {
         instrumentation.uiAutomation.executeShellCommand("pm grant ${context.packageName} android.permission.READ_MEDIA_AUDIO").close()
         android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
+            "pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS")).use { it.readBytes() }
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
             "pm grant ${context.packageName} android.permission.RECORD_AUDIO")).use { it.readBytes() }
         val uris = fixtures()
         val db = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java).build()
@@ -76,8 +80,11 @@ class PlaybackIntegrationTest {
             }
             override fun onServiceDisconnected(name: ComponentName?) { service = null }
         }
-        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        // ActivityScenario tracks the launch Intent. Match the subsequent notification Intent
+        // because MainActivity correctly retains onNewIntent for rotation/deep-link restoration.
+        val scenario = ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java).setAction(MainActivity.OPEN_PLAYER))
         var testFailure: Throwable? = null
+        var hearingSettings: HearingSettings? = null
         try {
             val scan = repository.scanMedia(ScanOptions()) { }
             assertTrue("All five formats should be indexed", scan.found >= 5)
@@ -98,6 +105,7 @@ class PlaybackIntegrationTest {
             main { context.bindService(Intent(context, PlaybackService::class.java), connection, Context.BIND_AUTO_CREATE) }
             assertTrue(connected.await(10, TimeUnit.SECONDS))
             val engine = service!!
+            main { hearingSettings = engine.hearing.settings.value; engine.hearing.update { it.copy(enabled = true) } }
             for (track in tracks) {
                 main { engine.playQueue(listOf(track), 0) }
                 waitFor("${track.fileName}: software decoding failed: ${engine.store.state.value.error}") {
@@ -155,8 +163,14 @@ class PlaybackIntegrationTest {
             }
             instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME").close()
             val before = engine.store.state.value.positionMs
+            val hearingBefore = engine.hearing.live.value.continuousMs
             waitFor("Background playback stopped") { engine.store.state.value.positionMs > before + 500 && engine.store.state.value.playing }
+            waitFor("Hearing records stopped when activity went to background") { engine.hearing.live.value.continuousMs > hearingBefore + 250 }
             main { engine.pause() }
+            Thread.sleep(600)
+            val pausedHearing = engine.hearing.live.value.continuousMs
+            Thread.sleep(700)
+            assertEquals("Paused playback must not accumulate listening time", pausedHearing, engine.hearing.live.value.continuousMs)
             // A corrupt, inaccessible file must surface an error and remain recoverable.
             main { notification.contentIntent.send() }
             waitFor("Notification tap did not return to foreground") {
@@ -177,10 +191,23 @@ class PlaybackIntegrationTest {
             assertEquals(tracks.first().uri,saved.track?.uri)
             assertTrue(saved.positionMs >= 2200)
             assertFalse(saved.playing)
+            main { context.startForegroundService(Intent(context, EnvironmentMonitorService::class.java)) }
+            waitFor("Opt-in microphone foreground service did not start: ${engine.hearing.environment.value.status}") {
+                engine.hearing.environment.value.running
+            }
+            assertTrue(notifications.activeNotifications.any { it.id == 19 })
+            instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME").close()
+            Thread.sleep(800)
+            assertTrue("Environment monitoring should survive leaving its page", engine.hearing.environment.value.running)
+            main { engine.hearing.update { it.copy(enabled = false) } }
+            waitFor("Master switch did not stop the microphone") { !engine.hearing.environment.value.running }
+            waitFor("Microphone foreground notification was not removed") { notifications.activeNotifications.none { it.id == 19 } }
         } catch (failure: Throwable) {
             testFailure = failure
             throw failure
         } finally {
+            context.stopService(Intent(context, EnvironmentMonitorService::class.java))
+            main { hearingSettings?.let { previous -> service?.hearing?.update { previous } } }
             main { if (service != null) context.unbindService(connection) }
             try { scenario.close() } catch (cleanup: Throwable) {
                 if (testFailure != null) testFailure.addSuppressed(cleanup) else throw cleanup

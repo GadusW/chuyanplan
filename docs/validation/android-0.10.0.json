@@ -1,0 +1,53 @@
+{
+  "version": "0.10.0",
+  "checked_utc": "2026-11-02T16:35:23.121954+00:00",
+  "unit_tests": 35,
+  "instrumentation": "OK (27 tests)",
+  "final_copy_ui_recheck": "OK (2 tests)",
+  "device": "API 36 x86_64 emulator",
+  "lint_errors": 0,
+  "lint_warnings": 37,
+  "artifacts": [
+    {
+      "file": "Stillune-0.10.0-arm64-debug.apk",
+      "bytes": 74694633,
+      "sha256": "2bdcc6d2672562d8cd0ef05f05c29ebc14e332df45d4bc5593467bf9a8c31546",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "file": "Stillune-0.10.0-universal-debug.apk",
+      "bytes": 229602272,
+      "sha256": "affde5009d5a901ac9052993ada310d91cea926d0aa95e9a118d6ef40a2e8b0c",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "checks": [
+    "Elapsed-time accounting, pause/mute/master gating and midnight boundaries; no seek-position accumulation",
+    "Missing sampling intervals are marked and not filled with fictional listening time",
+    "20-minute reminder, five-minute pause segmentation, sustained volume/noise prompts and cooldown",
+    "Room minute records reopen, deletion and schema migration 1/2/3 to 4 retain library/cache/queue/history",
+    "Actual LibVLC playback: health timer advances while activity is backgrounded and freezes after pause",
+    "Actual opt-in microphone foreground service persists when page is left and master switch removes capture/notification",
+    "Three-tab navigation, reminder controls, honest calibration-unavailable copy and silent reader close",
+    "Existing five-format playback, notification metadata/transport, lyrics, immersion, analysis and history regressions",
+    "Native screenshots: portrait, font scale 1.3, landscape microphone consent; display settings restored",
+    "Both APKs use original signing certificate and identical DEX; versionCode 10, minSdk 26, targetSdk 36"
+  ],
+  "limits": [
+    "Behavioral wellbeing prototype, no validated in-ear SPL, physical dose percentages or quantitative safe-volume model",
+    "Mic energy change relative to session baseline, not A-weighted SPL or a test against 60 dBA",
+    "Headphone/Bluetooth connection is a heuristic, can include A2DP speakers and does not confirm wear/routing",
+    "Only observable Stillune playback recorded; other apps, external noise and missing periods not measured",
+    "No clinical/WHO/ITU certification or real-headphone acoustic calibration",
+    "Physical-phone accuracy, thermal/battery use and OEM background policies not validated; API 26 not device-tested"
+  ]
+}

@@ -19,7 +19,7 @@ import kotlinx.coroutines.Dispatchers
 object AppModule {
     @Provides @Singleton fun database(@ApplicationContext context: Context): LibraryDatabase =
         Room.databaseBuilder(context, LibraryDatabase::class.java, "stillune-library.db")
-            .addMigrations(LibraryDatabase.MIGRATION_1_2, LibraryDatabase.MIGRATION_2_3).build()
+            .addMigrations(LibraryDatabase.MIGRATION_1_2, LibraryDatabase.MIGRATION_2_3, LibraryDatabase.MIGRATION_3_4).build()
     @Provides fun dao(db: LibraryDatabase) = db.tracks()
     @Provides fun analysisDao(db: LibraryDatabase) = db.analysis()
     @Provides @IoDispatcher fun io(): CoroutineDispatcher = Dispatchers.IO
