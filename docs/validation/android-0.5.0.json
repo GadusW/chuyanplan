@@ -1,0 +1,39 @@
+{
+  "version": "0.5.0",
+  "checked_utc": "2026-10-31T16:30:18.802872+00:00",
+  "unit_tests": 12,
+  "instrumentation": "OK (10 tests)",
+  "device": "API 36 x86_64 emulator",
+  "artifacts": [
+    {
+      "file": "Stillune-0.5.0-arm64-debug.apk",
+      "bytes": 74317494,
+      "sha256": "5eee519c8fd64455ae4cbe7cbb7e5f961cf803dbe00f49cadf1aacbccc18e33b"
+    },
+    {
+      "file": "Stillune-0.5.0-universal-debug.apk",
+      "bytes": 229450961,
+      "sha256": "cc0ab11869045638495356835bc22b2d2f0399cef2dd887c7d37b6c6c15720ee"
+    }
+  ],
+  "checks": [
+    "Library labels centered on both axes within 1.5 physical pixels",
+    "Floating navigation responds to down/up touch and selection",
+    "Native MediaStyle notification with session token, metadata, artwork and three actions",
+    "System MediaController play, pause, seek and next",
+    "Notification click returns to foreground",
+    "Original lyric, FFT, database and five-format playback regression",
+    "Android Lint zero errors",
+    "Phone and universal APK contain identical DEX"
+  ],
+  "screenshots": [
+    "library-v5.png",
+    "player-v5.png",
+    "notification-v5.png",
+    "media-controls-v5.png"
+  ],
+  "limits": [
+    "OEM notification appearance not tested",
+    "Physical-device animation and performance not measured"
+  ]
+}

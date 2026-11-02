@@ -1,0 +1,34 @@
+{
+  "version": "0.6.0",
+  "checked_utc": "2026-10-31T18:23:10.127445+00:00",
+  "unit_tests": 15,
+  "instrumentation": "OK (12 tests)",
+  "device": "API 36 x86_64 emulator with audio enabled",
+  "artifacts": [
+    {
+      "file": "Stillune-0.6.0-arm64-debug.apk",
+      "bytes": 74366786,
+      "sha256": "ecf36886c285b565f1fe4a7ff0af3d63109dc0d77aafc66eccd3a57ffeb87f7f"
+    },
+    {
+      "file": "Stillune-0.6.0-universal-debug.apk",
+      "bytes": 229274425,
+      "sha256": "582aef064ddafe1605921cf985835135bf0173358515f04fcaf033760a4e70aa"
+    }
+  ],
+  "checks": [
+    "Unsigned waveform RMS; silence and fixed amplitude",
+    "Time-based low-pass stability across sample rates",
+    "Triple tap interval and reset",
+    "Controls initially hidden, touch reveals, 10s timeout, triple tap exit",
+    "Standalone real PCM AudioTrack produces nonzero RMS",
+    "LibVLC own positive audio session produces nonzero RMS",
+    "Original audio analysis, navigation, lyrics, notification and five-format playback regression",
+    "Android Lint zero errors",
+    "Same DEX in phone and universal APKs"
+  ],
+  "limits": [
+    "Real-phone sensor feel and battery not benchmarked",
+    "OEM Visualizer and sensor availability may vary; graceful fallback included"
+  ]
+}

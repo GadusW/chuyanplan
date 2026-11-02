@@ -1,0 +1,12 @@
+
+com.stillune.app.AnalysisCacheTest:..
+com.stillune.app.AnalysisUiTest:.
+com.stillune.app.LibraryUiTest:.
+com.stillune.app.LyricsUiTest:..
+com.stillune.app.NativeDecodeProbeTest:.
+com.stillune.app.PlaybackIntegrationTest:.
+com.stillune.app.PlayerAssetsTest:.
+
+Time: 29.984
+
+OK (9 tests)

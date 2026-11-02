@@ -1,0 +1,63 @@
+{
+  "version": "0.2.0",
+  "checked_utc": "2026-10-31T09:06:32.307523+00:00",
+  "unit_suites": [
+    {
+      "name": "com.stillune.app.AudioRulesTest",
+      "tests": "3",
+      "failures": "0"
+    },
+    {
+      "name": "com.stillune.app.LrcParserTest",
+      "tests": "3",
+      "failures": "0"
+    },
+    {
+      "name": "com.stillune.app.Mp4AudioCodecTest",
+      "tests": "2",
+      "failures": "0"
+    }
+  ],
+  "device": "API 36 x86_64 emulator",
+  "instrumentation": "OK (4 tests)",
+  "checks": [
+    "Full-screen entry/exit and lyric visibility toggle",
+    "Synced lyric highlight and line seeking",
+    "Lyric file association persists",
+    "Five-format playback regression",
+    "Android Lint: no errors",
+    "ARM64 APK zip alignment passed"
+  ],
+  "artifacts": [
+    {
+      "file": "Stillune-0.2.0-arm64-debug.apk",
+      "bytes": 73922139,
+      "sha256": "53b1437e01cd95766ad1cfb1dfac40f582b740b483583d72f0084a3fe348bba3",
+      "abis": [
+        "arm64-v8a"
+      ]
+    },
+    {
+      "file": "Stillune-0.2.0-universal-debug.apk",
+      "bytes": 228829778,
+      "sha256": "f0f2590e2491d9aa693b3956826be1bf403ce5864d3978060efa93675c86ee1b",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ]
+    }
+  ],
+  "limits": [
+    "Real blur requires Android 12+",
+    "Physical device / Bluetooth / wired audio not tested",
+    "Lyrics are local LRC/TXT; no embedded or online lyrics"
+  ],
+  "manual_touch": [
+    "Full-screen entry/exit",
+    "Automatic LRC sidecar loading",
+    "Lyric line tap seeking",
+    "360x640dp basic layout smoke check"
+  ]
+}

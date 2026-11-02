@@ -1,0 +1,35 @@
+{
+  "version": "0.4.0",
+  "checked_utc": "2026-10-31T14:41:43.622805+00:00",
+  "unit_tests": 12,
+  "instrumentation": "OK (9 tests)",
+  "device": "API 36 x86_64 emulator",
+  "artifacts": [
+    {
+      "file": "Stillune-0.4.0-arm64-debug.apk",
+      "bytes": 74301114,
+      "sha256": "c4fcf841b627b00762e6a0c5d4911687d6bded7b4b09df65db7060ec399d747f"
+    },
+    {
+      "file": "Stillune-0.4.0-universal-debug.apk",
+      "bytes": 229208753,
+      "sha256": "ae846ecac274c90312b03688297def243666647e5d0b35174e8256bc4b95d71d"
+    }
+  ],
+  "checks": [
+    "Lyrics single tap returns to cover; double tap seeks",
+    "Explicit return button in minimal and analysis modes",
+    "Full-screen, library navigation, audio-analysis and playback regression",
+    "Lint zero errors",
+    "Same DEX in phone and universal APK"
+  ],
+  "visual_review": [
+    "Native screenshots; portrait and full screen",
+    "1.3x system font size",
+    "Landscape two scrollable columns"
+  ],
+  "limits": [
+    "Physical-device feel and performance not measured",
+    "Tablet layout not separately validated"
+  ]
+}

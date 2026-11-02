@@ -1,0 +1,50 @@
+{
+  "version": "0.1.0",
+  "checked_utc": "2026-10-31T08:21:42.278979+00:00",
+  "build": "assembleDebug passed",
+  "lint": "passed, zero errors; non-blocking warnings remain",
+  "unit_suites": [
+    {
+      "name": "com.stillune.app.AudioRulesTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0"
+    },
+    {
+      "name": "com.stillune.app.Mp4AudioCodecTest",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0"
+    }
+  ],
+  "device": "Android API 36 x86_64 emulator",
+  "instrumentation": "OK (2 tests), see instrumentation-api36.txt",
+  "formats_actually_played": [
+    "MP3",
+    "PCM WAV",
+    "FLAC",
+    "AAC ADTS",
+    "ALAC M4A"
+  ],
+  "manual_saf": "Persistent directory grant; nested FLAC and ALAC successfully indexed",
+  "alignment": "zipalign -c -P 16 4 passed; arm64-v8a ELF LOAD segments aligned to 16384",
+  "artifacts": [
+    {
+      "file": "Stillune-0.1.0-arm64-debug.apk",
+      "bytes": 73872987,
+      "sha256": "672fa3dd2a8fd6550807b48832d18307e120a4381f6cb50ebc0d84a2adad52b1"
+    },
+    {
+      "file": "Stillune-0.1.0-universal-debug.apk",
+      "bytes": 229198625,
+      "sha256": "daf460d3fbee6348515978b738ad5ded7917821af4fa0edbf992007339d38539"
+    }
+  ],
+  "not_verified": [
+    "Physical Bluetooth / wired / USB audio output",
+    "Bit-perfect output",
+    "16 KB page-size device runtime",
+    "All Android versions / OEMs",
+    "Every bit depth / sample rate"
+  ]
+}

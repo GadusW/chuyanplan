@@ -1,0 +1,7 @@
+
+com.stillune.app.LibraryUiTest:.
+com.stillune.app.PlaybackIntegrationTest:.
+
+Time: 17.766
+
+OK (2 tests)

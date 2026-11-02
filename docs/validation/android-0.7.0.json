@@ -1,0 +1,37 @@
+{
+  "version": "0.7.0",
+  "checked_utc": "2026-11-02T02:48:55.939080+00:00",
+  "unit_tests": 15,
+  "instrumentation": "OK (15 tests)",
+  "device": "API 36 x86_64 emulator",
+  "artifacts": [
+    {
+      "file": "Stillune-0.7.0-arm64-debug.apk",
+      "bytes": 74399554,
+      "sha256": "703c7b1004754f5ebb4c5e7675fa0d80fd511d46bb6e79694593a2bd4c3755ff"
+    },
+    {
+      "file": "Stillune-0.7.0-universal-debug.apk",
+      "bytes": 229337861,
+      "sha256": "b71591aa37e84e4c288b39879963ba92bed3c5060bfca60f94bf8229b8e9dfba"
+    }
+  ],
+  "checks": [
+    "24 native waveform attach/release cycles, including pending callbacks",
+    "24 UI effect switches followed by explicit exit",
+    "Room 1-to-3 preserves tracks; 2-to-3 preserves tracks and analysis cache",
+    "Queue, position, shuffle, repeat and recent history survive database reopen",
+    "Decoder starts from a saved nonzero position",
+    "Original lyrics, spectrum, notifications and five-format playback regression",
+    "Lint zero errors; phone/universal DEX identical"
+  ],
+  "manual": [
+    "Embedded original colored cover drives orange/magenta effects",
+    "Process force-stop and cold launch preserve demo at about 13 seconds without autoplay",
+    "Recent-play sheet contains the restored demo"
+  ],
+  "limits": [
+    "User phone OEM crash trace unavailable; physical-device verification still needed",
+    "Real-phone shake feel and long-session thermal/battery use not benchmarked"
+  ]
+}

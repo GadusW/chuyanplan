@@ -1,2 +1,9 @@
 # PDF documents are binary assets; do not generate line-by-line diffs.
 *.pdf binary
+*.wav binary
+*.flac binary
+*.mp3 binary
+*.aac binary
+*.m4a binary
+gradlew text eol=lf
+*.bat text eol=crlf

@@ -1,10 +1,10 @@
 # Android 图标核对与接入说明
 
-目标平台为 Android，软件名为 **栖声 · Stillune**。当前仓库只有品牌素材、图册及图标资源，没有 Gradle 工程、应用模块、播放器代码或可安装 APK。
+目标平台为 Android，软件名为 **栖声 · Stillune**。现已建立 `app` 原生安卓应用模块，并通过 Gradle 的资源源目录直接引用 `assets/android/res/`；同一套经过确认的图标用于实际应用，避免重复复制后不一致。
 
 ## 核对结论
 
-原构想中的 Kotlin、Jetpack Compose、Media3、Room、DataStore 皆属于安卓开发方向；目前仅是技术规划，未实现或验证功能。名称与品牌设计适用于 Android，无须重新命名或改变已经确认的图案。
+原构想中的 Kotlin、Jetpack Compose、Media3、Room、DataStore 皆属于安卓开发方向。首版已采用 Kotlin、Compose、Room 与 Hilt；为内置 ALAC 等软件解码能力，实际播放内核选用 LibVLC，并以 Android 媒体会话提供系统控制。其余构想不代表已实现。名称与品牌设计适用于 Android。
 
 需要纠正的是图标资源的用途：透明圆角图是品牌展示版，不能直接作为商店上传图或自适应图标背景。此前按 Google Play 规则讨论的 30% 圆角，只适用于其商店展示；Android 桌面的最终遮罩由设备与启动器决定。
 
@@ -28,9 +28,9 @@
 
 单色版本只携带图案的 alpha 形状，由主题与启动器着色，不保留彩色渐变。前景、背景均未预裁圆角，也未增加外围阴影。
 
-## 接入未来的应用模块
+## 应用模块接入
 
-创建 Android 工程后，将 `assets/android/res/` 的内容合并到应用模块的 `src/main/res/`。合并已有 `strings.xml`，不要覆盖其他字符串。使用 compileSdk 33 或以上编译带单色图层的资源；实际 minSdk、targetSdk 在开发时按产品需求与最新发布要求确定，当前未作产品版本承诺。
+当前 `app/build.gradle.kts` 通过 `sourceSets["main"].res.srcDir("../assets/android/res")` 直接接入资源包，Manifest 使用下列属性。首版 minSdk 26、compileSdk / targetSdk 36。
 
 在应用现有 Manifest 的 `<application>` 上设置：
 
@@ -40,7 +40,7 @@ android:icon="@mipmap/ic_launcher"
 android:roundIcon="@mipmap/ic_launcher_round"
 ```
 
-这些是属性片段，不是一个可独立安装的应用。不要将 `play-store-512.png` 或圆角展示图用于替代上述自适应资源。Google Play 图片单独上传到商店后台。
+以上是 Manifest 的属性片段。不要将 `play-store-512.png` 或圆角展示图用于替代上述自适应资源。Google Play 图片单独上传到商店后台。
 
 重新导出：安装 Pillow 后，在仓库根目录运行 `python tools/export_android_icons.py`。原始图片与前景源文件都是输入；导出脚本仅执行资源缩放、对齐、格式转换及预览裁切。
 
@@ -48,7 +48,7 @@ android:roundIcon="@mipmap/ic_launcher_round"
 
 导出过程检查 PNG 尺寸、alpha、文件大小、安全圆及 XML 语法，生成 `assets/android/export-report.json`。静态预览已检查，所有核心图形位于不同遮罩内。资源还使用本机 Android SDK Build Tools 36.0.0 / android-36 做独立 AAPT2 编译与链接验证。
 
-尚未创建或构建完整应用，也未进行真机或模拟器安装测试。启动器动画、不同厂商的实际缩放、深浅色主题和小尺寸可读性，需在应用模块建立后继续验收；静态预览不等于系统截图。
+现已编译完整调试应用并在 API 36 模拟器安装、查看启动器图标与应用界面。不同厂商的实际缩放、深浅色主题和小尺寸可读性仍需真机验收；资源包中的静态预览不是系统截图。图册最后一页记录的是资源准备阶段的历史检查范围，最新应用状态以 README 及首版开发说明为准。
 
 ## 官方依据
 

@@ -1,0 +1,76 @@
+{
+  "version": "0.3.0",
+  "checked_utc": "2026-10-31T10:25:32.699548+00:00",
+  "unit_suites": [
+    {
+      "name": "com.stillune.app.AudioMetricsTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0"
+    },
+    {
+      "name": "com.stillune.app.AudioRulesTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0"
+    },
+    {
+      "name": "com.stillune.app.LrcParserTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0"
+    },
+    {
+      "name": "com.stillune.app.Mp4AudioCodecTest",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0"
+    }
+  ],
+  "device": "Android API 36 x86_64 emulator",
+  "instrumentation": "OK (8 tests)",
+  "checks": [
+    "Five-dimensional library and two player modes",
+    "Five formats offline PCM using native pipe",
+    "FFT known tone, mono, antiphase, independent stereo and silence",
+    "Room 1-to-2 migration preserves library",
+    "Cache reuse, algorithm invalidation, cascade deletion",
+    "Analysis cancellation yields to playback",
+    "Spectrum seek accessibility action",
+    "Original playback, full screen and lyric regression",
+    "Android Lint: zero errors",
+    "Same DEX across phone/universal APKs"
+  ],
+  "artifacts": [
+    {
+      "file": "Stillune-0.3.0-arm64-debug.apk",
+      "bytes": 74301110,
+      "sha256": "9e78338cba6e075e31062b935cf085937d4f06e33d8dc66a081fe1a8acf49de3",
+      "abis": [
+        "arm64-v8a"
+      ]
+    },
+    {
+      "file": "Stillune-0.3.0-universal-debug.apk",
+      "bytes": 229424409,
+      "sha256": "47b864aedcef7a68f48091cd302418e3842c1ba5bb36f1d55390ec1fd701feb5",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ]
+    }
+  ],
+  "scopes": {
+    "spectrum": "whole-file offline sampled FFT",
+    "dr_and_field": "max 20 seconds from approximately one third",
+    "analysis_pcm": "44100 Hz / 16-bit stereo"
+  },
+  "not_verified": [
+    "Physical-device battery and thermal benchmarks",
+    "Professional full-track DR certification",
+    "Every device/OEM background scheduler",
+    "All sample rates and long-library workloads"
+  ]
+}
