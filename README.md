@@ -12,6 +12,16 @@
 
 目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.7.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、体感沉浸及播放历史恢复。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。听力关怀等仍是后续规划，尚未实现。
 
+## 下载安装
+
+当前提供 **0.7.0 开发预览版（调试签名）**：
+
+- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.7.0/Stillune-0.7.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
+- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.7.0/Stillune-0.7.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
+- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.7.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
+
+最低 Android 8.0。后续推送会同步对应版本的安装包至 [GitHub Releases](https://github.com/GadusW/chuyanplan/releases)。
+
 ## 0.7.0 更新
 
 - 加固体感模式切换／退出时的波形回调与资源释放，波纹和粒子共用监听。
@@ -69,7 +79,7 @@
 
 调试包默认生成于 `app/build/outputs/apk/debug/app-debug.apk`。`-Pstillune.abi=arm64-v8a` 的包不适用于 x86_64 模拟器；省略该参数可构建多架构版本。调试 APK 只用于初期验收，正式发布前仍需签名和真机测试。
 
-常见 64 位安卓手机选择 ARM64 包，其他架构可构建通用包；`.sha256` 是校验文件，不是安装包。本地导出的 `output/apk/`、构建缓存、SDK 路径和签名密钥不纳入源码仓库，当前仓库不提供已发布的 GitHub Release 安装包。
+常见 64 位安卓手机选择 ARM64 包，其他架构可构建通用包；`.sha256` 是校验文件，不是安装包。安装包通过 GitHub Releases 分发，本地导出的 `output/apk/`、构建缓存、SDK 路径和签名密钥不纳入源码仓库。
 
 首次打开时授权音频访问即可自动扫描。若歌曲没有出现在系统媒体库，点「导入音乐 → 选择音乐文件夹」授权对应目录。选取授权无需“所有文件访问”权限；音乐不上传，应用未申请联网权限。体感模式的波纹／粒子通过 Android Visualizer 读取本应用播放波形，需要按需授予系统「录音」权限；不使用麦克风采集。
 
