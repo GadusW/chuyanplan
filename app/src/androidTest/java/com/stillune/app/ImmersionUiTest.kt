@@ -11,9 +11,35 @@ import org.junit.Rule
 import org.junit.Test
 import androidx.compose.runtime.*
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.toPixelMap
+import org.junit.Assert.assertTrue
 
 class ImmersionUiTest {
     @get:Rule val compose = createComposeRule()
+    @Test fun realAttackEventChangesTheRenderedRippleAndParticleFields() {
+        compose.mainClock.autoAdvance = false
+        var style by mutableStateOf(ImmersionStyle.RIPPLES)
+        var audio by mutableStateOf(AudioEnergy(available = true))
+        compose.setContent { StilluneTheme {
+            ImmersiveScene(PlaybackState(playing = true), null, style, Tilt(), audio,
+                audioAllowed = true, onStyle = {}, onToggle = {}, onPrevious = {},
+                onNext = {}, onSeek = {}, onExit = {})
+        } }
+        for (choice in listOf(ImmersionStyle.RIPPLES, ImmersionStyle.PARTICLES)) {
+            compose.runOnIdle { style = choice; audio = AudioEnergy(available = true) }
+            compose.mainClock.advanceTimeBy(100)
+            val quiet = compose.onRoot().captureToImage().toPixelMap()
+            compose.runOnIdle { audio = AudioEnergy(.5f, true, level = 1f, onset = 1f, beatId = 1L) }
+            compose.mainClock.advanceTimeBy(350)
+            val attack = compose.onRoot().captureToImage().toPixelMap()
+            var changes = 0
+            for (y in 0 until quiet.height step 12) for (x in 0 until quiet.width step 12) {
+                val a = quiet[x, y]; val b = attack[x, y]
+                if (kotlin.math.abs(a.red - b.red) + kotlin.math.abs(a.green - b.green) + kotlin.math.abs(a.blue - b.blue) > .08f) changes++
+            }
+            assertTrue("$choice must visibly react to the audio attack", changes > 20)
+        }
+    }
     @Test fun controlsStartHiddenWakeOnTapHideAfterTenSecondsAndTripleTapExits() {
         var exits = 0
         var plays = 0

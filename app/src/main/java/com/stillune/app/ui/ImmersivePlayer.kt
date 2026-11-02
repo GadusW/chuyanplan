@@ -47,7 +47,6 @@ import com.stillune.app.playback.PlaybackState
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.flowOf
 import kotlin.math.*
-import kotlin.random.Random
 
 @Composable
 internal fun ImmersivePlayer(state: PlaybackState, artwork: Bitmap?, style: ImmersionStyle,
@@ -56,62 +55,86 @@ internal fun ImmersivePlayer(state: PlaybackState, artwork: Bitmap?, style: Imme
     val context = LocalContext.current
     var allowed by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) }
     var asked by rememberSaveable { mutableStateOf(false) }
+    val reducedMotion = !ValueAnimator.areAnimatorsEnabled()
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
-    LaunchedEffect(style) {
-        if (style != ImmersionStyle.PARALLAX && !allowed && !asked) {
+    LaunchedEffect(style, reducedMotion) {
+        if (!reducedMotion && style != ImmersionStyle.PARALLAX && !allowed && !asked) {
             asked = true
             permission.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
-    val reducedMotion = !ValueAnimator.areAnimatorsEnabled()
     val motionFlow = remember(context, reducedMotion) { if (reducedMotion) flowOf(Tilt()) else motionSensor(context) }
-    val tilt by motionFlow.collectAsStateWithLifecycle(Tilt())
-    val needsAudio = allowed && state.playing && style != ImmersionStyle.PARALLAX
+    val tilt = motionFlow.collectAsStateWithLifecycle(Tilt())
+    val needsAudio = !reducedMotion && allowed && state.playing && style != ImmersionStyle.PARALLAX
     val audioFlow = remember(state.audioSessionId, needsAudio) {
         if (needsAudio) liveAudioEnergy(state.audioSessionId)
         else flowOf(AudioEnergy())
     }
-    val energy by audioFlow.collectAsStateWithLifecycle(AudioEnergy())
-    ImmersiveScene(state, artwork, style, tilt, energy, reducedMotion, allowed,
-        { permission.launch(Manifest.permission.RECORD_AUDIO) }, onStyle, onToggle, onPrevious, onNext, onSeek, onExit)
+    val energy = audioFlow.collectAsStateWithLifecycle(AudioEnergy())
+    ImmersiveScene(state, artwork, style, Tilt(), AudioEnergy(), reducedMotion, allowed,
+        { permission.launch(Manifest.permission.RECORD_AUDIO) }, onStyle, onToggle, onPrevious, onNext, onSeek, onExit,
+        tiltState = tilt, energyState = energy)
 }
 
-private data class SceneFrame(val time: Float = 0f, val energy: Float = 0f, val pulse: Float = 0f)
+private data class SceneFrame(val time: Float = 0f, val energy: Float = 0f,
+    val pulse: Float = 0f, val tilt: Tilt = Tilt(), val fullDetail: Boolean = true)
 
 @Composable
 internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: ImmersionStyle,
     tilt: Tilt, energy: AudioEnergy, reducedMotion: Boolean = false, audioAllowed: Boolean = false,
     onAudioPermission: () -> Unit = {}, onStyle: (ImmersionStyle) -> Unit,
     onToggle: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit,
-    onSeek: (Long) -> Unit, onExit: () -> Unit) {
+    onSeek: (Long) -> Unit, onExit: () -> Unit,
+    tiltState: State<Tilt>? = null, energyState: State<AudioEnergy>? = null) {
     var controls by rememberSaveable { mutableStateOf(false) }
     var interaction by remember { mutableLongStateOf(0L) }
     val taps = remember { TripleTapGate() }
-    val currentEnergy by rememberUpdatedState(energy.rms)
+    val currentEnergy by rememberUpdatedState(energy)
     val currentPlaying by rememberUpdatedState(state.playing)
     val currentTilt by rememberUpdatedState(tilt)
     val frame = remember { mutableStateOf(SceneFrame()) }
+    val dynamics = remember(style, state.track?.uri) { ImmersionDynamics() }
     val palette = remember(artwork) { artworkColors(artwork) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(lifecycle, reducedMotion, style) {
-        if (reducedMotion || style == ImmersionStyle.PARALLAX) { frame.value = SceneFrame(); return@LaunchedEffect }
+    LaunchedEffect(lifecycle, reducedMotion, dynamics) {
+        if (reducedMotion) { frame.value = SceneFrame(); return@LaunchedEffect }
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             var previous = 0L
-            var time = frame.value.time
-            val attack = LowPass(.07f)
-            val release = LowPass(.28f)
+            var time = 0f
+            var beatId = (energyState?.value ?: currentEnergy).beatId
+            var smooth = Tilt()
+            var level = 0f
+            var interval = .016f
+            var fullDetail = true
             while (isActive) {
                 withFrameNanos { now ->
-                    val dt = if (previous == 0L) 0f else ((now - previous) / 1e9f).coerceIn(0f, .08f)
+                    val dt = if (previous == 0L) .016f else ((now - previous) / 1e9f).coerceIn(0f, .05f)
                     previous = now
-                    val level = if (currentPlaying && currentEnergy > .000001f)
-                        ((20f * log10(currentEnergy) + 80f) / 65f).coerceIn(0f, 1f) else 0f
-                    val fast = attack.update(level, dt)
-                    val slow = release.update(level, dt)
-                    if (currentPlaying || currentTilt.motion > .005f) time += dt * (.3f + fast * .8f + currentTilt.motion * 1.6f)
-                    frame.value = SceneFrame(time, fast, (fast - slow).coerceAtLeast(0f))
+                    interval += (dt - interval) * .08f
+                    if (interval > .028f) fullDetail = false
+                    else if (interval < .019f) fullDetail = true
+                    val target = tiltState?.value ?: currentTilt
+                    val alpha = 1f - exp(-dt / .032f)
+                    fun follow(a: Float, b: Float) = a + (b - a) * alpha
+                    smooth = Tilt(follow(smooth.x, target.x), follow(smooth.y, target.y),
+                        follow(smooth.motion, target.motion), target.available,
+                        follow(smooth.shakeX, target.shakeX), follow(smooth.shakeY, target.shakeY))
+                    val audio = energyState?.value ?: currentEnergy
+                    val fresh = audio.available && (audio.capturedNanos == 0L || System.nanoTime() - audio.capturedNanos < 350_000_000L)
+                    val desired = if (currentPlaying && fresh) audio.level else 0f
+                    level += (1f - exp(-dt / if (desired > level) .025f else .14f)) * (desired - level)
+                    val impulse = if (currentPlaying && fresh && audio.beatId != beatId) audio.onset else 0f
+                    beatId = audio.beatId
+                    time += dt
+                    if (style != ImmersionStyle.PARALLAX) dynamics.advance(dt, smooth, level, impulse)
+                    frame.value = SceneFrame(time, level, dynamics.pulse, smooth, fullDetail)
                 }
-                delay(if (!currentPlaying && currentTilt.motion < .005f && frame.value.energy < .001f) 200 else 24)
+                // Active motion is display-synchronised, without an extra 24 ms throttle.
+                val latestTilt = tiltState?.value ?: currentTilt
+                if (!currentPlaying && latestTilt.motion < .005f &&
+                    abs(latestTilt.x - frame.value.tilt.x) + abs(latestTilt.y - frame.value.tilt.y) < .001f &&
+                    frame.value.energy < .001f && dynamics.ripples.isEmpty() &&
+                    dynamics.motes.none { it.age < it.life }) delay(80)
             }
         }
     }
@@ -130,10 +153,10 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
         .semantics { contentDescription = "体感沉浸画面"; customActions = listOf(
             CustomAccessibilityAction("显示播放控制") { controls = true; activity(); true },
             CustomAccessibilityAction("退出体感沉浸") { exit(); true }) }) {
-        MoonlitBackdrop(artwork, Modifier.matchParentSize())
+        if (style == ImmersionStyle.PARALLAX || reducedMotion) MoonlitBackdrop(artwork, Modifier.matchParentSize())
         val side by animateDpAsState(if (style == ImmersionStyle.PARALLAX)
             minOf(maxWidth * .86f, maxHeight * .61f, 430.dp)
-            else minOf(maxWidth * .60f, maxHeight * .40f, 300.dp), tween(if (reducedMotion) 0 else 280), label = "immersive-cover-size")
+            else minOf(maxWidth * .52f, maxHeight * .36f, 270.dp), tween(if (reducedMotion) 0 else 280), label = "immersive-cover-size")
         val controlMaxHeight = (maxHeight - 24.dp).coerceAtLeast(160.dp)
         Box(Modifier.matchParentSize().pointerInput(Unit) {
             detectTapGestures(onTap = {
@@ -141,15 +164,15 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                 else { controls = true; activity() }
             })
         }) {
-            if (style != ImmersionStyle.PARALLAX) ImmersionCanvas(style, frame, tilt, reducedMotion, palette, Modifier.fillMaxSize())
+            if (style != ImmersionStyle.PARALLAX) ImmersionCanvas(style, frame, dynamics, reducedMotion, palette, Modifier.fillMaxSize())
             Box(Modifier.align(Alignment.Center).offset(y = (-24).dp).size(side)
                 .graphicsLayer {
-                    val movement = if (reducedMotion) Tilt() else tilt
+                    val movement = frame.value.tilt
                     translationX = (movement.x * 38f + movement.shakeX * 24f).dp.toPx()
                     translationY = (movement.y * 32f + movement.shakeY * 22f).dp.toPx()
                     rotationY = movement.x * 16f + movement.shakeX * 4f
                     rotationX = -movement.y * 13f - movement.shakeY * 4f
-                    scaleX = 1f + movement.motion * .035f
+                    scaleX = 1f + movement.motion * .035f + frame.value.pulse * .018f
                     scaleY = scaleX
                     cameraDistance = 24 * density
                     shadowElevation = 16.dp.toPx()
@@ -180,11 +203,13 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                         FilterChip(style == choice, { onStyle(choice); activity() }, label = { Text(choice.title, fontSize = 12.sp) })
                     }
                 }
+                val signal = energyState?.value ?: energy
+                val motion = tiltState?.value ?: tilt
                 if (style != ImmersionStyle.PARALLAX && !audioAllowed) {
                     Text("节奏响应需播放波形权限，不采集麦克风。", color = Quiet, fontSize = 12.sp)
                     TextButton(onClick = onAudioPermission) { Text("启用节奏响应") }
-                } else if (style != ImmersionStyle.PARALLAX && energy.message != null) Text(energy.message, color = Quiet, fontSize = 12.sp)
-                if (!tilt.available && !reducedMotion) Text("未检测到方向传感器，封面保持静止", color = Quiet, fontSize = 12.sp)
+                } else if (style != ImmersionStyle.PARALLAX && signal.message != null) Text(signal.message, color = Quiet, fontSize = 12.sp)
+                if (!motion.available && !reducedMotion) Text("未检测到方向传感器，封面保持静止", color = Quiet, fontSize = 12.sp)
                 if (reducedMotion) Text("已遵循系统设置，减少动态效果", color = Quiet, fontSize = 12.sp)
                 ImmersionControls(state, onToggle, onPrevious, onNext, onSeek, ::activity)
                 Text("闲置 10 秒隐藏控制 · 连续轻点画面三下退出", color = Quiet, fontSize = 11.sp)
@@ -194,42 +219,76 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
 }
 
 @Composable
-private fun ImmersionCanvas(style: ImmersionStyle, frame: State<SceneFrame>, tilt: Tilt, reduced: Boolean, palette: ArtworkColors, modifier: Modifier) {
-    val particles = remember {
-        val random = Random(814)
-        List(108) { floatArrayOf(random.nextFloat(), random.nextFloat(), random.nextFloat(), random.nextFloat()) }
-    }
+private fun ImmersionCanvas(style: ImmersionStyle, frame: State<SceneFrame>, dynamics: ImmersionDynamics,
+    reduced: Boolean, palette: ArtworkColors, modifier: Modifier) {
+    val path = remember { Path() }
+    val points = remember { FloatArray(48 * 2) }
     Canvas(modifier) {
         if (reduced) return@Canvas
-        val f = frame.value
+        val f = frame.value // Only redraw/layer updates: no per-frame layout or recomposition.
+        val tilt = f.tilt
+        val unit = size.minDimension
+        val center = Offset(size.width * .5f, size.height * .46f)
         drawRect(palette.ground)
-        val strength = (f.energy * .85f + f.pulse * 2.2f + tilt.motion * 1.3f).coerceIn(0f, 1f)
-        if (strength < .003f) return@Canvas
-        val center = Offset(size.width * (.5f + tilt.x * .10f + tilt.shakeX * .05f), size.height * (.46f + tilt.y * .08f + tilt.shakeY * .05f))
-        drawCircle(Brush.radialGradient(listOf(palette.primary.copy(alpha = strength * .24f), Color.Transparent),
-            center = center, radius = size.minDimension * .9f), size.minDimension * .9f, center)
         if (style == ImmersionStyle.RIPPLES) {
-            for (i in 0 until 9) {
-                val phase = ((f.time * .30f + i / 9f) % 1f)
-                val radius = size.minDimension * (.12f + phase * .95f)
-                val ink = if (i % 3 == 0) palette.secondary else palette.primary
-                drawCircle(ink.copy(alpha = strength * (1f-phase) * .12f), radius, center,
-                    style = Stroke((6f + tilt.motion * 8f).dp.toPx()))
-                drawCircle(ink.copy(alpha = strength * (1f-phase) * .75f), radius, center,
-                    style = Stroke((1f + f.pulse * 3f + tilt.motion * 1.2f).dp.toPx()))
+            fun water(radius: Float, age: Float, seed: Float, strength: Float, origin: Offset) {
+                path.reset()
+                val segments = if (f.fullDetail) 48 else 24
+                for (step in 0 until segments) {
+                    val angle = step.toFloat() / segments * 2f * PI.toFloat()
+                    val bend = ImmersionDynamics.contour(angle, age, seed, strength, tilt)
+                    val r = (radius + bend).coerceAtLeast(.02f)
+                    val point = origin + Offset(cos(angle) * r * unit,
+                        sin(angle) * r * unit * (1f + tilt.y * .10f))
+                    points[step * 2] = point.x
+                    points[step * 2 + 1] = point.y
+                }
+                val last = (segments - 1) * 2
+                path.moveTo((points[last] + points[0]) * .5f, (points[last + 1] + points[1]) * .5f)
+                for (step in 0 until segments) {
+                    val next = (step + 1) % segments
+                    path.quadraticBezierTo(points[step * 2], points[step * 2 + 1],
+                        (points[step * 2] + points[next * 2]) * .5f,
+                        (points[step * 2 + 1] + points[next * 2 + 1]) * .5f)
+                }
+                path.close()
+            }
+            // Low-amplitude surface currents connect the hits without a fake beat clock.
+            if (f.energy + tilt.motion > .01f) repeat(if (f.fullDetail) 3 else 1) { index ->
+                water(.30f + index * .095f, f.time, index * 1.7f, f.energy * .3f,
+                    center + Offset(tilt.x * unit * .12f, tilt.y * unit * .10f))
+                drawPath(path, palette.primary.copy(alpha = (.05f + f.energy * .10f + tilt.motion * .07f).coerceAtMost(.23f)),
+                    style = Stroke(.7.dp.toPx()))
+            }
+            // Keep overdraw bounded even when dense music fills all eight simulation slots.
+            for (index in maxOf(0, dynamics.ripples.size - if (f.fullDetail) 5 else 2) until dynamics.ripples.size) {
+                val ripple = dynamics.ripples[index]
+                val progress = ripple.age / ripple.life
+                val fade = (1f - progress).pow(1.5f) * (1f - exp(-ripple.age * 32f))
+                val origin = center + Offset((ripple.x + tilt.x * ripple.age * .055f) * unit,
+                    (ripple.y + tilt.y * ripple.age * .05f) * unit)
+                val ink = lerp(if (ripple.seed > 3.14f) palette.primary else palette.secondary, Moon, .38f)
+                repeat(if (f.fullDetail && ripple.age < .5f) 2 else 1) { crest ->
+                    val radius = .24f + ripple.age * (.35f + ripple.strength * .16f) - crest * .038f
+                    water(radius, ripple.age, ripple.seed, ripple.strength, origin)
+                    val alpha = (fade * (.38f + ripple.strength * .5f) * if (crest == 0) 1f else .4f).coerceIn(0f, 1f)
+                    drawPath(path, ink.copy(alpha = alpha), style = Stroke((.9f + fade * .8f).dp.toPx()))
+                }
             }
         } else {
-            particles.forEachIndexed { index, seed ->
-                val t = f.time * (.18f + seed[2] * .3f)
-                val x = ((seed[0] + sin(t + seed[3]*6.28f) * .075f + tilt.x * (.06f+seed[2]*.11f) + tilt.shakeX*.08f) % 1f + 1f) % 1f
-                val y = ((seed[1] - t * (.05f+seed[2]*.055f) + tilt.y*.08f + tilt.shakeY*.08f) % 1f + 1f) % 1f
-                val opacity = ((.4f + .45f * sin(t * 2f + index).absoluteValue) * strength).coerceIn(0f,1f)
-                val ink = if (index % 4 == 0) palette.secondary else palette.primary
-                val position = Offset(x*size.width, y*size.height)
-                drawLine(ink.copy(alpha = opacity * .4f), position,
-                    position + Offset(-tilt.shakeX*60f, (8f + tilt.motion*42f) * (1f+seed[2])), 1.dp.toPx())
-                drawCircle(ink.copy(alpha = opacity * .13f), (5f+seed[2]*6f).dp.toPx(), position)
-                drawCircle(ink.copy(alpha = opacity), (1f + seed[2] * 2.1f + f.pulse * 3f).dp.toPx(), position)
+            for (index in dynamics.motes.indices step if (f.fullDetail) 1 else 2) {
+                val mote = dynamics.motes[index]
+                if (mote.age >= mote.life) continue
+                val progress = mote.age / mote.life
+                val opacity = ((1f - progress).pow(1.5f) * (1f - exp(-mote.age * 40f))).coerceIn(0f, 1f)
+                val ink = if (mote.color == 0) palette.secondary else palette.primary
+                val position = center + Offset(mote.x * unit, mote.y * unit)
+                // Velocity-aligned streaks stretch on attacks, curl in the hand's current.
+                val tail = position - Offset(mote.vx * unit, mote.vy * unit) * (.025f + f.pulse * .055f)
+                drawLine(ink.copy(alpha = opacity * .52f), tail, position,
+                    (mote.size * .65f).dp.toPx(), cap = StrokeCap.Round)
+                if (f.fullDetail) drawCircle(ink.copy(alpha = opacity * .1f), (mote.size * 3.2f).dp.toPx(), position)
+                drawCircle(lerp(ink, Moon, .65f).copy(alpha = opacity), mote.size.dp.toPx(), position)
             }
         }
     }

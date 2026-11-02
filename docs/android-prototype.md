@@ -1,6 +1,6 @@
 # 栖声 Android 开发与验收说明
 
-当前版本：0.7.0。原生 Kotlin / Compose 应用，最低 Android 8.0，目标 API 36。已实现全屏／歌词、五维媒体库、离线声音画像、系统播放卡片、体感沉浸与播放历史恢复。详见 [更新日志](../CHANGELOG.md)、[声音画像](audio-analysis.md)、[体感沉浸](immersive-mode.md) 和 [播放历史](playback-history.md)。
+当前版本：0.8.0。原生 Kotlin / Compose 应用，最低 Android 8.0，目标 API 36。已实现全屏／歌词、五维媒体库、离线声音画像、系统播放卡片、体感沉浸与播放历史恢复。详见 [更新日志](../CHANGELOG.md)、[声音画像](audio-analysis.md)、[体感沉浸](immersive-mode.md) 和 [播放历史](playback-history.md)。
 
 ## 导入与音乐库
 
@@ -48,7 +48,8 @@
 
 已完成：
 
-- 当前 0.7.0：15 个 JVM 单元测试、15 个设备测试、Lint 无错误；版本与 APK 校验记录见 [验证报告](validation/android-0.7.0.json)。设备回归含 24 次波形效果器建立／释放、24 次沉浸界面切换，以及数据库 1→3／2→3 迁移、历史保存、重开恢复与非零位置解码。
+- 当前 0.8.0：21 个单元测试、17 个 API 36 设备测试、Lint 无错误；覆盖真实音频瞬态和渲染响应，见 [验证报告](validation/android-0.8.0.json)。
+- 0.7.0：15 个 JVM 单元测试、15 个设备测试、Lint 无错误；版本与 APK 校验记录见 [验证报告](validation/android-0.7.0.json)。设备回归含 24 次波形效果器建立／释放、24 次沉浸界面切换，以及数据库 1→3／2→3 迁移、历史保存、重开恢复与非零位置解码。
 
 - `:app:assembleDebug` 编译、打包并安装到 API 36 x86_64 模拟器。
 - JVM 单元测试：格式判断、过滤边界、队列结束／循环、M4A 容器识别和畸形输入处理，以及 LRC 时间戳、偏移和纯文本。

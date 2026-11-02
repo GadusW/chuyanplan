@@ -10,17 +10,29 @@
 
 栖声 · Stillune 是一个面向 **Android** 的本地音乐播放器项目，致力于将高品质播放、声音分析、从容的聆听体验与听力关怀融为一体。让珍藏的音乐长久相伴，也让双耳适时休憩。
 
-目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.7.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、体感沉浸及播放历史恢复。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。听力关怀等仍是后续规划，尚未实现。
+目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.8.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、体感沉浸及播放历史恢复。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。听力关怀等仍是后续规划，尚未实现。
 
 ## 下载安装
 
-当前提供 **0.7.0 开发预览版（调试签名）**：
+当前提供 **0.8.0 开发预览版（调试签名）**：
 
-- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.7.0/Stillune-0.7.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
-- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.7.0/Stillune-0.7.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
-- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.7.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
+- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.8.0/Stillune-0.8.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
+- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.8.0/Stillune-0.8.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
+- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.8.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
 
 最低 Android 8.0。后续推送会同步对应版本的安装包至 [GitHub Releases](https://github.com/GadusW/chuyanplan/releases)。
+
+## 0.8.0 更新
+
+- **跟手更连贯**：倾斜采用自适应滤波，主动绘制跟随屏幕刷新，不再逐帧额外等待 24 ms；封面和效果共享平滑后的运动数据。
+- **重音更鲜明**：从当前播放的波形块检测音量上升，结合自适应音量参考与触发间隔，让安静和强节奏曲目都有起伏。持续音不反复冒充拍点。
+- **水波与喷散粒子**：重音推出不规则、有干涉起伏的水波；粒子受冲量炸开并渐慢消散。倾斜带动流向，摇晃产生偏转、涡流与额外扰动，继续使用专辑配色。
+
+验证通过 **21 个单元测试、17 个 API 36 模拟器设备测试，Lint 无错误**。新增真实脉冲音频重音检测、波纹／粒子画面响应，以及持续音不重复触发的回归检查。详见 [0.8.0 验证记录](docs/validation/android-0.8.0.json)。
+
+模拟器短时绘制检查仍有掉帧；新增绘制预算会自动减少细节，真机手感、帧率及长期耗电仍待验收。
+
+实现与交互边界见 [体感沉浸说明](docs/immersive-mode.md)。界面保持单击显示控制、闲置 10 秒隐藏和连续三击退出。
 
 ## 0.7.0 更新
 
@@ -56,6 +68,8 @@
 0.5.0 更新：[悬浮导航](docs/screenshots/player-v5.png) · [系统通知中心媒体卡片](docs/screenshots/notification-v5.png)。
 
 0.6.0 体感沉浸：[效果选择](docs/screenshots/immersion-choices-v6.png) · [控制层](docs/screenshots/immersion-controls-v6.png) · [波纹](docs/screenshots/immersion-ripples-v6.png) · [粒子](docs/screenshots/immersion-particles-v6.png)。
+
+0.8.0 画面：[封面视差](docs/screenshots/immersion-parallax-v8.png) · [起伏水波](docs/screenshots/immersion-ripples-v8.png) · [喷散粒子](docs/screenshots/immersion-particles-v8.png)。
 
 0.7.0 更新：[放大封面](docs/screenshots/immersion-parallax-v7.png) · [专辑色波纹](docs/screenshots/immersion-ripples-v7.png) · [专辑色粒子](docs/screenshots/immersion-particles-v7.png) · [恢复播放](docs/screenshots/resume-v7.png) · [最近播放](docs/screenshots/history-v7.png)。
 

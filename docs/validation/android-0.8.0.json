@@ -1,0 +1,57 @@
+{
+  "version": "0.8.0",
+  "checked_utc": "2026-11-02T04:57:25.005973+00:00",
+  "unit_tests": 21,
+  "instrumentation": "OK (17 tests)",
+  "device": "API 36 x86_64 emulator",
+  "artifacts": [
+    {
+      "file": "Stillune-0.8.0-arm64-debug.apk",
+      "bytes": 74415938,
+      "sha256": "9d9551b34d6dc1664727fa84337cd6dc59e8e1132e37b7ca47f299a415905cd1"
+    },
+    {
+      "file": "Stillune-0.8.0-universal-debug.apk",
+      "bytes": 229323577,
+      "sha256": "189865869b0fbc60a545f6fb1918929982c7d3768204107746b1b0470a2ad573"
+    }
+  ],
+  "checks": [
+    "Quiet and loud PCM attacks produce distinct events; sustained tones and silence do not repeat beats",
+    "Real AudioTrack pulsed PCM triggers at least three audio attack events",
+    "Rendered ripple and particle fields visibly change after audio attack input",
+    "Upright entry pose remains stable under small local tilts",
+    "Adaptive tilt filter suppresses jitter and follows deliberate motion",
+    "Ripple and particle pools stay bounded, move outward and expire",
+    "Frame-rate-independent pulse decay and tilt-driven particle currents",
+    "24 UI effect switches and 24 native effect attach/release cycles",
+    "Previous playback, migration, lyrics and notification regression",
+    "Lint zero errors; ARM64/universal DEX identical"
+  ],
+  "manual": [
+    "Original synthesized percussion with embedded colored cover drives visible water crests and particle spray",
+    "Native emulator captures and six-second screen recordings; no mocked UI",
+    "Final graphics statistics captured without screen recording"
+  ],
+  "limits": [
+    "Physical-phone gyroscope feel, display refresh rate and long-session thermal/battery use not benchmarked",
+    "Android emulator frame timings are not a physical-device smoothness guarantee",
+    "RMS attack detector is not BPM or musical beat tracking; OEM waveform rate/availability varies",
+    "Emulator still shows dropped frames despite bounded effects; physical-device smoothness remains unverified."
+  ],
+  "emulator_graphics_probe": {
+    "ripples": {
+      "frames": 258,
+      "janky_percent": 37.98,
+      "median_ms": 48,
+      "p90_ms": 69
+    },
+    "particles": {
+      "frames": 332,
+      "janky_percent": 10.84,
+      "median_ms": 34,
+      "p90_ms": 53
+    },
+    "note": "Six-second emulator-only windows without recording. Jank remains; not a 60 fps or physical-device performance pass."
+  }
+}

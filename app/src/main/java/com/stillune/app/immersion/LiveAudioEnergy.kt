@@ -30,6 +30,8 @@ fun liveAudioEnergy(sessionId: Int) = callbackFlow {
     try {
         val created = Visualizer(sessionId)
         effect = created
+        val rhythm = RhythmEnvelope()
+        var lastCapture = 0L
         created.apply {
             captureSize = 512.coerceIn(Visualizer.getCaptureSizeRange()[0], Visualizer.getCaptureSizeRange()[1])
             scalingMode = Visualizer.SCALING_MODE_AS_PLAYED
@@ -46,8 +48,13 @@ fun liveAudioEnergy(sessionId: Int) = callbackFlow {
                     // measurement in millibels, converted back to a linear amplitude.
                     val measuredRms = if (measurementEnabled && visualizer?.getMeasurementPeakRms(measured) == Visualizer.SUCCESS && measured.mRms > -9600)
                         10.0.pow(measured.mRms / 2000.0).toFloat().coerceIn(0f, 1f) else 0f
-                    val rms = if (measuredRms > 0f) measuredRms else waveformRms
-                    trySend(AudioEnergy(rms, available = true))
+                    // Peak/RMS measurement can average over a long OEM window, obscuring
+                    // drum attacks. Prefer each fresh waveform block, retain quiet fallback.
+                    val rms = if (waveformRms > .0003f) waveformRms else measuredRms
+                    val now = System.nanoTime()
+                    val dt = if (lastCapture == 0L) .025f else (now - lastCapture) / 1e9f
+                    lastCapture = now
+                    trySend(rhythm.update(rms, dt, now))
                     } catch (_: RuntimeException) {
                         // OEM callbacks may already be queued when an effect is disabled.
                         // A released native handle must never escape onto the UI looper.
@@ -56,7 +63,7 @@ fun liveAudioEnergy(sessionId: Int) = callbackFlow {
                     }
                 }
                 override fun onFftDataCapture(visualizer: Visualizer?, fft: ByteArray?, samplingRate: Int) = Unit
-            }, minOf(20_000, Visualizer.getMaxCaptureRate()), true, false)
+            }, minOf(50_000, Visualizer.getMaxCaptureRate()), true, false)
             check(status == Visualizer.SUCCESS)
             check(setEnabled(true) == Visualizer.SUCCESS)
         }

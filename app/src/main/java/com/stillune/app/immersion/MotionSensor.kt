@@ -22,14 +22,14 @@ fun motionSensor(context: Context) = callbackFlow {
         close()
         return@callbackFlow
     }
-    val xFilter = LowPass(.12f)
-    val yFilter = LowPass(.12f)
+    val xFilter = ResponsiveTilt()
+    val yFilter = ResponsiveTilt()
     val motionFilter = LowPass(.08f)
     val movementSensor = manager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         ?: manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     val shakeFilter = LowPass(.10f)
-    val shakeXFilter = LowPass(.12f)
-    val shakeYFilter = LowPass(.12f)
+    val shakeXFilter = LowPass(.045f)
+    val shakeYFilter = LowPass(.045f)
     var shake = 0f
     var shakeX = 0f
     var shakeY = 0f
@@ -43,6 +43,8 @@ fun motionSensor(context: Context) = callbackFlow {
     val matrix = FloatArray(9)
     val remapped = FloatArray(9)
     val angles = FloatArray(3)
+    val pose = PoseReference()
+    var displayRotation = -1
     val listener = object : SensorEventListener {
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
         override fun onSensorChanged(event: SensorEvent) {
@@ -68,6 +70,9 @@ fun motionSensor(context: Context) = callbackFlow {
             val dt = if (last == 0L) .02f else ((event.timestamp - last) / 1e9f).coerceIn(.001f, .1f)
             last = event.timestamp
             val rotation = context.getSystemService(WindowManager::class.java).defaultDisplay.rotation
+            if (rotation != displayRotation) {
+                pose.reset(); baselineX = null; baselineY = null; displayRotation = rotation
+            }
             val rawX: Float
             val rawY: Float
             if (sensor.type == Sensor.TYPE_GAME_ROTATION_VECTOR || sensor.type == Sensor.TYPE_ROTATION_VECTOR) {
@@ -79,7 +84,7 @@ fun motionSensor(context: Context) = callbackFlow {
                     else -> SensorManager.AXIS_X to SensorManager.AXIS_Y
                 }
                 SensorManager.remapCoordinateSystem(matrix, axes.first, axes.second, remapped)
-                SensorManager.getOrientation(remapped, angles)
+                SensorManager.getOrientation(pose.rotation(remapped), angles)
                 rawX = angles[2]
                 rawY = angles[1]
             } else {
