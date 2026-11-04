@@ -22,12 +22,19 @@ a,summary{color:#9bcbea;text-underline-offset:4px}summary{cursor:pointer;padding
 .refs{padding:14px 0;border-bottom:1px solid #344158}.columns{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 [hidden]{display:none!important}dialog{background:#17243a;color:inherit;border:1px solid #53627b;border-radius:10px;width:min(760px,92vw)}
 dialog::backdrop{background:#07101ccc}.preview{white-space:pre-wrap;line-height:1.9}#empty{padding:40px 0}
+.journey{margin:24px 0 12px;padding:20px 0;border-bottom:1px solid #344158}.journey h2{margin:0 0 8px}.steps{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.steps button{background:transparent;color:#aab8cf;border:1px solid #53627b}.steps button[aria-current=step]{color:#f4e3be;border-color:#f4e3be}.next{max-width:72ch}#next-title{font-size:18px;color:#e7edf3;margin:14px 0 4px}#next-description{margin:4px 0 12px}.preview{max-width:38em;margin:auto}button:hover:not(:disabled),.button:hover{filter:brightness(1.12)}html{scroll-behavior:smooth;scrollbar-color:#53627b #101b30}input,textarea{caret-color:#f4e3be}#review-help{white-space:pre-wrap}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 @media(max-width:850px){main{padding:20px}.layout,.columns{grid-template-columns:1fr}aside{border:0;padding:0}}
 </style>
 <main>
 <header><div><h1>栖声 · 知识工作台</h1><p>导入资料，制作草稿，审核后交付到手机。</p></div>
-<div><a id="guide" target="_blank">使用说明</a><button id="refresh" class="secondary">刷新进度</button></div></header>
+<div><button id="help" class="secondary">怎么使用</button><a id="guide" target="_blank">完整说明</a><button id="refresh" class="secondary">刷新进度</button></div></header>
 <div id="message" role="status" aria-live="polite">正在连接本机工作台…</div>
+<section class="journey" aria-label="知识制作进度">
+<h2>把一篇知识带到手机</h2>
+<nav class="steps" aria-label="操作步骤"><button id="step-source">1. 导入资料</button><button id="step-draft">2. 制作草稿</button><button id="step-review">3. 阅读审核</button><button id="step-deliver">4. 交付手机</button></nav>
+<div class="next"><h3 id="next-title"></h3><p id="next-description"></p><button id="next-action">继续</button><span id="progress-summary" class="muted"></span></div>
+</section>
 <div class="layout">
 <aside>
 <section><h2>参考资料</h2>
@@ -43,7 +50,9 @@ dialog::backdrop{background:#07101ccc}.preview{white-space:pre-wrap;line-height:
 <div>
 <section id="source-panel" hidden>
 <div class="row"><h2 id="source-name"></h2><a id="original" target="_blank">打开原件</a></div>
-<button id="task" class="secondary">给 agent 的任务</button><button id="new-draft" class="secondary">新建草稿</button>
+<p>推荐：复制任务，发给正在使用的 AI 助手。它完成后，点顶部“刷新进度”，再到草稿中预览审核。导入书籍不会自动生成文章。</p>
+<button id="task">给 agent 的任务</button><button id="new-draft" class="secondary">新建草稿</button>
+<details><summary>自己整理笔记 / 使用本地模型（选用）</summary>
 <h3>知识笔记</h3><p>保存已核对的知识点，再交给 agent 或本地模型改写。扫描 PDF 可打开原件，交给 agent 识别。</p>
 <div class="row"><label>PDF 起始页<input id="start" type="number" min="1" value="1"></label><label>结束页<input id="end" type="number" min="1" value="1"></label><button id="extract" class="secondary">提取文字</button></div>
 <label>笔记与待转化内容<textarea id="notes"></textarea></label><button id="save-notes">保存笔记</button>
@@ -51,6 +60,7 @@ dialog::backdrop{background:#07101ccc}.preview{white-space:pre-wrap;line-height:
 <p id="model-status" class="muted">也可以直接把任务交给你当前使用的 agent。</p>
 <label>已安装的 Ollama 模型<select id="model"><option value="">请先检测</option></select></label>
 <button id="generate" disabled>生成三分钟草稿</button><p id="generation" class="muted"></p>
+</details>
 </section>
 <section id="article-panel" hidden>
 <div class="row"><h2>编辑与审核</h2><span id="dirty" class="muted"></span></div>
@@ -63,17 +73,19 @@ dialog::backdrop{background:#07101ccc}.preview{white-space:pre-wrap;line-height:
 <h3>审核当前保存版本</h3>
 <div class="columns"><label>审核人<input id="reviewer"></label><label>审核记录<input id="note" placeholder="记录核对过的页码与修改意见"></label></div>
 <label><input id="confirm" type="checkbox">我已读完当前版本，并确认通过</label>
-<p class="muted">修改后需要重新保存、审核，待核验的出处会阻止发布。</p><button id="approve" disabled>通过审核</button>
+<p id="review-help" class="muted"></p><button id="approve" disabled>通过审核</button>
 </section>
 <div id="empty" class="muted">在左侧选择资料整理笔记，或选择一篇草稿继续编辑。</div>
-<section><h2>发布知识包</h2><p>包含全部审核仍有效的文章。发到手机后，在栖声知识书架选择“导入知识更新”。</p>
+<section id="delivery"><h2>发布知识包</h2><p>包含全部审核仍有效的文章。发到手机后，在栖声知识书架选择“导入知识更新”。</p>
 <p id="signing" class="validation"></p><button id="keygen" class="secondary">首次建立签名密钥</button>
 <label>本次版本号<input id="version" type="number" min="1" value="1"></label>
 <p id="export-help" class="muted"></p><button id="package" disabled>生成签名知识包</button><div id="packs"></div>
+<details><summary>下载后，怎样在手机里使用？</summary><ol><li>把 ZIP 发送到手机，保存到“下载”文件夹，保留 ZIP 原样。</li><li>打开栖声 → 护耳 → 打开知识书架 → 右上角“导入知识更新”。</li><li>选择这个 ZIP，看到更新成功和篇数后，即可离线阅读。</li></ol><p>生成和下载发生在电脑上；工作台无法确认手机是否已成功导入。每个包是完整目录，会替换手机上的上一版知识内容。</p></details>
 </section>
 </div></div>
 <dialog id="task-dialog"><h2>交给 agent 的任务</h2><textarea id="task-text" style="min-height:300px" readonly></textarea><button id="copy-task">复制任务</button><button id="close-task" class="secondary">关闭</button></dialog>
 <dialog id="preview-dialog"><h2>阅读预览</h2><div id="preview" class="preview"></div><button id="close-preview" class="secondary">返回编辑</button></dialog>
+<dialog id="help-dialog"><h2>第一次，先读一篇现有草稿</h2><p>不用先导入教材，也不用配置模型。点击“打开一篇草稿”，然后“预览阅读”，就能看到用户将读到的内容。</p><ol><li>想改内容：直接编辑标题、正文，点“保存修改”。</li><li>确认内容与出处：对照原页核验，填审核人和记录，再点“通过审核”。</li><li>想放到手机：生成知识包 → 下载 ZIP → 手机知识书架导入。</li></ol><p>以后补充资料：导入文件 → 整理资料 → 给 agent 的任务。agent 就是你现在使用的 AI 助手；复制任务发给它即可。没有草稿时从导入资料开始。</p><button id="help-start">打开一篇草稿</button><button id="close-help" class="secondary">我自己看看</button></dialog>
 </main>
 <script>
 const token = "__TOKEN__";
@@ -112,6 +124,30 @@ function actions() {
     el("package").disabled ||= !state?.signing.ready || !state?.articles.some(row => row.approved);
     el("generate").disabled ||= !el("model").value || notesDirty || state?.generation.state === "running";
     el("dirty").textContent = dirty ? "有未保存修改" : "已保存";
+    el("review-help").textContent = !current ? "" : row?.approved ? "当前版本已审核，可前往交付手机。" : dirty ? "下一步：先保存修改，再审核当前版本。" : row?.errors.length ? "先处理上方检查结果，再继续审核。" : !el("reviewer").value.trim() || !el("note").value.trim() ? "下一步：填写审核人和核对记录，再勾选确认。" : !el("confirm").checked ? "请读完并核对当前保存版本，勾选确认后通过审核。" : "可以通过审核；之后修改内容需要重新审核。";
+    el("approve").disabled ||= !el("reviewer").value.trim() || !el("note").value.trim();
+}
+function goTo(id) { el(id).scrollIntoView({block:"start"}); }
+function journey() {
+    const pending = state.articles.filter(row => !row.approved), approved = state.articles.filter(row => row.approved);
+    const stage = !state.sources.length ? "source" : !state.articles.length ? "draft" : pending.length ? "review" : "deliver";
+    for (const name of ["source","draft","review","deliver"]) {
+        if (name === stage) el("step-" + name).setAttribute("aria-current","step"); else el("step-" + name).removeAttribute("aria-current");
+    }
+    const copy = {
+        source:["先选一份想分享的资料","选择 PDF、文字或图片。资料只保存在本机，导入后再交给 AI 助手制作草稿。","选择资料"],
+        draft:["资料已就位，把写作任务交给助手","打开资料，复制“给 agent 的任务”，发给 AI 助手。完成后回来刷新进度。","整理第一份资料"],
+        review:["先预览一篇，再决定是否发布","已有 " + pending.length + " 篇待审核草稿。读内容、核对出处后再通过审核，系统不会替你批准。","打开待审核草稿"],
+        deliver:["文章已审核，可以交付到手机","生成完整知识包并下载 ZIP，再到手机知识书架导入。想补充内容也可以继续导入资料。","前往发布知识包"]
+    }[stage];
+    el("next-title").textContent = copy[0]; el("next-description").textContent = copy[1]; el("next-action").textContent = copy[2];
+    el("progress-summary").textContent = state.sources.length + " 份资料 · " + pending.length + " 篇待审核 · " + approved.length + " 篇可发布";
+    el("next-action").onclick = () => run(async () => {
+        if (stage === "source") { goTo("upload"); el("upload").focus(); }
+        else if (stage === "draft") { await selectSource(state.sources[0].id); goTo("source-panel"); }
+        else if (stage === "review") { if (canLeave()) { notesDirty = false; display(pending[0]); goTo("article-panel"); } }
+        else goTo("delivery");
+    });
 }
 function bind(id, action) {
     el(id).addEventListener("click", () => run(async () => {
@@ -220,6 +256,7 @@ function renderLists() {
     }
     el("signing").textContent = state.signing.message;
     el("export-help").textContent = "当前有 " + state.articles.filter(row => row.approved).length + " 篇可发布。建议版本 " + state.next_version + "。";
+    journey();
 }
 function selectArticle(id) {
     const row = state.articles.find(row => row.article.id === id);
@@ -333,6 +370,19 @@ bind("package",async () => {
 for (const id of ["title","body","takeaway","tags"]) el(id).addEventListener("input",changed);
 el("notes").addEventListener("input",() => { notesDirty = true; actions(); });
 el("confirm").addEventListener("change",actions); el("model").addEventListener("change",actions);
+for (const id of ["reviewer","note"]) el(id).addEventListener("input",actions);
+bind("help",async () => el("help-dialog").showModal());
+el("close-help").onclick = () => el("help-dialog").close();
+bind("help-start",async () => {
+    if (!canLeave()) return;
+    el("help-dialog").close();
+    if (state.articles.length) { notesDirty = false; display(state.articles.find(row => !row.approved) || state.articles[0]); goTo("article-panel"); }
+    else { goTo("upload"); el("upload").focus(); }
+});
+bind("step-source",async () => { goTo("upload"); el("upload").focus(); });
+bind("step-draft",async () => { if (state.sources.length) { await selectSource(state.sources[0].id); goTo("source-panel"); } else { tell("先导入一份参考资料。"); goTo("upload"); } });
+bind("step-review",async () => { if (state.articles.length && canLeave()) { notesDirty = false; display(state.articles.find(row => !row.approved) || state.articles[0]); goTo("article-panel"); } else if (!state.articles.length) tell("还没有草稿，请先把资料任务交给 AI 助手。"); });
+bind("step-deliver",async () => goTo("delivery"));
 el("search").addEventListener("input",renderLists); el("filter").addEventListener("change",renderLists);
 el("close-task").addEventListener("click",() => el("task-dialog").close());
 el("close-preview").addEventListener("click",() => el("preview-dialog").close());

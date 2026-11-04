@@ -70,6 +70,7 @@ class HearingUiTest {
         compose.onNodeWithText(articles[1].title).assertExists()
         compose.onNodeWithText(articles.first().title).assertDoesNotExist()
         compose.onNodeWithText("导入知识更新").performScrollTo().performClick()
+        compose.onNodeWithText("选择 ZIP 文件").performClick()
         compose.runOnIdle { assertTrue(imported) }
     }
 }

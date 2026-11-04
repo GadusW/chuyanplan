@@ -71,13 +71,6 @@ class MainActivity : ComponentActivity() {
             val scan by model.scan.collectAsStateWithLifecycle()
             LaunchedEffect(Unit) {
                 if (hasAudioPermission()) model.autoScan()
-                else {
-                    val preferences = getPreferences(MODE_PRIVATE)
-                    if (!preferences.getBoolean("asked_audio", false)) {
-                        preferences.edit().putBoolean("asked_audio", true).apply()
-                        permissionRequest.launch(arrayOf(audioPermission))
-                    }
-                }
             }
             StilluneTheme {
                 StilluneApp(tracks, playback, scan, model,

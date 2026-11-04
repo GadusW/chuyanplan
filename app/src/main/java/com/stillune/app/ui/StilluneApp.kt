@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -88,6 +89,7 @@ fun StilluneApp(
     }
     var importOpen by rememberSaveable { mutableStateOf(false) }
     var historyOpen by rememberSaveable { mutableStateOf(false) }
+    var guideOpen by rememberSaveable { mutableStateOf(false) }
     val recentHistory by model.recentHistory.collectAsStateWithLifecycle()
     var queueOpen by rememberSaveable { mutableStateOf(false) }
     var outputOpen by rememberSaveable { mutableStateOf(false) }
@@ -151,6 +153,10 @@ fun StilluneApp(
                             TextButton(onClick = { importOpen = true }, enabled = !scan.running) {
                                 Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(5.dp)); Text("导入音乐")
                             }
+                        }
+                        TextButton(onClick = { guideOpen = true }) {
+                            Icon(Icons.AutoMirrored.Rounded.HelpOutline, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp)); Text("使用指南", fontSize = 12.sp)
                         }
                     }
                     item { LibraryHero(tracks.size, onClick = {
@@ -256,6 +262,11 @@ fun StilluneApp(
     }
     if (importOpen) ImportSheet(scan.running, onDismiss = { importOpen = false }, onScan = { importOpen = false; onScan(it) },
         onFolder = { importOpen = false; onFolder(it) }, onImport = { importOpen = false; onImport() })
+    if (guideOpen) GettingStartedSheet(
+        onClose = { guideOpen = false },
+        onImport = { guideOpen = false; importOpen = true },
+        onHealth = { guideOpen = false; healthOpen = true; playerOpen = false },
+        onKnowledge = { guideOpen = false; knowledgeOpen = true })
     if (historyOpen) ModalBottomSheet(onDismissRequest = { historyOpen = false }, containerColor = Panel) {
         Text("最近播放", Modifier.padding(horizontal = 24.dp, vertical = 12.dp), fontSize = 23.sp, color = Moon)
         if (recentHistory.isEmpty()) Text("听过的音乐会留在这里", Modifier.padding(24.dp), color = Quiet)

@@ -1,0 +1,19 @@
+{
+  "version": "0.14.0",
+  "date": "2026-11-04",
+  "unitTests": {"passed": 34, "failed": 0},
+  "lint": {"errors": 0, "warnings": 38},
+  "device": "Android API 36 emulator",
+  "deviceTests": {
+    "passed": 5,
+    "classes": ["GettingStartedUiTest", "HearingUiTest", "LibraryUiTest"],
+    "afterPermissionRefinement": "GettingStartedUiTest rerun passed without pre-granted media permission"
+  },
+  "workbench": {
+    "coreTestsPassed": 7,
+    "browser": "Microsoft Edge, real local server with isolated sources, drafts, approvals and signing key",
+    "verified": ["guided step state and links", "help", "upload", "notes and optional model disclosure", "create/edit/preview", "dirty refresh", "review", "sign/download/verify", "concurrent edit guard", "archive/restore", "JSON import", "damaged draft isolation", "simulated local model queue"],
+    "liveReadOnlyCheck": "Existing local content preserved; desktop 1440px and narrow 390px screenshots; no JavaScript errors or horizontal overflow"
+  },
+  "limits": ["Physical phone usability and accessibility remain to be checked", "Real local model generation requires an installed model", "Knowledge pack delivery still requires manual transfer and phone import", "No developer approvals created for real drafts during validation"]
+}
