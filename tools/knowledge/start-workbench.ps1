@@ -1,6 +1,7 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '../..')
 $runtimeCandidates = @(
+    (Join-Path (Get-Location) ".venv/Scripts/python.exe"),
     "$env:USERPROFILE/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe",
     "$env:USERPROFILE/AppData/Local/Programs/Python/Python314/python.exe",
     "$env:USERPROFILE/AppData/Local/Programs/Python/Python313/python.exe"

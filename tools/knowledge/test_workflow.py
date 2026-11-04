@@ -1,10 +1,13 @@
 """Regression checks for approval binding and package authenticity."""
 import copy
+import io
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("knowledge_workflow", Path(__file__).with_name("workflow.py"))
 flow = importlib.util.module_from_spec(spec)
@@ -64,6 +67,35 @@ class KnowledgeWorkflowTest(unittest.TestCase):
         source_path.write_text("参考资料后来发生了修改", encoding="utf-8")
         with self.assertRaises(ValueError):
             self.approve()
+
+    def test_bad_draft_does_not_break_status_or_overwrite_valid_article(self):
+        (flow.WORK / "drafts/broken.json").write_text("{", encoding="utf-8")
+        flow.write(flow.WORK / "drafts/wrong-type.json", dict(id="wrong-type", title=123))
+        state = flow.status()
+        self.assertEqual(1, len(state["articles"]))
+        self.assertEqual(2, len(state["issues"]))
+        with self.assertRaises(ValueError):
+            flow.save(dict(id=self.article["id"], title=123))
+        self.assertEqual("测试文章", flow.read(flow.WORK / "drafts/one-question.json")["title"])
+        flow.save(dict(id="unfinished-draft", title="未完成"))
+        self.assertTrue(flow.status()["articles"])
+
+    def test_model_output_cannot_overwrite_existing_article_or_self_verify(self):
+        notes = flow.WORK / "sources" / self.source["id"] / "notes.txt"
+        notes.write_text("经过核对的测试知识点", encoding="utf-8")
+        guide = flow.ROOT / "docs/knowledge-workflow/内容规范.md"
+        guide.parent.mkdir(parents=True, exist_ok=True)
+        guide.write_text("测试写作规范", encoding="utf-8")
+        response = json.dumps(dict(response=json.dumps(self.article, ensure_ascii=False))).encode()
+        class FakeOpener:
+            def open(self, *args, **kwargs):
+                return io.BytesIO(response)
+        with patch.object(flow.urllib.request, "build_opener", return_value=FakeOpener()):
+            result = flow.local_draft(self.source["id"], "test-model")
+        self.assertNotEqual(self.article["id"], result["id"])
+        created = flow.read(flow.WORK / "drafts" / (result["id"] + ".json"))
+        self.assertFalse(created["citations"][0]["verified"])
+        self.assertEqual(self.article, flow.read(flow.WORK / "drafts/one-question.json"))
 
     def test_sign_verify_tampering_wrong_key_and_immutable_version(self):
         self.approve()

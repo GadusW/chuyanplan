@@ -1,1 +1,2 @@
 cryptography>=44,<51
+pypdf>=5,<7
