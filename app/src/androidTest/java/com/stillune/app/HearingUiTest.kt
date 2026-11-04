@@ -6,7 +6,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.stillune.app.health.*
-import com.stillune.app.data.Track
 import com.stillune.app.ui.*
 import org.junit.Assert.*
 import org.junit.Rule
@@ -16,12 +15,12 @@ class HearingUiTest {
     @get:Rule val compose = createComposeRule()
     @Test fun healthIsThirdDestinationAndControlsAreHonestAndOperable() {
         var settings by mutableStateOf(HearingSettings())
-        var read: String? = null
+        var read = false
         var selected by mutableIntStateOf(0)
         compose.setContent { StilluneTheme { Column {
             Box(Modifier.weight(1f)) {
                 HearingContent(settings, HearingLive(volumeStep = 4, volumeMax = 15), emptyList(), EnvironmentReading(), false,
-                    "系统音频输出", false, { settings = it(settings) }, {}, {}, {}, { read = it }, {}, {}, {})
+                    "系统音频输出", false, { settings = it(settings) }, {}, {}, {}, { read = true }, {}, {}, {})
             }
             FloatingNavigation(selected == 1, { selected = 0 }, { selected = 1 }, selected == 2, { selected = 2 })
         } } }
@@ -31,47 +30,46 @@ class HearingUiTest {
         compose.runOnIdle { assertEquals(20, settings.breakMinutes) }
         compose.onNodeWithContentDescription("提醒时自动暂停").performScrollTo().performClick().assertIsOn()
         compose.onNodeWithText("入耳声压与剂量：尚无经验证的声学校准，不显示估算值。").performScrollTo().assertExists()
-        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(AppreciationLibrary.articles.first().title))
-        compose.onNodeWithText(AppreciationLibrary.articles.first().title).performClick()
-        compose.runOnIdle { assertEquals("space", read) }
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("打开知识书架"))
+        compose.onNodeWithText("打开知识书架").performClick()
+        compose.runOnIdle { assertTrue(read) }
         compose.onAllNodesWithText("护耳", substring = false).onLast().performClick().assertIsSelected()
         compose.onNodeWithText("此刻").performClick().assertIsSelected()
         compose.onNodeWithText("乐库").performClick().assertIsSelected()
     }
-    @Test fun silentReaderClosesWithoutOfferingAutoplay() {
+    @Test fun knowledgeReaderSupportsFavoriteAndClosesWithoutAutoplay() {
         var open by mutableStateOf(true)
-        compose.setContent { StilluneTheme { if (open) AppreciationReader(AppreciationLibrary.articles.first()) { open = false } } }
-        compose.onNodeWithText("听见一张唱片里的空间").assertExists()
+        var favorite by mutableStateOf(false)
+        var finished = false
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val article = context.assets.open("knowledge/builtin.json").use {
+            KnowledgePackage.parse(it.readBytes()).first()
+        }
+        compose.setContent { StilluneTheme {
+            if (open) KnowledgeReader(article, favorite, { favorite = !favorite }, { open = false }, { finished = true; open = false })
+        } }
+        compose.onNodeWithText(article.title).assertExists()
         compose.onNodeWithContentDescription("播放").assertDoesNotExist()
-        compose.onNodeWithContentDescription("关闭音乐小札").performClick()
-        compose.runOnIdle { assertFalse(open) }
+        compose.onNodeWithContentDescription("收藏这篇").performClick()
+        compose.onNodeWithContentDescription("取消收藏").assertExists()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("读完了，歇一会儿"))
+        compose.onNodeWithText("读完了，歇一会儿").performClick()
+        compose.runOnIdle { assertTrue(finished); assertFalse(open) }
     }
 
-    @Test fun trackReadingShowsLocalLessonBeforeAnyNetworkRequest() {
-        var requested = false
-        val track = Track("content://test/1", "本地试音", fileName = "test.flac", source = "test")
-        compose.setContent {
-            StilluneTheme {
-                TrackReadingDialog(TrackReading(track, analysisLessons.first()), { requested = true }, {})
-            }
-        }
-        compose.onNodeWithText("本地试音").assertExists()
-        compose.onNodeWithText("一分钟看懂音频分析").assertExists()
-        compose.runOnIdle { assertFalse(requested) }
-        compose.onNodeWithText("查找开放乐评").performScrollTo().performClick()
-        compose.runOnIdle { assertTrue(requested) }
-    }
-
-    @Test fun chineseCatalogAndBundledTranslationNeedNoQuery() {
-        var track by mutableStateOf(Track("content://test/1", "藍蓮花", "許巍", fileName = "test.flac", source = "test"))
-        compose.setContent {
-            StilluneTheme { TrackReadingDialog(TrackReading(track, analysisLessons.first()), { fail("Unexpected query") }, {}) }
-        }
-        compose.onNodeWithText("中文曲目导读 · 栖声").assertExists()
-        compose.onNodeWithText("澎湃新闻 · 许巍访谈").assertExists()
-        compose.runOnIdle { track = track.copy(title = "Anti-Hero", artist = "Taylor Swift", album = "Midnights") }
-        compose.onNodeWithText("中文译文 · 栖声 · CC BY-SA 3.0").assertExists()
-        compose.onNodeWithText("查看原文").performScrollTo().performClick()
-        compose.onNodeWithText("Não é um álbum ruim", substring = true).assertExists()
+    @Test fun shelfFiltersReadAndFavoritesAndOffersImport() {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val articles = context.assets.open("knowledge/builtin.json").use { KnowledgePackage.parse(it.readBytes()) }
+        var imported = false
+        compose.setContent { StilluneTheme {
+            KnowledgeShelf(KnowledgeState(articles, read = setOf(articles.first().id),
+                favorites = setOf(articles[1].id), ready = true), KnowledgeImportState(),
+                {}, { imported = true }, {})
+        } }
+        compose.onNodeWithText("收藏").performClick()
+        compose.onNodeWithText(articles[1].title).assertExists()
+        compose.onNodeWithText(articles.first().title).assertDoesNotExist()
+        compose.onNodeWithText("导入知识更新").performScrollTo().performClick()
+        compose.runOnIdle { assertTrue(imported) }
     }
 }

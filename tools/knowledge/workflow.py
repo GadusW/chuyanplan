@@ -65,6 +65,8 @@ def ingest(path, title=None):
     path = Path(path).expanduser().resolve(strict=True)
     if not path.is_file() or path.suffix.lower() not in {".pdf", ".txt", ".md", ".png", ".jpg", ".jpeg"}:
         raise ValueError("请选择 PDF、TXT、Markdown 或图片")
+    if title is not None and (not title.strip() or len(title) > 300):
+        raise ValueError("资料名称需要 1–300 字")
     digest = file_hash(path)
     source_id = "src-" + digest[:16]
     folder = WORK / "sources" / source_id
@@ -108,7 +110,7 @@ def errors(article):
             issues.append(f"{name} 应为 1–{limit} 字")
     paragraphs = article.get("paragraphs")
     if not isinstance(paragraphs, list) or not 3 <= len(paragraphs) <= 8 or any(
-            not isinstance(p, str) or not p.strip() for p in paragraphs):
+            not isinstance(p, str) or not p.strip() or len(p) > 1500 for p in paragraphs):
         issues.append("正文需要 3–8 个非空段落")
     else:
         count = len(re.findall(r"[\u3400-\u9fff]", "".join(paragraphs)))
@@ -116,11 +118,11 @@ def errors(article):
             issues.append(f"正文汉字 {count}，目标 600–900")
     tags = article.get("tags")
     if not isinstance(tags, list) or not 1 <= len(tags) <= 5 or any(
-            not isinstance(t, str) or not 1 <= len(t) <= 20 for t in tags):
+            not isinstance(t, str) or not t.strip() or not 1 <= len(t) <= 20 for t in tags):
         issues.append("标签需要 1–5 个，每个 1–20 字")
     known = {s["id"] for s in sources()}
     citations = article.get("citations")
-    if not isinstance(citations, list) or not citations:
+    if not isinstance(citations, list) or not 1 <= len(citations) <= 10:
         issues.append("需要可追溯的来源")
     else:
         for citation in citations:
@@ -130,9 +132,10 @@ def errors(article):
             if citation.get("source_id") not in known:
                 issues.append("引用了未导入的来源")
             pages = citation.get("pdf_pages")
-            if not isinstance(pages, list) or not pages or any(type(p) is not int or p < 1 for p in pages):
+            if not isinstance(pages, list) or not 1 <= len(pages) <= 30 or any(type(p) is not int or not 1 <= p <= 100_000 for p in pages):
                 issues.append("请填写从 1 开始的 PDF 页码")
-            if not isinstance(citation.get("printed_pages"), str):
+            printed = citation.get("printed_pages")
+            if not isinstance(printed, str) or not printed.strip() or not 1 <= len(printed) <= 100:
                 issues.append("printed_pages 应填写书页页码或说明")
     return issues
 
@@ -215,9 +218,13 @@ def package(version):
     articles = [a for a in articles if not check(a) and approved(a)]
     if not articles:
         raise ValueError("没有已通过审核且仍与审核版本一致的文章")
+    if len(articles) > 200:
+        raise ValueError("每个知识包最多 200 篇")
     serialization, _ = crypto()
     key = serialization.load_pem_private_key((WORK / "keys/private.pem").read_bytes(), password=None)
     source_ids = {c["source_id"] for a in articles for c in a["citations"]}
+    if len(source_ids) > 200:
+        raise ValueError("每个知识包最多 200 条来源")
     verify_sources(source_ids)
     source_info = [dict(id=s["id"], title=s["title"]) for s in sources() if s["id"] in source_ids]
     payload = encoded(dict(articles=articles, sources=source_info))
@@ -240,7 +247,7 @@ def package(version):
         with destination.open("xb") as stream:
             stream.write(staging.read_bytes())
     return dict(path=str(destination), count=len(articles), sha256=file_hash(destination),
-                delivery="已生成签名知识包，手机接收端待接入")
+                delivery="已生成签名知识包，可在栖声护耳页的知识书架导入")
 
 
 def verify(path, public_key):

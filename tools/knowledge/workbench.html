@@ -39,7 +39,7 @@ button.secondary{background:#293b54;color:#d7e6f1}button:disabled{opacity:.5;cur
 <label for="note">审核记录</label><input id="note" placeholder="例如：已核对 PDF 第 54 页，同意发布这篇">
 <label><input id="confirm" type="checkbox" style="display:inline;width:auto"> 我已读完当前版本，确认通过审核</label>
 <button id="approve">通过当前版本</button></section>
-<section><h2>4　生成知识包</h2><p>只收录审核仍有效的文章。生成后的包可交给 agent 继续接入安卓端，当前手机版尚无知识包接收功能。</p>
+<section><h2>4　生成知识包</h2><p>只收录审核仍有效的文章。生成后的包可发送到手机，在栖声「护耳 → 知识书架 → 导入知识更新」选择文件。</p>
 <div class="row"><button class="secondary" id="keygen">首次建立签名密钥</button></div>
 <label for="version">知识包版本（从 1 开始，每次递增）</label><input id="version" type="number" min="1" value="1">
 <button id="package">生成签名知识包</button><div id="packs"></div><p>请离线备份 .knowledge-workspace/keys。私钥只由开发者保管。</p></section>

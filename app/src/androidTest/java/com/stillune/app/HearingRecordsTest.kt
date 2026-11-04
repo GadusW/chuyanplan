@@ -6,9 +6,7 @@ import android.content.SharedPreferences
 import androidx.room.Room
 import androidx.test.platform.app.InstrumentationRegistry
 import com.stillune.app.data.LibraryDatabase
-import com.stillune.app.data.Track
 import com.stillune.app.health.*
-import com.stillune.app.playback.PlaybackStore
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
@@ -26,19 +24,14 @@ class HearingRecordsTest {
 
     @Test fun remindersUseActualPlayingTimeAndRespectPauseMuteMasterSwitchAndCooldown() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java).build()
-        val playback = PlaybackStore()
-        val repository = HearingRepository(isolatedContext(), db, playback, Dispatchers.IO)
-        val track = Track("content://test/1", "提醒触发时的曲目", fileName = "first.flac", source = "test")
+        val repository = HearingRepository(isolatedContext(), db, Dispatchers.IO)
         val wall = System.currentTimeMillis()
         try {
             main {
-                playback.mutable.value = playback.state.value.copy(queue = listOf(track, track.copy(title = "下一首")), index = 0)
                 repository.update { it.copy(enabled = true, breakMinutes = 20, volumePercent = 60) }
                 // Forty minutes of virtual time: first 20 playing, then 20 paused.
                 for (index in 0..2400) repository.recordSample(1_000 + index * 500L, wall + index * 500L, true, 4, 15, false, true)
                 assertEquals(HearingNoticeKind.BREAK, repository.live.value.notice?.kind)
-                playback.mutable.value = playback.state.value.copy(index = 1)
-                assertEquals(track, repository.live.value.notice?.track)
                 repository.dismissNotice()
                 repository.recordSample(1_201_500, wall + 1_200_500, false, 4, 15, false, true)
                 for (index in 1..2400) repository.recordSample(1_201_500 + index * 500L, wall + 1_200_500 + index * 500L, false, 4, 15, false, true)
@@ -65,7 +58,7 @@ class HearingRecordsTest {
 
     @Test fun volumeAndEnvironmentPromptsRequireSustainedEvidenceAndNeverInventSpl() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(context, LibraryDatabase::class.java).build()
-        val repository = HearingRepository(isolatedContext(), db, PlaybackStore(), Dispatchers.IO)
+        val repository = HearingRepository(isolatedContext(), db, Dispatchers.IO)
         val wall = System.currentTimeMillis()
         try {
             main {

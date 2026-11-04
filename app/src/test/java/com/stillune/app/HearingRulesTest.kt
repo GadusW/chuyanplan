@@ -1,7 +1,6 @@
 package com.stillune.app
 
 import com.stillune.app.health.ListeningClock
-import com.stillune.app.health.AppreciationLibrary
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -38,13 +37,5 @@ class HearingRulesTest {
         assertTrue(gap.slices.isEmpty()); assertEquals(60_000L, gap.missingMs)
         clock.reset()
         assertTrue(clock.advance(ListeningClock.Sample(90_000, 90_000, true, false, false)).slices.isEmpty())
-    }
-    @Test fun editorialIsOriginalSilentContentOfThreeToFiveMinutesWithoutAudioAttachments() {
-        assertEquals(3, AppreciationLibrary.articles.size)
-        assertEquals(3, AppreciationLibrary.articles.map { it.id }.distinct().size)
-        AppreciationLibrary.articles.forEach {
-            assertTrue(it.paragraphs.sumOf { p -> p.length } >= 780)
-            assertTrue(it.minutes in 3..5)
-        }
     }
 }

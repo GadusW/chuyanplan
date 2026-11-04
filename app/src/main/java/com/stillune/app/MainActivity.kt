@@ -32,6 +32,9 @@ class MainActivity : ComponentActivity() {
         if (uri != null && target != null && persist(uri)) model.importLyrics(target, uri)
         lyricTarget = null
     }
+    private val knowledgePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(model::importKnowledge)
+    }
     private val audioPermission get() = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
     private fun hasAudioPermission() = ContextCompat.checkSelfPermission(this, audioPermission) == PackageManager.PERMISSION_GRANTED
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
@@ -82,6 +85,7 @@ class MainActivity : ComponentActivity() {
                     onFolder = { selected -> options = selected; folderPicker.launch(null) },
                     onImport = { filePicker.launch(arrayOf("*/*")) },
                     onImportLyrics = { model.playback.value.track?.let { lyricTarget = it; lyricPicker.launch(arrayOf("*/*")) } },
+                    onImportKnowledge = { knowledgePicker.launch(arrayOf("*/*")) },
                     openPlayerRequest = openPlayerRequest, openHealthRequest = openHealthRequest)
             }
         }

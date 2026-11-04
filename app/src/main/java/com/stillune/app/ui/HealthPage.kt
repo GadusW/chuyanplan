@@ -11,6 +11,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -25,8 +26,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
@@ -43,7 +42,7 @@ import java.util.Locale
 private fun Modifier.semanticsLabel(label: String) = semantics { contentDescription = label }
 
 @Composable
-internal fun HealthPage(model: LibraryViewModel, onRead: (String) -> Unit) {
+internal fun HealthPage(model: LibraryViewModel, onRead: () -> Unit) {
     val settings by model.hearing.settings.collectAsStateWithLifecycle()
     val live by model.hearing.live.collectAsStateWithLifecycle()
     val environment by model.hearing.environment.collectAsStateWithLifecycle()
@@ -78,7 +77,7 @@ internal fun HealthPage(model: LibraryViewModel, onRead: (String) -> Unit) {
         onUpdate = { model.hearing.update(it) }, onLower = model::lowerVolume,
         onEnvironment = {
             if (environment.running) context.stopService(Intent(context, EnvironmentMonitorService::class.java)) else micConsent = true
-        }, onProfile = { profileOpen = true }, onRead = { id -> model.pauseForRest(); onRead(id) },
+        }, onProfile = { profileOpen = true }, onRead = onRead,
         onDelete = { deleteOpen = true }, onInfo = { infoOpen = true }, onNotifications = {
             if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                 notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -119,7 +118,7 @@ internal fun HearingContent(
     settings: HearingSettings, live: HearingLive, records: List<HearingMinute>, environment: EnvironmentReading,
     playing: Boolean, output: String, notifications: Boolean,
     onUpdate: ((HearingSettings) -> HearingSettings) -> Unit, onLower: () -> Unit, onEnvironment: () -> Unit,
-    onProfile: () -> Unit, onRead: (String) -> Unit, onDelete: () -> Unit, onInfo: () -> Unit, onNotifications: () -> Unit,
+    onProfile: () -> Unit, onRead: () -> Unit, onDelete: () -> Unit, onInfo: () -> Unit, onNotifications: () -> Unit,
 ) {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { delay(5_000); now = System.currentTimeMillis() } }
@@ -244,14 +243,13 @@ internal fun HearingContent(
                 Spacer(Modifier.width(8.dp)); Text(if (environment.running) "停止环境监测" else "开启环境趋势")
             }
         }
-        item { HearingSectionTitle("让音乐，换一种方式留下") }
-        item { Text("暂停声音，读一段小札。全为栖声原创，不自动播放，也不自动续播。", color = Quiet, fontSize = 13.sp) }
-        items(AppreciationLibrary.articles.size) { index ->
-            val article = AppreciationLibrary.articles[index]
-            Column(Modifier.fillMaxWidth().clickable { onRead(article.id) }.padding(vertical = 12.dp)) {
-                Text(article.title, color = Moon, fontSize = 18.sp)
-                Text(article.subtitle, Modifier.padding(top = 6.dp), color = Quiet, fontSize = 12.sp)
-                Text("${if (playing) "暂停并阅读" else "静默阅读"} · 约 ${article.minutes} 分钟", Modifier.padding(top = 10.dp), color = Mist, fontSize = 12.sp)
+        item { HearingSectionTitle("三分钟，听懂一点") }
+        item {
+            Text("让双耳休息，读一个关于声音的小问题。", color = Quiet, fontSize = 13.sp)
+            OutlinedButton(onClick = onRead) {
+                Icon(Icons.AutoMirrored.Rounded.MenuBook, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("打开知识书架")
             }
         }
         item {
@@ -297,27 +295,4 @@ internal fun hearingDuration(ms: Long): String = when {
         }
     }, confirmButton = { TextButton(onClick = { onSave(name, isolation) }) { Text("保存档案") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } })
-}
-
-@Composable
-internal fun AppreciationReader(article: AppreciationArticle, onClose: () -> Unit) {
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = Night) {
-            Column(Modifier.safeDrawingPadding()) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "关闭音乐小札", tint = Moon) }
-                    Text("音乐小札", color = Quiet, fontSize = 14.sp)
-                }
-                LazyColumn(Modifier.fillMaxSize().widthIn(max = 640.dp).align(Alignment.CenterHorizontally),
-                    contentPadding = PaddingValues(28.dp, 20.dp, 28.dp, 40.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
-                    item {
-                        Text(article.title, color = Moon, fontSize = 27.sp, lineHeight = 38.sp)
-                        Text("约 ${article.minutes} 分钟 · 栖声原创 · 静默阅读", Modifier.padding(top = 12.dp), color = Mist, fontSize = 12.sp)
-                    }
-                    items(article.paragraphs.size) { Text(article.paragraphs[it], color = Color(0xFFE0E6EF), fontSize = 17.sp, lineHeight = 30.sp) }
-                    item { TextButton(onClick = onClose) { Text("读完了，继续安静一会儿") } }
-                }
-            }
-        }
-    }
 }

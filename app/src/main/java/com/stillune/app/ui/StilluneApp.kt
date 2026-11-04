@@ -47,7 +47,6 @@ import com.stillune.app.R
 import com.stillune.app.data.*
 import com.stillune.app.playback.*
 import com.stillune.app.immersion.ImmersionStyle
-import com.stillune.app.health.AppreciationLibrary
 import java.util.Calendar
 import java.util.Locale
 
@@ -57,12 +56,15 @@ fun StilluneApp(
     tracks: List<Track>, playback: PlaybackState, scan: ScanState, model: LibraryViewModel,
     onScan: (ScanOptions) -> Unit, onFolder: (ScanOptions) -> Unit, onImport: () -> Unit,
     onImportLyrics: () -> Unit = {},
+    onImportKnowledge: () -> Unit = {},
     openPlayerRequest: Int = 0,
     openHealthRequest: Int = 0,
 ) {
     var playerOpen by rememberSaveable { mutableStateOf(false) }
     var healthOpen by rememberSaveable { mutableStateOf(false) }
-    var articleId by rememberSaveable { mutableStateOf<String?>(null) }
+    var knowledgeOpen by rememberSaveable { mutableStateOf(false) }
+    val knowledge by model.knowledge.state.collectAsStateWithLifecycle()
+    val knowledgeImport by model.knowledgeImport.collectAsStateWithLifecycle()
     val reading by model.reading.collectAsStateWithLifecycle()
     val hearingLive by model.hearing.live.collectAsStateWithLifecycle()
     LaunchedEffect(openPlayerRequest) { if (openPlayerRequest > 0) { playerOpen = true; healthOpen = false } }
@@ -128,7 +130,7 @@ fun StilluneApp(
             AnimatedContent(if (healthOpen) 2 else if (playerOpen) 1 else 0, transitionSpec = {
                 (fadeIn(tween(240)) + slideInHorizontally(tween(280)) { it / 10 }) togetherWith fadeOut(tween(160))
             }, label = "library-player") { destination ->
-                if (destination == 2) HealthPage(model, onRead = { articleId = it })
+                if (destination == 2) HealthPage(model, onRead = { knowledgeOpen = true })
                 else if (destination == 1 && immersive) ImmersivePlayer(playback, artwork, ImmersionStyle.valueOf(immersionStyle),
                     onStyle = { immersionStyle = it.name }, onToggle = model::toggle,
                     onPrevious = model::previous, onNext = model::next, onSeek = model::seek, onExit = { immersive = false })
@@ -136,7 +138,7 @@ fun StilluneApp(
                     onBack = { fullScreen = false; playerOpen = false }, onFullScreen = { fullScreen = !fullScreen },
                     onImportLyrics = onImportLyrics, onImport = { importOpen = true },
                     onQueue = { queueOpen = true }, onOutput = { outputOpen = true }, onImmersion = { immersionChooser = true },
-                    onAboutTrack = { model.openReading(playback.track) })
+                    onKnowledge = { knowledgeOpen = true })
                 else LazyColumn(contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp,
                     bottom = padding.calculateBottomPadding() + 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
@@ -219,13 +221,14 @@ fun StilluneApp(
             confirmButton = { TextButton(onClick = {
                 model.pauseForRest(); model.hearing.dismissNotice()
                 immersive = false; fullScreen = false; playerOpen = false; healthOpen = true
-                model.openReading(notice.track)
+                model.openKnowledge()
             }) { Text("暂停并阅读") } }, dismissButton = { TextButton(onClick = model.hearing::dismissNotice) { Text("知道了") } })
     }
-    reading?.let { TrackReadingDialog(it, model::findReviews, model::closeReading) }
-    articleId?.let { id -> AppreciationLibrary.articles.firstOrNull { it.id == id }?.let { article ->
-        AppreciationReader(article, onClose = { articleId = null })
-    } }
+    if (knowledgeOpen) KnowledgeShelf(knowledge, knowledgeImport,
+        onRead = model::openKnowledge, onImport = onImportKnowledge, onClose = { knowledgeOpen = false })
+    reading?.let { article -> KnowledgeReader(article, article.id in knowledge.favorites,
+        onFavorite = { model.toggleKnowledgeFavorite(article.id) }, onClose = model::closeReading,
+        onFinished = { model.finishReading(article.id) }) }
     if (immersionChooser) ModalBottomSheet(onDismissRequest = { immersionChooser = false }, containerColor = Panel,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp),
