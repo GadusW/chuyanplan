@@ -7,3 +7,4 @@
 *.m4a binary
 gradlew text eol=lf
 *.bat text eol=crlf
+app/src/**/assets/knowledge/*.key binary

@@ -50,7 +50,7 @@ internal fun KnowledgeShelf(
                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     item {
                         Text("三分钟，听懂一点", color = Moon, fontSize = 27.sp, lineHeight = 38.sp)
-                        Text("一个小问题，一次从容的休息。", Modifier.padding(top = 12.dp), color = Quiet, fontSize = 14.sp)
+                        Text("每篇约 3–5 分钟，一个小问题，一次从容的休息。", Modifier.padding(top = 12.dp), color = Quiet, fontSize = 14.sp)
                         Text(if (state.version == 0L) "内置内容 · ${state.articles.size} 篇"
                             else "知识包第 ${state.version} 版 · ${state.articles.size} 篇",
                             Modifier.padding(top = 10.dp), color = Mist, fontSize = 12.sp)
@@ -88,7 +88,7 @@ internal fun KnowledgeShelf(
                         Column(Modifier.fillMaxWidth().clickable { onRead(article.id) }.padding(vertical = 8.dp)) {
                             Text(article.tags.joinToString(" · "), color = Mist, fontSize = 12.sp)
                             Text(article.title, Modifier.padding(top = 8.dp), color = Moon, fontSize = 19.sp, lineHeight = 29.sp)
-                            Text("约 3 分钟" + if (article.id in state.read) " · 已读" else "",
+                            Text("约 ${readingMinutes(article)} 分钟" + if (article.id in state.read) " · 已读" else "",
                                 Modifier.padding(top = 8.dp), color = Quiet, fontSize = 12.sp)
                             HorizontalDivider(Modifier.padding(top = 20.dp), color = Quiet.copy(alpha = .14f))
                         }
@@ -149,7 +149,7 @@ internal fun KnowledgeReader(
                     item {
                         Text(article.tags.joinToString(" · "), color = Mist, fontSize = 12.sp)
                         Text(article.title, Modifier.padding(top = 12.dp), color = Moon, fontSize = 27.sp, lineHeight = 38.sp)
-                        Text("约 3 分钟 · 静默阅读", Modifier.padding(top = 12.dp), color = Quiet, fontSize = 12.sp)
+                        Text("约 ${readingMinutes(article)} 分钟 · 静默阅读", Modifier.padding(top = 12.dp), color = Quiet, fontSize = 12.sp)
                     }
                     items(article.paragraphs) { paragraph ->
                         Text(paragraph, color = Color(0xFFE0E6EF), fontSize = if (largeText) 21.sp else 17.sp,
@@ -163,7 +163,7 @@ internal fun KnowledgeReader(
                     item {
                         Text("知识参考", color = Quiet, fontSize = 12.sp)
                         article.citations.forEach {
-                            Text("《${it.title}》 · 第 ${it.pages} 页",
+                            Text("《${it.title}》 · ${it.pages}",
                                 Modifier.padding(top = 8.dp), color = Quiet, fontSize = 12.sp, lineHeight = 20.sp)
                         }
                         Text("依据基础概念独立编写", Modifier.padding(top = 12.dp), color = Quiet, fontSize = 12.sp)
@@ -174,3 +174,6 @@ internal fun KnowledgeReader(
         }
     }
 }
+
+private fun readingMinutes(article: KnowledgeArticle): Int =
+    ((article.paragraphs.sumOf { p -> p.count { it in '\u3400'..'\u9fff' } } + 249) / 250).coerceIn(3, 5)

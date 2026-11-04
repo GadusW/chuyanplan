@@ -13,9 +13,6 @@ from urllib.parse import parse_qs, unquote, urlsplit
 import urllib.error
 import urllib.request
 
-UPLOAD_LIMIT = 80 * 1024 * 1024
-
-
 def create_server(flow, port):
     token = secrets.token_urlsafe(32)
     lock = threading.RLock()
@@ -150,14 +147,17 @@ def create_server(flow, port):
 
         def upload(self):
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= UPLOAD_LIMIT:
-                raise ValueError("请选择小于 80 MB 的资料")
+            if length <= 0:
+                raise ValueError("资料为空，或浏览器未提供文件大小")
             name = parse_qs(urlsplit(self.path).query).get("name", [""])[0]
             suffix = Path(name).suffix.lower()
-            if suffix not in {".pdf", ".txt", ".md", ".png", ".jpg", ".jpeg"}:
-                raise ValueError("请选择 PDF、TXT、Markdown 或图片")
+            if suffix not in {".pdf", ".epub", ".txt", ".md", ".png", ".jpg", ".jpeg"}:
+                raise ValueError("请选择 PDF、EPUB、TXT、Markdown 或图片")
             folder = flow.WORK / "uploads"
             folder.mkdir(parents=True, exist_ok=True)
+            if shutil.disk_usage(folder).free < length * 2 + 16 * 1024 * 1024:
+                raise ValueError("磁盘空间不足，请清理空间或使用本机文件路径导入")
+            self.connection.settimeout(120)
             with tempfile.TemporaryDirectory(dir=folder) as temp:
                 path = Path(temp) / ("upload" + suffix)
                 remaining = length
@@ -207,6 +207,26 @@ def create_server(flow, port):
             if route == "/approve":
                 guard_revision(data["id"], data.get("revision"))
                 return flow.approve(data["id"], data["reviewer"], data["note"])
+            if route == "/approve-batch":
+                rows = data.get("articles")
+                if not isinstance(rows, list) or not 1 <= len(rows) <= 200:
+                    raise ValueError("请选择待审核文章")
+                if not data.get("reviewer", "").strip() or not data.get("note", "").strip():
+                    raise ValueError("请填写审核人和批次批准依据")
+                ids = set()
+                for row in rows:
+                    path = guard_revision(row["id"], row.get("revision"))
+                    if row["id"] in ids:
+                        raise ValueError("批次含重复文章")
+                    ids.add(row["id"])
+                    issues = flow.check(flow.read(path))
+                    if issues:
+                        raise ValueError(row["id"] + "：" + "；".join(issues))
+                for row in rows:
+                    flow.verify_sources({c["source_id"] for c in flow.read(flow.WORK / "drafts" / (row["id"] + ".json"))["citations"]})
+                for row in rows:
+                    flow.approve(row["id"], data["reviewer"], data["note"])
+                return dict(count=len(rows))
             if route == "/draft-new":
                 article = flow.template(data["source_id"], "draft-" + secrets.token_hex(4))
                 flow.save(article)
@@ -241,6 +261,17 @@ def create_server(flow, port):
                 return dict(message="知识笔记已保存")
             if route == "/extract":
                 record, path = source_record(data["id"])
+                if path.suffix.lower() == ".epub":
+                    start, end = data.get("start"), data.get("end")
+                    if type(start) is not int or type(end) is not int or not 1 <= start <= end <= start + 9:
+                        raise ValueError("每次选择 1–10 个 EPUB 阅读序号，从 1 开始")
+                    sections = flow.epub_sections(path)
+                    if end > len(sections):
+                        raise ValueError(f"这份 EPUB 共有 {len(sections)} 个阅读序号")
+                    text = "\n\n".join(f"EPUB 阅读序号 {s['index']} · {s['file']}\n{s['text']}" for s in sections[start-1:end])
+                    if len(text) > 16_000:
+                        raise ValueError("所选章节超过笔记长度，请交给 agent 分段读取，或减少选择范围")
+                    return dict(text=text, message="已读取 EPUB，请在出处中记录阅读序号和章节标题")
                 if path.suffix.lower() in {".txt", ".md"}:
                     return dict(text=path.read_text(encoding="utf-8")[:16_000], message="已读取文字，请核对后保存为笔记")
                 if path.suffix.lower() != ".pdf":
@@ -265,7 +296,7 @@ def create_server(flow, port):
                 record, _ = source_record(data["id"])
                 path = flow.WORK / "tasks" / (record["id"] + ".md")
                 text = path.read_text(encoding="utf-8") if path.exists() else ""
-                return dict(text=text + "\n请读取项目技能。保存草稿后由开发者在工作台审核，保留来源页码。")
+                return dict(text=text + "\n篇数无两篇／三篇的固定限制。先按独立主题列选题，按清单分批完成并记录进度。每篇 600–1200 汉字，约 3–5 分钟；不要按原书结构重建整本书。\n请读取项目技能。保存全部草稿后由开发者在工作台审核；若本次用户明确授权免逐篇审核，记录该授权而不是声称用户亲自读过。保留 PDF 页码或 EPUB 章节定位。")
             if route == "/archive":
                 path = guard_revision(data["id"], data.get("revision"))
                 target = flow.WORK / "archive" / (path.stem + "-" + secrets.token_hex(4) + ".json")

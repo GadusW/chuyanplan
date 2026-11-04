@@ -143,10 +143,44 @@ def main():
                 page.locator("#model").select_option("test-model")
                 page.locator("#generate").click()
                 expect(page.locator("#title")).to_have_value("本地模型队列测试", timeout=10_000)
+                batch_files = []
+                for i in range(4):
+                    article = dict(imported, id="batch-"+str(i), title="批量文章"+str(i))
+                    article["citations"] = [dict(source_id=source["id"],pdf_pages=[1],printed_pages="测试页",verified=True)]
+                    path = flow.ROOT / ("batch-"+str(i)+".json")
+                    path.write_text(json.dumps(article,ensure_ascii=False),encoding="utf-8")
+                    batch_files.append(path)
+                page.locator("#draft-file").set_input_files(batch_files)
+                expect(page.locator("#message")).to_contain_text("已导入 4 篇")
+                page.locator("#select-pending").click()
+                page.locator("#batch-review").click()
+                expect(page.locator("#batch-titles")).to_contain_text("批量文章3")
+                page.locator("#batch-reviewer").fill("测试批次审核")
+                page.locator("#batch-note").fill("临时数据的批量验证")
+                page.locator("#batch-confirm").check()
+                page.locator("#batch-approve").click()
+                expect(page.locator("#message")).to_contain_text("已通过")
+                assert sum(r["approved"] for r in flow.status()["articles"]) >= 4
+                page.locator("#package").click()
+                expect(page.locator("#packs")).to_contain_text("stillune-knowledge-2.zip")
+                assert flow.verify(flow.ROOT / "output/knowledge/stillune-knowledge-2.zip", flow.WORK / "keys/public.pem")["count"] >= 4
+                assert flow.status()["packs"][0]["version"] == 2
+                expect(page.locator("#packs .item").first).to_contain_text("最新生成")
+                large = flow.ROOT / "超过旧上限.txt"
+                page.unroute("**/models")
+                with large.open("wb") as stream:
+                    for _ in range(81):
+                        stream.write(b"x" * 1024 * 1024)
+                extra = flow.ROOT / "第二份资料.txt"
+                extra.write_text("批量导入的第二份测试资料",encoding="utf-8")
+                page.locator("#upload").set_input_files([large, extra])
+                expect(page.locator("#message")).to_contain_text("已导入 2/2",timeout=60_000)
+                assert len(flow.sources()) == 3
                 assert not failures, failures
                 browser.close()
                 print("Browser workflow passed: upload, source/task, notes, create/edit/preview, dirty refresh, review,")
                 print("sign/download/verify, concurrent edit guard, archive/restore, JSON import, damaged draft isolation, model queue.")
+                print("Also passed: multi-file source upload (81 MiB), four JSON files, batch approval and multi-article signed package.")
         finally:
             server.shutdown()
             server.server_close()

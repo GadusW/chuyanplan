@@ -111,7 +111,7 @@ internal object KnowledgePackage {
             require(id.matches(key) && ids.add(key)) { "文章 ID 重复或不正确" }
             val paragraphs = strings(row.getJSONArray("paragraphs"), 3, 8, 1500)
             val hanCount = paragraphs.sumOf { paragraph -> paragraph.count { it in '\u3400'..'\u9fff' } }
-            require(hanCount in 600..900) { "文章长度不符合三分钟阅读规范" }
+            require(hanCount in 600..1200) { "文章长度不符合三至五分钟阅读规范" }
             val refs = row.getJSONArray("citations")
             require(refs.length() in 1..10) { "文章缺少来源" }
             val citations = (0 until refs.length()).map {
@@ -167,12 +167,16 @@ class KnowledgeLibrary private constructor(
 
     private suspend fun load() = lock.withLock {
         val base = context.assets.open("knowledge/builtin.json").use { KnowledgePackage.parse(KnowledgePackage.readLimited(it)) }
+        val baseVersion = context.assets.open("knowledge/builtin-version.json").use {
+            JSONObject(it.readBytes().toString(Charsets.UTF_8)).getLong("version")
+        }
         var notice: String? = null
         val installed = try {
             file.openRead().use { KnowledgePackage.verify(KnowledgePackage.readLimited(it), publicKey) }
         } catch (_: java.io.FileNotFoundException) { null }
         catch (_: Exception) { notice = "上次导入的知识包不可用，已显示内置内容"; null }
-        _state.value = KnowledgeState(installed?.articles ?: base, installed?.version ?: 0,
+        val current = installed?.takeIf { it.version > baseVersion }
+        _state.value = KnowledgeState(current?.articles ?: base, current?.version ?: baseVersion,
             prefs.getStringSet("read", emptySet()).orEmpty().toSet(),
             prefs.getStringSet("favorites", emptySet()).orEmpty().toSet(), true, notice)
     }

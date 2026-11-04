@@ -15,6 +15,9 @@ from datetime import datetime, timezone
 import urllib.request
 import webbrowser
 import zipfile
+import xml.etree.ElementTree as ET
+from urllib.parse import unquote
+import posixpath
 
 ROOT = Path(__file__).resolve().parents[2]
 WORK = ROOT / ".knowledge-workspace"
@@ -72,8 +75,8 @@ def sources():
 
 def ingest(path, title=None):
     path = Path(str(path).strip().strip('"')).expanduser().resolve(strict=True)
-    if not path.is_file() or path.suffix.lower() not in {".pdf", ".txt", ".md", ".png", ".jpg", ".jpeg"}:
-        raise ValueError("请选择 PDF、TXT、Markdown 或图片")
+    if not path.is_file() or path.suffix.lower() not in {".pdf", ".epub", ".txt", ".md", ".png", ".jpg", ".jpeg"}:
+        raise ValueError("请选择 PDF、EPUB、TXT、Markdown 或图片")
     if title is not None and (not title.strip() or len(title) > 300):
         raise ValueError("资料名称需要 1–300 字")
     digest = file_hash(path)
@@ -93,7 +96,9 @@ def ingest(path, title=None):
         f"# 待处理资料 {source_id}\n\n标题 {metadata['title']}\n\n"
         f"原件 {destination}\n\n"
         "请读取 skills/stillune-knowledge/SKILL.md，先核对目录和原页，提出独立选题，"
-        "生成三分钟阅读草稿。使用当前 agent 即可，无需付费 API。"
+        "生成独立的三至五分钟阅读文段。篇数不设两篇或三篇等固定配额，按内容关联和独立主题确定选题；"
+        "先列选题清单，再分批持续完成清单，不要生成少数样稿就停止。任务过长时记录已完成和未完成项目，便于继续。"
+        "不按原书章节重建全书，采用原创解释和生活例子。使用当前 agent 即可，无需付费 API。"
         "逐篇记录参考页码，校验后交给开发者审核。\n", encoding="utf-8")
     return metadata
 
@@ -105,6 +110,29 @@ def template(source_id, article_id):
     return dict(id=ident(article_id), title="请填写独立问题", paragraphs=["请填写正文"] * 3,
                 takeaway="请填写一句收尾", tags=["声音基础"],
                 citations=[dict(source_id=source_id, pdf_pages=[], printed_pages="", verified=False)])
+
+
+def epub_sections(path):
+    """Reading order, not arbitrary ZIP entry order. No extraction or external requests."""
+    with zipfile.ZipFile(path) as archive:
+        def xml(name):
+            if archive.getinfo(name).file_size > 16_000_000:
+                raise ValueError("EPUB 单节内容过大，请交给 agent 分段读取")
+            return ET.fromstring(archive.read(name))
+        container = xml("META-INF/container.xml")
+        package = next(e.attrib["full-path"] for e in container.iter() if e.tag.rsplit("}", 1)[-1] == "rootfile")
+        root = xml(package)
+        manifest = {e.attrib["id"]: e.attrib["href"] for e in root.iter() if e.tag.rsplit("}", 1)[-1] == "item"}
+        result = []
+        for entry in root.iter():
+            if entry.tag.rsplit("}", 1)[-1] != "itemref":
+                continue
+            href = unquote(manifest[entry.attrib["idref"]].split("#", 1)[0])
+            name = posixpath.normpath(posixpath.join(posixpath.dirname(package), href))
+            document = xml(name)
+            text = "\n".join(t.strip() for t in document.itertext() if t.strip())
+            result.append(dict(index=len(result)+1, file=name, text=text))
+        return result
 
 
 def errors(article):
@@ -123,8 +151,8 @@ def errors(article):
         issues.append("正文需要 3–8 个非空段落")
     else:
         count = len(re.findall(r"[\u3400-\u9fff]", "".join(paragraphs)))
-        if not 600 <= count <= 900:
-            issues.append(f"正文汉字 {count}，目标 600–900")
+        if not 600 <= count <= 1200:
+            issues.append(f"正文汉字 {count}，目标 600–1200（约 3–5 分钟）")
     tags = article.get("tags")
     if not isinstance(tags, list) or not 1 <= len(tags) <= 5 or any(
             not isinstance(t, str) or not t.strip() or not 1 <= len(t) <= 20 for t in tags):
@@ -142,7 +170,7 @@ def errors(article):
                 issues.append("引用了未导入的来源")
             pages = citation.get("pdf_pages")
             if not isinstance(pages, list) or not 1 <= len(pages) <= 30 or any(type(p) is not int or not 1 <= p <= 100_000 for p in pages):
-                issues.append("请填写从 1 开始的 PDF 页码")
+                issues.append("请填写从 1 开始的定位序号（PDF 页或 EPUB 阅读序号）")
             printed = citation.get("printed_pages")
             if not isinstance(printed, str) or not printed.strip() or not 1 <= len(printed) <= 100:
                 issues.append("printed_pages 应填写书页页码或说明")
@@ -326,6 +354,19 @@ def verify(path, public_key):
     return metadata
 
 
+def package_info(path):
+    result = dict(name=path.name, size=path.stat().st_size)
+    try:
+        with zipfile.ZipFile(path) as archive:
+            if archive.getinfo("manifest.json").file_size > 65536:
+                return result
+            metadata = json.loads(archive.read("manifest.json"))
+            result.update(version=metadata.get("version"), count=metadata.get("count"))
+    except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+        pass
+    return result
+
+
 def status():
     rows, issues = [], []
     for path in sorted((WORK / "drafts").glob("*.json")):
@@ -344,7 +385,8 @@ def status():
     source_paths = list((WORK / "sources").glob("*/source.json"))
     if len(source_paths) != len(valid_sources):
         issues.append("部分来源记录损坏，请让 agent 检查 sources 下的 source.json")
-    packs = sorted((ROOT / "output/knowledge").glob("stillune-knowledge-*.zip"))
+    packs = sorted((ROOT / "output/knowledge").glob("stillune-knowledge-*.zip"),
+                   key=lambda p: int(p.stem.rsplit("-", 1)[1]) if p.stem.rsplit("-", 1)[1].isdigit() else -1, reverse=True)
     versions = [int(p.stem.rsplit("-", 1)[1]) for p in packs if p.stem.rsplit("-", 1)[1].isdigit()]
     signing = dict(ready=False, message="尚未建立签名密钥")
     has_key = (WORK / "keys/private.pem").exists() or (WORK / "keys/public.pem").exists()
@@ -369,7 +411,7 @@ def status():
         except (ValueError, OSError, AttributeError):
             issues.append("归档文件无法读取 " + path.name)
     return dict(sources=valid_sources, articles=rows, issues=issues,
-                packs=[dict(name=p.name, size=p.stat().st_size) for p in packs],
+                packs=[package_info(p) for p in packs],
                 next_version=max(versions, default=0) + 1, has_key=has_key,
                 signing=signing, archives=archives)
 

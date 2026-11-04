@@ -1,0 +1,17 @@
+{
+  "version": "0.15.0",
+  "date": "2026-11-04",
+  "catalog": {"articles": 28, "sources": 8, "hanCountMin": 638, "hanCountMax": 822, "baselineVersion": 2},
+  "authorization": "Developer explicitly requested this batch be rewritten and embedded without per-article review; records distinguish delegated execution from personal review.",
+  "sourceReview": "Selected PDF pages inspected through text extraction or local OCR with visual checks; EPUB content read in spine order. Not a complete reading or reconstruction of all eight books.",
+  "unitTests": {"passed": 34, "failed": 0},
+  "deviceTests": {"passed": 8, "failed": 0, "platform": "Android API 36 emulator", "classes": ["KnowledgeLibraryTest", "GettingStartedUiTest", "HearingUiTest"]},
+  "lint": {"errors": 0, "warnings": 38},
+  "workbench": {
+    "coreTestsPassed": 8,
+    "browser": "Microsoft Edge with isolated test workspace",
+    "verified": ["multi-file source upload including actual 81 MiB text file", "four JSON files imported together", "batch approval", "multiple approved articles in one signed ZIP", "EPUB reading-order extraction", "3–5 minute length acceptance", "existing full workflow regression", "live 28-article catalog and unrestricted task text", "390px layout without horizontal overflow"]
+  },
+  "migration": "Bundled edition 2 supersedes imported edition 1; valid editions newer than the bundled baseline remain preferred. Legacy drafts and approval receipts backed up locally before archive.",
+  "limits": ["Reading time is an estimate and varies by reader", "Technical package limits of 200 articles and 2 MB remain distinct from unlimited original-source upload", "Manual transfer/import of knowledge ZIP remains necessary for content-only updates", "Physical-device usability remains to be checked"]
+}

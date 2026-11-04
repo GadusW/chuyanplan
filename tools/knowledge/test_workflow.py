@@ -44,6 +44,21 @@ class KnowledgeWorkflowTest(unittest.TestCase):
         task = flow.WORK / "tasks" / (self.source["id"] + ".md")
         self.assertIn("skills/stillune-knowledge/SKILL.md", task.read_text(encoding="utf-8"))
         self.assertEqual([], flow.check(self.article))
+        self.assertIn("篇数不设", task.read_text(encoding="utf-8"))
+
+    def test_longer_reading_and_epub_spine_are_supported(self):
+        article = copy.deepcopy(self.article)
+        article["paragraphs"] = ["声学知识" * 90] * 3
+        self.assertEqual([], flow.check(article))
+        epub = flow.ROOT / "test.epub"
+        with zipfile.ZipFile(epub, "w") as archive:
+            archive.writestr("META-INF/container.xml", '<container><rootfiles><rootfile full-path="OPS/book.opf"/></rootfiles></container>')
+            archive.writestr("OPS/book.opf", '<package><manifest><item id="b" href="b.xhtml"/><item id="a" href="a.xhtml"/></manifest><spine><itemref idref="a"/><itemref idref="b"/></spine></package>')
+            archive.writestr("OPS/a.xhtml", '<html><body><p>第一节</p></body></html>')
+            archive.writestr("OPS/b.xhtml", '<html><body><p>第二节</p></body></html>')
+        source = flow.ingest(epub, "EPUB 测试")
+        sections = flow.epub_sections(flow.WORK / source["file"])
+        self.assertEqual(["第一节", "第二节"], [s["text"] for s in sections])
 
     def test_unverified_and_unapproved_drafts_cannot_be_published(self):
         self.article["citations"][0]["verified"] = False

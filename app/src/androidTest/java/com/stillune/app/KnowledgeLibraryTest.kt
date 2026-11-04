@@ -29,7 +29,7 @@ class KnowledgeLibraryTest {
     @Test fun builtinArticlesAreIndependentLengthCheckedAndRandomSelectionAvoidsEarlyRepeats() = runBlocking {
         val library = KnowledgeLibrary(testContext(), Dispatchers.IO)
         val state = withTimeout(5_000) { library.state.first { it.ready } }
-        assertEquals(6, state.articles.size)
+        assertEquals(28, state.articles.size)
         assertTrue(state.articles.all { it.citations.isNotEmpty() })
         val selected = (1..6).map { library.choose().id }
         assertEquals(6, selected.toSet().size)
@@ -76,12 +76,26 @@ class KnowledgeLibraryTest {
             library.install(invalid)
             fail("Invalid edition was accepted")
         } catch (_: Exception) { }
-        assertEquals(1L, library.state.value.version)
+        assertEquals(3L, library.state.value.version)
         library.install(fixture("edition-2.zip"))
         assertEquals(1, library.state.value.articles.size)
         val reopened = KnowledgeLibrary(isolated, Dispatchers.IO, key, Unit)
         val state = withTimeout(5_000) { reopened.state.first { it.ready } }
-        assertEquals(2L, state.version)
+        assertEquals(4L, state.version)
         assertTrue(first.id in state.read && first.id in state.favorites)
+    }
+
+    @Test fun updatedBuiltinReplacesPreviouslyImportedOlderCatalog() = runBlocking {
+        val isolated = testContext()
+        File(isolated.filesDir, "knowledge-edition.zip").writeBytes(fixture("edition-legacy.zip"))
+        val library = KnowledgeLibrary(isolated, Dispatchers.IO, fixture("test-publisher.key"), Unit)
+        val state = withTimeout(5_000) { library.state.first { it.ready } }
+        assertEquals(2L, state.version)
+        assertEquals(28, state.articles.size)
+        assertFalse(state.articles.any { it.id == "air-and-sound" })
+        try {
+            library.install(fixture("edition-legacy.zip"))
+            fail("Older content replaced the new builtin catalog")
+        } catch (_: IllegalArgumentException) { }
     }
 }

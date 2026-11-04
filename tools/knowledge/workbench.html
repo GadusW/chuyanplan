@@ -38,13 +38,14 @@ dialog::backdrop{background:#07101ccc}.preview{white-space:pre-wrap;line-height:
 <div class="layout">
 <aside>
 <section><h2>参考资料</h2>
-<label for="upload">选择 PDF、文字或图片，最多 80 MB</label><input id="upload" type="file" accept=".pdf,.txt,.md,.png,.jpg,.jpeg">
+<label for="upload">批量选择 PDF、EPUB、文字或图片，无固定大小上限</label><input id="upload" type="file" multiple accept=".pdf,.epub,.txt,.md,.png,.jpg,.jpeg">
 <details><summary>使用本机文件路径导入</summary>
 <label>完整路径<input id="path"></label><label>资料名称（选填）<input id="source-title"></label><button id="import" class="secondary">导入路径</button>
 </details><div id="sources"></div></section>
 <section><h2>草稿</h2><label>搜索标题<input id="search"></label>
 <label>显示范围<select id="filter"><option value="all">全部草稿</option><option value="pending">待审核</option><option value="approved">已审核</option></select></label>
-<label>导入 agent 生成的 JSON<input id="draft-file" type="file" accept=".json"></label>
+<label>批量导入 agent 的 JSON（可多选，每个可含多篇）<input id="draft-file" type="file" multiple accept=".json"></label>
+<div class="row"><button id="select-pending" class="secondary">勾选可审核文章</button><button id="batch-review" class="secondary">批量审核</button></div>
 <div id="articles"></div><details><summary>已归档草稿</summary><div id="archives"></div></details></section>
 </aside>
 <div>
@@ -54,12 +55,12 @@ dialog::backdrop{background:#07101ccc}.preview{white-space:pre-wrap;line-height:
 <button id="task">给 agent 的任务</button><button id="new-draft" class="secondary">新建草稿</button>
 <details><summary>自己整理笔记 / 使用本地模型（选用）</summary>
 <h3>知识笔记</h3><p>保存已核对的知识点，再交给 agent 或本地模型改写。扫描 PDF 可打开原件，交给 agent 识别。</p>
-<div class="row"><label>PDF 起始页<input id="start" type="number" min="1" value="1"></label><label>结束页<input id="end" type="number" min="1" value="1"></label><button id="extract" class="secondary">提取文字</button></div>
+<div class="row"><label>PDF 起始页 / EPUB 阅读序号<input id="start" type="number" min="1" value="1"></label><label>结束序号<input id="end" type="number" min="1" value="1"></label><button id="extract" class="secondary">提取文字</button></div>
 <label>笔记与待转化内容<textarea id="notes"></textarea></label><button id="save-notes">保存笔记</button>
 <h3>用本机模型生成</h3><button id="models" class="secondary">检测本地模型</button>
 <p id="model-status" class="muted">也可以直接把任务交给你当前使用的 agent。</p>
 <label>已安装的 Ollama 模型<select id="model"><option value="">请先检测</option></select></label>
-<button id="generate" disabled>生成三分钟草稿</button><p id="generation" class="muted"></p>
+<button id="generate" disabled>生成 3–5 分钟草稿</button><p id="generation" class="muted"></p>
 </details>
 </section>
 <section id="article-panel" hidden>
@@ -85,6 +86,7 @@ dialog::backdrop{background:#07101ccc}.preview{white-space:pre-wrap;line-height:
 </div></div>
 <dialog id="task-dialog"><h2>交给 agent 的任务</h2><textarea id="task-text" style="min-height:300px" readonly></textarea><button id="copy-task">复制任务</button><button id="close-task" class="secondary">关闭</button></dialog>
 <dialog id="preview-dialog"><h2>阅读预览</h2><div id="preview" class="preview"></div><button id="close-preview" class="secondary">返回编辑</button></dialog>
+<dialog id="batch-dialog"><h2>审核选中的文章</h2><p id="batch-titles" class="preview"></p><label>审核人<input id="batch-reviewer"></label><label>共同审核记录<input id="batch-note"></label><label><input type="checkbox" id="batch-confirm">我已核对上述各篇当前版本，同意收录到知识包</label><p>任一文章缺少核验或已被修改，整批会停止。通过后一次生成包含全部已审核文章的知识包。</p><p id="batch-error" role="alert"></p><button id="batch-approve">确认通过本批次</button><button id="batch-close" class="secondary">返回</button></dialog>
 <dialog id="help-dialog"><h2>第一次，先读一篇现有草稿</h2><p>不用先导入教材，也不用配置模型。点击“打开一篇草稿”，然后“预览阅读”，就能看到用户将读到的内容。</p><ol><li>想改内容：直接编辑标题、正文，点“保存修改”。</li><li>确认内容与出处：对照原页核验，填审核人和记录，再点“通过审核”。</li><li>想放到手机：生成知识包 → 下载 ZIP → 手机知识书架导入。</li></ol><p>以后补充资料：导入文件 → 整理资料 → 给 agent 的任务。agent 就是你现在使用的 AI 助手；复制任务发给它即可。没有草稿时从导入资料开始。</p><button id="help-start">打开一篇草稿</button><button id="close-help" class="secondary">我自己看看</button></dialog>
 </main>
 <script>
@@ -93,6 +95,8 @@ const el = id => document.getElementById(id);
 let state, current, selectedSource, revision, activeView;
 let dirty = false, notesDirty = false;
 const busy = new Set();
+const selected = new Set();
+let batchRows = [];
 
 function tell(message, error = false) {
     el("message").textContent = message;
@@ -110,7 +114,7 @@ async function api(path, data = {}) {
     return value;
 }
 async function run(action) {
-    try { await action(); } catch (error) { tell(error.message, true); }
+    try { await action(); } catch (error) { tell(error.message, true); if (el("batch-dialog").open) el("batch-error").textContent = error.message; }
 }
 function actions() {
     for (const id of ["refresh","import","save","approve","package","keygen","extract","generate","save-notes","models","new-draft","task","archive"]) {
@@ -189,8 +193,8 @@ function citationRow(citation = {}) {
     source.value = citation.source_id || state.sources[0]?.id || "";
     label.append(source); box.append(label);
     for (const [name, title, value] of [
-        ["ref-pages","PDF 页码，例如 54,55",(citation.pdf_pages || []).join(",")],
-        ["ref-printed","书上印刷页码，例如 46–47 或无页码",citation.printed_pages || ""]
+        ["ref-pages","定位序号：PDF 页 / EPUB spine，例如 54,55",(citation.pdf_pages || []).join(",")],
+        ["ref-printed","定位说明：书页 46–47 / EPUB 章节标题",citation.printed_pages || ""]
     ]) {
         const wrapper = document.createElement("label"); wrapper.textContent = title;
         const input = document.createElement("input"); input.className = name; input.value = value; wrapper.append(input); box.append(wrapper);
@@ -212,7 +216,7 @@ function articleFromForm() {
 }
 function changed() {
     dirty = true; el("confirm").checked = false;
-    el("count").textContent = "正文 " + ((el("body").value.match(/[\u3400-\u9fff]/g) || []).length) + " 个汉字 · 目标 600–900";
+    el("count").textContent = "正文 " + ((el("body").value.match(/[\u3400-\u9fff]/g) || []).length) + " 个汉字 · 目标 600–1200，约 3–5 分钟";
     actions();
 }
 function display(row) {
@@ -235,7 +239,14 @@ function renderLists() {
     const rows = state.articles.filter(row => (row.article.title || "").includes(query) && (filter === "all" || (filter === "approved" ? row.approved : !row.approved)));
     for (const row of rows) {
         const text = row.approved ? "已审核" : row.errors.length ? "待处理 · " + row.errors.length + " 项" : "待审核";
-        item(el("articles"),row.article.title || row.article.id,text).append(button("编辑",async () => {
+        const node = item(el("articles"),row.article.title || row.article.id,text);
+        if (!row.approved && !row.errors.length) {
+            const label = document.createElement("label"), check = document.createElement("input");
+            check.type = "checkbox"; check.checked = selected.has(row.article.id);
+            check.onchange = () => check.checked ? selected.add(row.article.id) : selected.delete(row.article.id);
+            label.append(check,document.createTextNode("加入批量审核")); node.append(label);
+        }
+        node.append(button("编辑",async () => {
             if (!canLeave()) return;
             dirty = false; notesDirty = false; display(row);
         }));
@@ -249,8 +260,9 @@ function renderLists() {
         }));
     }
     el("packs").replaceChildren();
-    for (const pack of state.packs) {
-        const node = item(el("packs"),pack.name,(pack.size / 1024).toFixed(1) + " KB");
+    for (const [index, pack] of state.packs.entries()) {
+        const description = (index === 0 ? "最新生成 · " : "历史版本 · ") + (Number.isInteger(pack.count) ? pack.count + " 篇 · " : "") + (pack.size / 1024).toFixed(1) + " KB";
+        const node = item(el("packs"),pack.name,description);
         const link = document.createElement("a"); link.className = "button secondary";
         link.href = "/download/" + encodeURIComponent(pack.name) + "?token=" + token; link.textContent = "下载知识包"; node.append(link);
     }
@@ -286,20 +298,30 @@ bind("import",async () => {
     await refresh(); tell("资料已导入，可点击“整理资料”。");
 });
 el("upload").addEventListener("change",() => run(async () => {
-    const file = el("upload").files[0]; if (!file) return;
-    if (file.size > 80 * 1024 * 1024) throw new Error("请选择小于 80 MB 的资料。");
-    el("upload").disabled = true; tell("正在导入 " + file.name + "…");
+    const files = [...el("upload").files]; if (!files.length) return;
+    el("upload").disabled = true;
+    const failures = []; let done = 0;
     try {
+      for (const file of files) {
+        tell("正在导入 " + (done + failures.length + 1) + "/" + files.length + "：" + file.name + "…");
+        try {
         const response = await fetch("/upload?name=" + encodeURIComponent(file.name),{method:"POST",headers:{"X-Workbench-Token":token},body:file});
         const result = await response.json(); if (!response.ok) throw new Error(result.error);
-        await refresh(); tell("资料已导入，可点击“整理资料”。");
+        done++;
+        } catch (error) { failures.push(file.name + "：" + error.message); }
+      }
+      await refresh(); tell("已导入 " + done + "/" + files.length + " 份资料。可点击“整理资料”。" + (failures.length ? "\n未完成：\n" + failures.join("\n") : ""),!!failures.length);
     } finally { el("upload").disabled = false; el("upload").value = ""; }
 }));
 el("draft-file").addEventListener("change",() => run(async () => {
-    const file = el("draft-file").files[0]; if (!file || !canLeave()) return;
-    if (file.size > 2_000_000) throw new Error("草稿 JSON 需小于 2 MB。");
+    const files = [...el("draft-file").files]; if (!files.length || !canLeave()) return;
     try {
-        const result = await api("/draft-import",{payload:JSON.parse(await file.text())});
+        const rows = [];
+        for (const file of files) {
+            if (file.size > 2_000_000) throw new Error("单个草稿 JSON 需小于 2 MB。");
+            const payload = JSON.parse(await file.text()); rows.push(...(Array.isArray(payload) ? payload : payload.articles || [payload]));
+        }
+        const result = await api("/draft-import",{payload:rows});
         dirty = false; notesDirty = false; await refresh(); selectArticle(result.id); tell("已导入 " + result.count + " 篇草稿，请核验并审核。");
     } finally { el("draft-file").value = ""; }
 }));
@@ -371,6 +393,21 @@ for (const id of ["title","body","takeaway","tags"]) el(id).addEventListener("in
 el("notes").addEventListener("input",() => { notesDirty = true; actions(); });
 el("confirm").addEventListener("change",actions); el("model").addEventListener("change",actions);
 for (const id of ["reviewer","note"]) el(id).addEventListener("input",actions);
+bind("select-pending",async () => { for (const row of state.articles) if (!row.approved && !row.errors.length) selected.add(row.article.id); renderLists(); tell("已勾选可审核文章，点击“批量审核”核对本批次。"); });
+bind("batch-review",async () => {
+    if (dirty) throw new Error("请先保存当前文章修改，再批量审核。");
+    batchRows = state.articles.filter(row => selected.has(row.article.id) && !row.approved && !row.errors.length);
+    if (!batchRows.length) throw new Error("请先勾选待审核文章，或点击“勾选可审核文章”。");
+    el("batch-titles").textContent = batchRows.map(row => row.article.title).join("\n");
+    el("batch-reviewer").value = localStorage.getItem("stillune-reviewer") || "";
+    el("batch-confirm").checked = false; el("batch-error").textContent = ""; el("batch-dialog").showModal();
+});
+bind("batch-approve",async () => {
+    if (!el("batch-confirm").checked) throw new Error("请先核对并勾选批次确认。");
+    const result = await api("/approve-batch",{articles:batchRows.map(row => ({id:row.article.id,revision:row.revision})),reviewer:el("batch-reviewer").value,note:el("batch-note").value});
+    selected.clear(); el("batch-dialog").close(); await refresh(); tell("本批次 " + result.count + " 篇已通过，可一次生成完整知识包。");
+});
+el("batch-close").onclick = () => el("batch-dialog").close();
 bind("help",async () => el("help-dialog").showModal());
 el("close-help").onclick = () => el("help-dialog").close();
 bind("help-start",async () => {

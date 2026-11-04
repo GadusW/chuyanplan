@@ -10,19 +10,27 @@
 
 栖声 · Stillune 是一个面向 **Android** 的本地音乐播放器项目，致力于将高品质播放、声音分析、从容的聆听体验与听力关怀融为一体。让珍藏的音乐长久相伴，也让双耳适时休憩。
 
-目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.14.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
+目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.15.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
 
 ## 下载安装
 
 开发者知识制作入口见 [零基础使用说明](docs/knowledge-workflow/使用说明.md)。可在电脑上选择文件导入、查看原件与整理笔记、用表单改稿、跨 agent 制作、审核并下载签名知识包。支持检测本机模型和后台生成任务。手机版从 0.13.0 起支持在知识书架导入签名知识包。
 
-当前提供 **0.14.0 开发预览版（调试签名）**：
+当前提供 **0.15.0 开发预览版（调试签名）**：
 
-- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.14.0/Stillune-0.14.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
-- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.14.0/Stillune-0.14.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
-- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.14.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
+- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.15.0/Stillune-0.15.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
+- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.15.0/Stillune-0.15.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
+- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.15.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
 
 最低 Android 8.0。后续推送会同步对应版本的安装包至 [GitHub Releases](https://github.com/GadusW/chuyanplan/releases)。
+
+## 0.15.0 更新 · 批量制作与新阅读库
+
+- 替换旧 6 篇内置样稿，内置 28 篇独立原创讲解，依据 8 本资料的选定基础概念与章节编写，覆盖声学、耳机、音乐要素、爵士／摇滚、录音与音乐社会背景。正文 638–822 个汉字，估计约 3–4 分钟；规范允许 600–1200 字、约 3–5 分钟。每篇标注 PDF 或 EPUB 定位，非全书摘要或完整改写。见[内置阅读目录](docs/knowledge-workflow/内置阅读目录.md)。
+- 工作台取消原始资料 80 MB 固定上限，支持多文件选择、流式上传与 EPUB 导入／按阅读顺序提取；不取消磁盘空间与内容包解压大小校验。
+- 工作台将最新知识包排在最前，明确显示每包篇数，避免误下载早期的单篇包。截图：[28 篇手机目录](docs/screenshots/knowledge-catalog-v15.png) · [实际阅读](docs/screenshots/knowledge-reading-v15.png) · [批量工作台](docs/screenshots/workbench-batch-v15.png)。
+- 多选 JSON 可一次收入多篇，新增勾选与批量审核；一个知识包始终收录全部有效已审核文章，手机选一次 ZIP 即更新整个目录。任务与技能不再设置两篇／三篇的默认样稿配额，按主题清单持续分批完成。
+- 本批次按开发者明确授权直接发布，旧草稿备份归档；后续仍按批次授权或审核。新版内置知识目录为第 2 版，更旧的手机导入包不会遮蔽它，更新的已验证导入包优先。
 
 ## 0.14.0 更新 · 更容易开始
 
