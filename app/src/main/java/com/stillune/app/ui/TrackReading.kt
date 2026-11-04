@@ -1,20 +1,31 @@
 package com.stillune.app.ui
 
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stillune.app.analysis.AnalysisCache
+import com.stillune.app.R
 import com.stillune.app.data.Track
 import com.stillune.app.health.TrackReview
+import com.stillune.app.health.ChineseReadingCatalog
+import com.stillune.app.health.ReviewTranslation
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 internal data class ReadingCard(val heading: String, val body: String)
 
@@ -51,6 +62,9 @@ internal fun listeningHints(cache: AnalysisCache?): List<String> {
 @Composable
 internal fun TrackReadingDialog(reading: TrackReading, onFind: () -> Unit, onClose: () -> Unit) {
     val context = LocalContext.current
+    val localReading = remember(reading.track) { reading.track?.let(ChineseReadingCatalog::find) }
+    val localReview = remember(reading.track) { reading.track?.let(ReviewTranslation::bundledReview) }
+    val reviews = (reading.reviews + listOfNotNull(localReview)).distinctBy { it.id }
     var browserError by remember { mutableStateOf(false) }
     fun open(url: String) {
         try {
@@ -71,22 +85,20 @@ internal fun TrackReadingDialog(reading: TrackReading, onFind: () -> Unit, onClo
                         Text("${track.artist} · ${track.album}", color = Quiet)
                     }
                 }
-                if (reading.reviews.isEmpty()) {
+                localReading?.let { item ->
+                    Text("中文曲目导读 · 栖声", color = Mist, style = MaterialTheme.typography.titleSmall)
+                    Text(item.heading, color = Moon)
+                    Text(item.note, lineHeight = 21.sp)
+                    TextButton(onClick = { open(item.url) }) { Text(item.source) }
+                }
+                if (reviews.isEmpty() && localReading == null) {
                     Text(if (reading.card.heading == "下次听，可以留意") reading.card.heading else "一分钟看懂音频分析",
                         color = Mist, style = MaterialTheme.typography.titleSmall)
                     if (reading.card.heading != "下次听，可以留意") Text(reading.card.heading, color = Moon)
                     Text(reading.card.body, lineHeight = 21.sp)
                 }
-                reading.reviews.forEach { review ->
-                    HorizontalDivider(color = Quiet.copy(alpha = .2f))
-                    Text(if (review.album) "专辑延伸阅读" else "录音乐评", color = Mist)
-                    Text(listOf(review.source, review.author).filter(String::isNotBlank).joinToString(" · "))
-                    if (review.excerpt.isNotBlank()) {
-                        Text(review.excerpt, lineHeight = 21.sp)
-                        Text("原文节选 · ${review.license}", color = Quiet, fontSize = 12.sp)
-                        TextButton(onClick = { open(review.licenseUrl) }) { Text("查看许可证") }
-                    }
-                    TextButton(onClick = { open("https://critiquebrainz.org/review/${review.id}") }) { Text("查看完整乐评") }
+                reviews.forEach { review ->
+                    key(review.id) { ReviewContent(review, ::open) }
                 }
                 reading.status?.let { Text(it, color = Quiet) }
                 if (reading.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -98,11 +110,80 @@ internal fun TrackReadingDialog(reading: TrackReading, onFind: () -> Unit, onClo
                     TextButton(onClick = {
                         val query = listOf(reading.track.title, reading.track.artist, reading.track.album, "乐评")
                             .joinToString(" ")
-                        open("https://www.bing.com/search?q=${Uri.encode(query)}")
-                    }) { Text("用浏览器找更多") }
+                        open("https://www.baidu.com/s?wd=${Uri.encode(query)}")
+                    }) { Text("用百度找更多乐评") }
                 }
                 if (browserError) Text("手机上没有可打开链接的应用。", color = Quiet)
             }
         },
         confirmButton = { TextButton(onClick = onClose) { Text("关闭") } })
+}
+
+@Composable
+private fun ReviewContent(review: TrackReview, open: (String) -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val bundled = remember(review) { ReviewTranslation.bundled(review) }
+    val source = remember(review.language) { ReviewTranslation.language(review.language) }
+    var translated by rememberSaveable(review.excerpt) { mutableStateOf(bundled) }
+    var showChinese by rememberSaveable { mutableStateOf(bundled != null) }
+    var translating by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var translationInfo by remember { mutableStateOf(false) }
+
+    HorizontalDivider(color = Quiet.copy(alpha = .2f))
+    Text(if (review.album) "专辑延伸阅读" else "录音乐评", color = Mist)
+    Text(listOf(review.source, review.author).filter(String::isNotBlank).joinToString(" · "))
+    if (review.excerpt.isNotBlank()) {
+        val showingTranslation = showChinese && translated != null
+        Text(if (showingTranslation) translated.orEmpty() else review.excerpt, lineHeight = 21.sp)
+        val label = when {
+            !showingTranslation -> "原文节选"
+            bundled != null -> "中文译文 · 栖声"
+            else -> "中文机器译文"
+        }
+        Text("$label · ${review.license}", color = Quiet, fontSize = 12.sp)
+        if (showingTranslation && bundled == null) {
+            Image(painterResource(R.drawable.google_translate_attribution), "Powered by Google Translate")
+            TextButton(onClick = { translationInfo = !translationInfo }) { Text("机器翻译说明") }
+            if (translationInfo) Text(
+                "机器译文由 Google Translate 提供。Google 对译文不作任何明示或默示保证，包括准确性、可靠性、适销性、特定用途适用性和不侵权保证。",
+                color = Quiet, fontSize = 12.sp)
+        }
+        if (translated != null || source != null) {
+            TextButton(enabled = !translating, onClick = {
+                if (translated != null) showChinese = !showChinese
+                else if (source != null) {
+                    translating = true
+                    message = null
+                    scope.launch {
+                        try {
+                            translated = withTimeoutOrNull(90_000) { ReviewTranslation.translate(review.excerpt, source) }
+                            showChinese = translated != null
+                            if (!showChinese) message = "语言包暂不可用，可以复制原文。"
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: Exception) {
+                            message = "语言包暂不可用，可以复制原文。"
+                        } finally {
+                            translating = false
+                        }
+                    }
+                }
+            }) { Text(if (translating) "正在准备语言包或翻译…" else if (showingTranslation) "查看原文" else "翻译成中文") }
+            if (translated == null && !translating) Text("首次翻译可能需要下载语言包。", color = Quiet, fontSize = 12.sp)
+        }
+        if (review.language.substringBefore('-').lowercase() !in setOf("zh", "yue")) {
+            TextButton(onClick = {
+                context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("乐评节选", review.excerpt))
+                message = "已复制原文，可粘贴到你常用的翻译应用。"
+            }) { Text("复制原文") }
+        }
+        message?.let {
+            Text(it, color = Quiet, fontSize = 12.sp)
+            TextButton(onClick = { open("https://fanyi.baidu.com/") }) { Text("打开百度翻译") }
+        }
+        TextButton(onClick = { open(review.licenseUrl) }) { Text("查看许可证") }
+    }
+    TextButton(onClick = { open("https://critiquebrainz.org/review/${review.id}") }) { Text("查看完整乐评") }
 }

@@ -23,6 +23,7 @@ import kotlin.math.abs
 internal data class TrackReview(
     val id: String, val album: Boolean, val author: String, val source: String,
     val license: String, val licenseUrl: String, val excerpt: String,
+    val language: String,
 )
 
 @Singleton
@@ -36,7 +37,7 @@ class TrackReviews @Inject constructor(
 
     internal suspend fun lookup(track: Track): List<TrackReview> = lock.withLock {
         runInterruptible(io) {
-            val key = JSONObject().put("title", track.title).put("artist", track.artist)
+            val key = JSONObject().put("schema", 2).put("title", track.title).put("artist", track.artist)
                 .put("album", track.album).put("duration", track.durationMs).toString()
             val now = System.currentTimeMillis()
             val cached = prefs.getString(key, null)?.let(::JSONObject)
@@ -108,6 +109,7 @@ class TrackReviews @Inject constructor(
                 put(JSONObject().put("id", row.optString("id")).put("album", type == "release_group")
                     .put("author", if (source.isBlank()) author else "")
                     .put("source", source.ifBlank { "CritiqueBrainz" })
+                    .put("language", row.optString("language"))
                     .put("license", license)
                     .put("excerpt", if (license == "CC BY-SA 3.0" && author.isNotBlank() && source.isBlank())
                         row.optString("text").take(600) else ""))
@@ -118,7 +120,7 @@ class TrackReviews @Inject constructor(
     private fun decode(items: JSONArray): List<TrackReview> = items.objects().map {
         val license = it.optString("license")
         TrackReview(it.getString("id"), it.getBoolean("album"), it.optString("author"),
-            it.optString("source"), license, licenses[license].orEmpty(), it.optString("excerpt"))
+            it.optString("source"), license, licenses[license].orEmpty(), it.optString("excerpt"), it.optString("language"))
     }
 
     private fun get(url: String): JSONObject {
@@ -126,7 +128,7 @@ class TrackReviews @Inject constructor(
         connection.connectTimeout = 5_000
         connection.readTimeout = 5_000
         connection.instanceFollowRedirects = false
-        connection.setRequestProperty("User-Agent", "Stillune/0.11.0 (https://github.com/GadusW/chuyanplan)")
+        connection.setRequestProperty("User-Agent", "Stillune/0.12.0 (https://github.com/GadusW/chuyanplan)")
         connection.setRequestProperty("Accept", "application/json")
         try {
             if (connection.responseCode != 200) throw IOException("HTTP ${connection.responseCode}")

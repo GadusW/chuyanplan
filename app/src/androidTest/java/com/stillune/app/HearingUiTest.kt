@@ -61,4 +61,17 @@ class HearingUiTest {
         compose.onNodeWithText("查找开放乐评").performScrollTo().performClick()
         compose.runOnIdle { assertTrue(requested) }
     }
+
+    @Test fun chineseCatalogAndBundledTranslationNeedNoQuery() {
+        var track by mutableStateOf(Track("content://test/1", "藍蓮花", "許巍", fileName = "test.flac", source = "test"))
+        compose.setContent {
+            StilluneTheme { TrackReadingDialog(TrackReading(track, analysisLessons.first()), { fail("Unexpected query") }, {}) }
+        }
+        compose.onNodeWithText("中文曲目导读 · 栖声").assertExists()
+        compose.onNodeWithText("澎湃新闻 · 许巍访谈").assertExists()
+        compose.runOnIdle { track = track.copy(title = "Anti-Hero", artist = "Taylor Swift", album = "Midnights") }
+        compose.onNodeWithText("中文译文 · 栖声 · CC BY-SA 3.0").assertExists()
+        compose.onNodeWithText("查看原文").performScrollTo().performClick()
+        compose.onNodeWithText("Não é um álbum ruim", substring = true).assertExists()
+    }
 }

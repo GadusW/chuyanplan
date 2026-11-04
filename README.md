@@ -10,17 +10,23 @@
 
 栖声 · Stillune 是一个面向 **Android** 的本地音乐播放器项目，致力于将高品质播放、声音分析、从容的聆听体验与听力关怀融为一体。让珍藏的音乐长久相伴，也让双耳适时休憩。
 
-目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.11.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
+目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.12.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
 
 ## 下载安装
 
-当前提供 **0.11.0 开发预览版（调试签名）**：
+当前提供 **0.12.0 开发预览版（调试签名）**：
 
-- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.11.0/Stillune-0.11.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
-- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.11.0/Stillune-0.11.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
-- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.11.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
+- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.12.0/Stillune-0.12.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
+- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.12.0/Stillune-0.12.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
+- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.12.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
 
 最低 Android 8.0。后续推送会同步对应版本的安装包至 [GitHub Releases](https://github.com/GadusW/chuyanplan/releases)。
+
+## 0.12.0 更新 · 中文导读与外文乐评
+
+- 「关于这首歌」新增 13 首华语曲目的离线导读，收录澎湃新闻、羊城晚报和 Billboard 中国的相关阅读入口。支持常用简繁曲目与艺人标签。没有内置导读时仍可查开放乐评、用百度搜索，或阅读本地聆听提示。
+- 外文开放乐评节选支持切换中文与原文。附带《Midnights》一条社区乐评及 CC BY-SA 3.0 中文译文。其他支持语种使用 Google Translate 提供的 [ML Kit 设备端翻译](https://developers.google.com/ml-kit/language/translation)，首次可能下载语言包，之后可本机翻译，评论正文留在手机。见 [Google 翻译署名与说明](https://cloud.google.com/translate/attribution)。
+- 语言包下载和开放库访问受网络环境影响。已有中文导读与随包译文无需网络。语言包不可用时可复制原文，自行选择百度翻译等工具。无需栖声服务器、翻译 API 密钥或按量付费。
 
 ## 0.11.0 更新 · 关于这首歌
 
