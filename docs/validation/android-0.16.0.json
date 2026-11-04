@@ -1,0 +1,13 @@
+{
+  "version": "0.16.0",
+  "date": "2026-11-04",
+  "catalog": {"previousArticles": 28, "addedArticles": 32, "totalArticles": 60, "sources": 8, "hanCountMin": 626, "hanCountMax": 822, "baselineVersion": 3},
+  "authorization": "Continuation of the same eight-source batch; developer explicitly requested more content following the previous direct-publication authorization.",
+  "sourceReview": "Additional selected PDF pages read using text extraction or local OCR with visual checks; EPUB chapters read in existing spine order. Not a complete reading or sequential reconstruction of all books.",
+  "contentChecks": ["Existing 28 article objects preserved", "60 unique IDs", "60 unique titles", "No exact duplicated paragraphs", "All articles satisfy paragraph, length, tag and verified-citation schema", "Signed complete edition 3 verified with existing publisher public key"],
+  "unitTests": {"passed": 34, "failed": 0},
+  "deviceTests": {"passed": 8, "failed": 0, "platform": "Android API 36 emulator", "classes": ["KnowledgeLibraryTest", "GettingStartedUiTest", "HearingUiTest"]},
+  "workbenchCoreTests": {"passed": 8, "failed": 0},
+  "lint": {"errors": 0, "warnings": 38},
+  "limits": ["Reading time is estimated, not measured for each user", "No exhaustive claim about coverage of all eight books", "Content-only updates still require manual knowledge ZIP transfer/import", "Physical-device usability remains to be checked"]
+}

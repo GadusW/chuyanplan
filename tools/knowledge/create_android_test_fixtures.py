@@ -25,7 +25,7 @@ for version, count in ((1, 2), (2, 1)):
         archive.writestr("articles.json", body)
         archive.writestr("signature.ed25519", key.sign(manifest))
 print("Created two Android interoperability fixtures; private test key discarded.")
-legacy = json.dumps(dict(schema=1, version=1, count=count,
+legacy = json.dumps(dict(schema=1, version=baseline-1, count=count,
                          articles_sha256=hashlib.sha256(body).hexdigest()), sort_keys=True, separators=(",", ":")).encode()
 with zipfile.ZipFile(destination / "edition-legacy.zip", "w", zipfile.ZIP_DEFLATED) as archive:
     archive.writestr("manifest.json", legacy)

@@ -10,19 +10,26 @@
 
 栖声 · Stillune 是一个面向 **Android** 的本地音乐播放器项目，致力于将高品质播放、声音分析、从容的聆听体验与听力关怀融为一体。让珍藏的音乐长久相伴，也让双耳适时休憩。
 
-目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.15.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
+目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.16.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
 
 ## 下载安装
 
 开发者知识制作入口见 [零基础使用说明](docs/knowledge-workflow/使用说明.md)。可在电脑上选择文件导入、查看原件与整理笔记、用表单改稿、跨 agent 制作、审核并下载签名知识包。支持检测本机模型和后台生成任务。手机版从 0.13.0 起支持在知识书架导入签名知识包。
 
-当前提供 **0.15.0 开发预览版（调试签名）**：
+当前提供 **0.16.0 开发预览版（调试签名）**：
 
-- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.15.0/Stillune-0.15.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
-- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.15.0/Stillune-0.15.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
-- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.15.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
+- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.16.0/Stillune-0.16.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
+- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.16.0/Stillune-0.16.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
+- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.16.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
 
 最低 Android 8.0。后续推送会同步对应版本的安装包至 [GitHub Releases](https://github.com/GadusW/chuyanplan/releases)。
+
+## 0.16.0 更新 · 阅读库扩展至 60 篇
+
+- 保留前版 28 篇，新增 32 篇独立讲解，共 60 篇。补充声压／声强／分贝、反射与相位、设备响应与指向性、声音评价方法、曲式与乐器，以及大乐队、冷爵士、自由爵士、融合爵士、民谣摇滚、前卫摇滚、后朋克、自赏、采样、合作、业余参与和专辑组织等主题。
+- 每篇独立可读，正文符合 600–1200 汉字规范；当前实际为 626–822 汉字，约 3–4 分钟。每篇注明 PDF 原页或 EPUB 章节位置，全部编号、标题与整段文本已查重。选题讲解不是全书摘要或逐章重建。完整清单见[内置阅读目录](docs/knowledge-workflow/内置阅读目录.md)。
+- 全部 60 篇已收入新版 APK 与第 3 版签名知识包，沿用开发者对此批资料的直接发布授权。覆盖安装时旧第 2 版及更早内容包不会遮蔽新目录；更高版签名内容包继续优先。
+- 实际界面：[60 篇目录](docs/screenshots/knowledge-catalog-v16.png) · [实际阅读](docs/screenshots/knowledge-reading-v16.png)。
 
 ## 0.15.0 更新 · 批量制作与新阅读库
 
