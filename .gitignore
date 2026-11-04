@@ -18,3 +18,5 @@ captures/
 *.jks
 *.keystore
 output/apk/
+.knowledge-workspace/
+output/knowledge/

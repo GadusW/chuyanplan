@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>栖声 · 知识工作台</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,"Microsoft YaHei",sans-serif;color:#e7edf3;background:#101b30}
+*{box-sizing:border-box}body{margin:0}main{max-width:1240px;margin:auto;padding:36px 24px}
+header{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:32px}
+h1{font-size:28px;font-weight:500;margin:0;color:#f4e3be}h2{font-size:19px;font-weight:500;color:#f4e3be}
+p,small{color:#aab8cf;line-height:1.8}.grid{display:grid;grid-template-columns:340px 1fr;gap:24px}
+section{padding:22px;border:1px solid #344158;border-radius:16px;background:#17243a;margin-bottom:20px}
+input,textarea{display:block;width:100%;background:#101b30;border:1px solid #475771;border-radius:8px;color:inherit;padding:12px;font:inherit;margin:8px 0 14px}
+textarea{min-height:300px;font-family:ui-monospace,monospace;font-size:13px;line-height:1.65}
+label{display:block;font-size:14px}button{background:#f4e3be;color:#17243a;border:0;border-radius:8px;padding:11px 15px;cursor:pointer;font:inherit;font-size:14px;margin:4px 6px 4px 0}
+button.secondary{background:#293b54;color:#d7e6f1}button:disabled{opacity:.5;cursor:wait}
+.item{padding:12px 0;border-bottom:1px solid #344158;overflow-wrap:anywhere}
+.item button{display:block}.row{display:flex;gap:10px;flex-wrap:wrap}.preview{font-size:16px;line-height:1.9;white-space:pre-wrap}
+#message{white-space:pre-wrap;overflow-wrap:anywhere;border-left:3px solid #9bcbea;padding:12px;color:#c7dfef}
+#validation{color:#c7dfef;white-space:pre-wrap}code{overflow-wrap:anywhere}summary{cursor:pointer;color:#9bcbea}
+@media(max-width:800px){.grid{grid-template-columns:1fr}header{align-items:start;flex-direction:column}}
+</style>
+<main>
+<header><div><h1>栖声 · 知识工作台</h1><p>从一份资料，到一篇独立可读的三分钟片段。</p></div>
+<button class="secondary" id="refresh">刷新进度</button></header>
+<div class="grid">
+<aside>
+<section><h2>1　投送参考资料</h2><label for="path">文件的完整路径</label><input id="path" placeholder="例如 D:\资料\声音知识.pdf">
+<label for="source-title">资料名称（选填）</label><input id="source-title">
+<button id="import">导入本机资料</button><p>导入后会生成给 agent 的任务说明。原件和草稿保存在电脑上的私有工作区。</p><div id="sources"></div></section>
+<section><h2>2　继续制作</h2><p>把任务说明交给你使用的 agent。写作完成后，点刷新即可查看草稿。</p><div id="articles"></div></section>
+</aside>
+<div>
+<section><h2>3　预览与修改</h2><div id="preview" class="preview">选择一篇草稿后，在这里阅读。</div>
+<p id="validation"></p><details><summary>展开 JSON 编辑区</summary><textarea id="editor" aria-label="文章 JSON"></textarea>
+<button id="save">保存修改并重新检查</button></details>
+<p>字数、段落与引用格式会自动检查。阅读是否顺畅、事实是否准确，需要结合原书判断。</p>
+<label for="reviewer">审核人</label><input id="reviewer" placeholder="你的姓名或固定署名">
+<label for="note">审核记录</label><input id="note" placeholder="例如：已核对 PDF 第 54 页，同意发布这篇">
+<label><input id="confirm" type="checkbox" style="display:inline;width:auto"> 我已读完当前版本，确认通过审核</label>
+<button id="approve">通过当前版本</button></section>
+<section><h2>4　生成知识包</h2><p>只收录审核仍有效的文章。生成后的包可交给 agent 继续接入安卓端，当前手机版尚无知识包接收功能。</p>
+<div class="row"><button class="secondary" id="keygen">首次建立签名密钥</button></div>
+<label for="version">知识包版本（从 1 开始，每次递增）</label><input id="version" type="number" min="1" value="1">
+<button id="package">生成签名知识包</button><div id="packs"></div><p>请离线备份 .knowledge-workspace/keys。私钥只由开发者保管。</p></section>
+<div id="message" role="status">准备就绪。</div>
+</div></div>
+</main>
+<script>
+const token="__TOKEN__";
+const byId=id=>document.getElementById(id);
+let current=null;
+function tell(value){byId("message").textContent=typeof value==="string"?value:JSON.stringify(value,null,2)}
+async function request(path,data={}){
+ const result=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","X-Workbench-Token":token},body:JSON.stringify(data)});
+ const value=await result.json();if(!result.ok)throw new Error(value.error);return value;
+}
+function item(parent,title,action,label){
+ const box=document.createElement("div");box.className="item";
+ const text=document.createElement("div");text.textContent=title;box.append(text);
+ if(action){const button=document.createElement("button");button.className="secondary";button.textContent=label;button.addEventListener("click",()=>run(action));box.append(button)}
+ parent.append(box);
+}
+function display(row){
+ current=row.article;byId("editor").value=JSON.stringify(current,null,2);
+ byId("preview").textContent=[current.title,...(current.paragraphs||[]),current.takeaway].join("\n\n");
+ byId("validation").textContent=row.errors.length?"待处理\n"+row.errors.join("\n"):(row.approved?"审核通过，已锁定这份内容的指纹。":"格式检查通过，等待内容审核。");
+ byId("confirm").checked=false;
+}
+async function refresh(){
+ const state=await request("/status");
+ byId("sources").replaceChildren();byId("articles").replaceChildren();byId("packs").replaceChildren();
+ for(const source of state.sources)item(byId("sources"),source.title,async()=>{
+  const text="请读取项目 skills/stillune-knowledge/SKILL.md，继续 .knowledge-workspace/tasks/"+source.id+".md。先按用户指定数量生成独立三分钟草稿，核验原页后保存，交给我审核。";
+  try{await navigator.clipboard.writeText(text);tell("已复制给 agent 的任务说明。")}catch{tell(text)}
+ },"复制给 agent 的任务");
+ for(const row of state.articles)item(byId("articles"),row.article.title+(row.approved?" · 已审核":" · 待处理"),()=>display(row),"阅读");
+ for(const pack of state.packs)item(byId("packs"),pack);
+ byId("keygen").disabled=state.has_key;
+ if(current){const row=state.articles.find(r=>r.article.id===current.id);if(row)display(row)}
+}
+async function run(action){try{await action()}catch(error){tell(error.message)}}
+function bind(id,action){byId(id).addEventListener("click",()=>run(async()=>{
+ byId(id).disabled=true;try{await action()}finally{byId(id).disabled=false}
+}))}
+bind("refresh",refresh);
+bind("import",async()=>{tell(await request("/ingest",{path:byId("path").value.trim(),title:byId("source-title").value.trim()}));await refresh()});
+bind("save",async()=>{const article=JSON.parse(byId("editor").value);tell(await request("/save",{article}));current=article;await refresh()});
+bind("approve",async()=>{
+ if(!current)throw new Error("请先选择文章");
+ if(JSON.stringify(current)!==JSON.stringify(JSON.parse(byId("editor").value)))throw new Error("请先保存编辑区的修改");
+ if(!byId("confirm").checked)throw new Error("请读完后勾选审核确认");
+ tell(await request("/approve",{id:current.id,reviewer:byId("reviewer").value,note:byId("note").value}));await refresh();
+});
+bind("keygen",async()=>{tell(await request("/keygen"));await refresh()});
+bind("package",async()=>{tell(await request("/package",{version:Number(byId("version").value)}));await refresh()});
+run(refresh);
+</script>
+</html>

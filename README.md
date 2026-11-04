@@ -14,6 +14,8 @@
 
 ## 下载安装
 
+开发者知识制作入口见 [零基础使用说明](docs/knowledge-workflow/使用说明.md)。可在电脑上导入资料、跨 agent 制作草稿、审核和签名打包。手机知识包接收端属于后续接入任务。
+
 当前提供 **0.12.0 开发预览版（调试签名）**：
 
 - [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.12.0/Stillune-0.12.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
