@@ -6,6 +6,7 @@ import android.os.SystemClock
 import androidx.core.content.edit
 import com.stillune.app.data.LibraryDatabase
 import com.stillune.app.di.IoDispatcher
+import com.stillune.app.playback.PlaybackStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.*
 class HearingRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     db: LibraryDatabase,
+    private val playback: PlaybackStore,
     @IoDispatcher private val io: CoroutineDispatcher,
 ) {
     private val prefs = context.getSharedPreferences("hearing-care", Context.MODE_PRIVATE)
@@ -102,7 +104,7 @@ class HearingRepository @Inject constructor(
         } else pausedAt = 0
         if (active && continuous - lastReminder >= settings.value.breakMinutes * 60_000L) {
             lastReminder = continuous
-            showNotice(HearingNoticeKind.BREAK, "让双耳歇一歇", "这段聆听已累计 ${continuous / 60_000} 分钟。可以暂停片刻，读一段音乐小札。")
+            showNotice(HearingNoticeKind.BREAK, "让双耳歇一歇", "这段聆听已累计 ${continuous / 60_000} 分钟。可以暂停片刻，读一张聆听卡片。")
         } else if (active && aboveMs >= 10_000 && now - lastVolumeReminder >= 600_000) {
             lastVolumeReminder = now; aboveMs = 0
             prefs.edit { putLong("volumeWall", wall) }
@@ -145,7 +147,7 @@ class HearingRepository @Inject constructor(
     private fun showNotice(kind: HearingNoticeKind, title: String, message: String) {
         // Keep an unread rest reminder rather than replacing it with a less useful prompt.
         if (live.value.notice?.kind == HearingNoticeKind.BREAK) return
-        _live.update { it.copy(notice = HearingNotice(++noticeSequence, kind, title, message)) }
+        _live.update { it.copy(notice = HearingNotice(++noticeSequence, kind, title, message, playback.state.value.track)) }
         notifyHearing(context, live.value.notice)
     }
     fun dismissNotice() { _live.update { it.copy(notice = null) }; notifyHearing(context, null) }

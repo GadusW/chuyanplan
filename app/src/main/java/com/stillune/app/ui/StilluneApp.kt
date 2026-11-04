@@ -63,6 +63,7 @@ fun StilluneApp(
     var playerOpen by rememberSaveable { mutableStateOf(false) }
     var healthOpen by rememberSaveable { mutableStateOf(false) }
     var articleId by rememberSaveable { mutableStateOf<String?>(null) }
+    val reading by model.reading.collectAsStateWithLifecycle()
     val hearingLive by model.hearing.live.collectAsStateWithLifecycle()
     LaunchedEffect(openPlayerRequest) { if (openPlayerRequest > 0) { playerOpen = true; healthOpen = false } }
     var fullScreen by rememberSaveable { mutableStateOf(false) }
@@ -134,7 +135,8 @@ fun StilluneApp(
                 else if (destination == 1) PlayerPage(playback, model, lyrics, lyricsVisible, artwork, fullScreen,
                     onBack = { fullScreen = false; playerOpen = false }, onFullScreen = { fullScreen = !fullScreen },
                     onImportLyrics = onImportLyrics, onImport = { importOpen = true },
-                    onQueue = { queueOpen = true }, onOutput = { outputOpen = true }, onImmersion = { immersionChooser = true })
+                    onQueue = { queueOpen = true }, onOutput = { outputOpen = true }, onImmersion = { immersionChooser = true },
+                    onAboutTrack = { model.openReading(playback.track) })
                 else LazyColumn(contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp,
                     bottom = padding.calculateBottomPadding() + 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
@@ -212,14 +214,15 @@ fun StilluneApp(
         }
     }
     hearingLive.notice?.let { notice ->
-        AlertDialog(onDismissRequest = model.hearing::dismissNotice, title = { Text(notice.title) },
-            text = { Text(notice.message + "\n\n推荐：${AppreciationLibrary.articles.first().title}，约 3–5 分钟的原创静默阅读。") },
+        if (reading == null) AlertDialog(onDismissRequest = model.hearing::dismissNotice, title = { Text(notice.title) },
+            text = { Text(notice.message) },
             confirmButton = { TextButton(onClick = {
                 model.pauseForRest(); model.hearing.dismissNotice()
                 immersive = false; fullScreen = false; playerOpen = false; healthOpen = true
-                articleId = AppreciationLibrary.articles.first().id
+                model.openReading(notice.track)
             }) { Text("暂停并阅读") } }, dismissButton = { TextButton(onClick = model.hearing::dismissNotice) { Text("知道了") } })
     }
+    reading?.let { TrackReadingDialog(it, model::findReviews, model::closeReading) }
     articleId?.let { id -> AppreciationLibrary.articles.firstOrNull { it.id == id }?.let { article ->
         AppreciationReader(article, onClose = { articleId = null })
     } }

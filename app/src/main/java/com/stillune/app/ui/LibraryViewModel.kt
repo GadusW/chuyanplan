@@ -25,7 +25,60 @@ class LibraryViewModel @Inject constructor(
     private val memory: PlaybackMemory,
     val realtimeAnalysis: RealtimeAnalysisRepository,
     val hearing: HearingRepository,
+    private val trackReviews: TrackReviews,
+    private val database: LibraryDatabase,
 ) : ViewModel() {
+    private val _reading = MutableStateFlow<TrackReading?>(null)
+    internal val reading = _reading.asStateFlow()
+    private var readingJob: Job? = null
+    private var lastWasHint = false
+    private var lastLesson = ""
+    private var lastHint = ""
+
+    fun openReading(track: Track?) {
+        closeReading()
+        _reading.value = TrackReading(track, chooseLesson())
+        readingJob = viewModelScope.launch {
+            val hints = track?.let { listeningHints(database.analysis().get(it.uri)) }.orEmpty()
+            if (!lastWasHint && hints.isNotEmpty()) {
+                val hint = hints.filterNot { it == lastHint }.ifEmpty { hints }.random()
+                lastHint = hint
+                lastWasHint = true
+                _reading.update { it?.copy(card = ReadingCard("下次听，可以留意", hint)) }
+            } else {
+                lastWasHint = false
+                lastLesson = _reading.value?.card?.heading.orEmpty()
+            }
+        }
+    }
+
+    fun findReviews() {
+        val current = _reading.value ?: return
+        val track = current.track ?: return
+        if (current.loading || current.reviews.isNotEmpty()) return
+        _reading.update { it?.copy(loading = true, status = null) }
+        val preparing = readingJob
+        readingJob = viewModelScope.launch {
+            preparing?.join()
+            try {
+                val reviews = trackReviews.lookup(track)
+                _reading.update { it?.copy(loading = false, reviews = reviews,
+                    status = if (reviews.isEmpty()) "暂未找到能确认对应这首歌的开放乐评。" else null) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _reading.update { it?.copy(loading = false, status = "暂时无法联网查找，可以稍后重试。") }
+            }
+        }
+    }
+
+    fun closeReading() {
+        readingJob?.cancel()
+        readingJob = null
+        _reading.value = null
+    }
+
+    private fun chooseLesson() = analysisLessons.filterNot { it.heading == lastLesson }.random()
     val hearingRecords = hearing.records.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     fun pauseForRest() = connection.command { it.pause() }
     fun lowerVolume() = connection.command { it.lowerVolume() }

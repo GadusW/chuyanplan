@@ -1,5 +1,6 @@
 package com.stillune.app.health
 
+import com.stillune.app.data.Track
 import kotlin.math.min
 
 data class HearingSettings(
@@ -12,7 +13,8 @@ data class HearingSettings(
 )
 
 enum class HearingNoticeKind { BREAK, VOLUME, ENVIRONMENT }
-data class HearingNotice(val id: Long, val kind: HearingNoticeKind, val title: String, val message: String)
+data class HearingNotice(val id: Long, val kind: HearingNoticeKind, val title: String, val message: String,
+    val track: Track? = null)
 data class HearingLive(
     val continuousMs: Long = 0,
     val volumeStep: Int = 0,

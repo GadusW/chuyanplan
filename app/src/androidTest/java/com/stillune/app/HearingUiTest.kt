@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.stillune.app.health.*
+import com.stillune.app.data.Track
 import com.stillune.app.ui.*
 import org.junit.Assert.*
 import org.junit.Rule
@@ -44,5 +45,20 @@ class HearingUiTest {
         compose.onNodeWithContentDescription("播放").assertDoesNotExist()
         compose.onNodeWithContentDescription("关闭音乐小札").performClick()
         compose.runOnIdle { assertFalse(open) }
+    }
+
+    @Test fun trackReadingShowsLocalLessonBeforeAnyNetworkRequest() {
+        var requested = false
+        val track = Track("content://test/1", "本地试音", fileName = "test.flac", source = "test")
+        compose.setContent {
+            StilluneTheme {
+                TrackReadingDialog(TrackReading(track, analysisLessons.first()), { requested = true }, {})
+            }
+        }
+        compose.onNodeWithText("本地试音").assertExists()
+        compose.onNodeWithText("一分钟看懂音频分析").assertExists()
+        compose.runOnIdle { assertFalse(requested) }
+        compose.onNodeWithText("查找开放乐评").performScrollTo().performClick()
+        compose.runOnIdle { assertTrue(requested) }
     }
 }

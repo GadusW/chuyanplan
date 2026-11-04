@@ -74,6 +74,7 @@ internal fun PlayerPage(
     artwork: Bitmap?, fullScreen: Boolean, onBack: () -> Unit, onFullScreen: () -> Unit,
     onImportLyrics: () -> Unit, onImport: () -> Unit, onQueue: () -> Unit, onOutput: () -> Unit,
     onImmersion: () -> Unit = {},
+    onAboutTrack: () -> Unit = {},
 ) {
     val analysisMode by model.analysisMode.collectAsStateWithLifecycle()
     val analysis by model.analysis.collectAsStateWithLifecycle()
@@ -90,6 +91,9 @@ internal fun PlayerPage(
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("栖声 · Stillune", fontSize = 13.sp, color = Moon, fontWeight = FontWeight.Medium)
                     Text(state.track?.album ?: "本地聆听", color = Quiet, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (state.track != null) IconButton(onClick = onAboutTrack) {
+                    Icon(Icons.Rounded.Info, "关于这首歌", tint = Quiet)
                 }
                 IconButton(onClick = onFullScreen) {
                     Icon(if (fullScreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
