@@ -183,6 +183,12 @@ class LibraryViewModel @Inject constructor(
         connection.command { it.playQueue(actual, actual.indexOfFirst { t -> t.uri == track.uri }.coerceAtLeast(0)) }
     }
     fun toggle() = connection.command { it.toggle() }
+    suspend fun loadArtwork(track: Track) = assets.artwork(track)
+    fun advanceAlbum() {
+        val state = playback.value
+        // The album deck follows the visible queue order, without deleting listening history.
+        state.queue.getOrNull(state.index + 1)?.let { play(it, state.queue) }
+    }
     fun next() = connection.command { it.next() }
     fun previous() = connection.command { it.previous() }
     fun seek(position: Long) = connection.command { it.seek(position) }

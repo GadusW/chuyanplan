@@ -14,12 +14,19 @@ import java.nio.charset.CodingErrorAction
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 @Singleton
 class PlayerAssetsRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     @IoDispatcher private val io: CoroutineDispatcher,
 ) {
+    private data class Cover(val bitmap: Bitmap?)
+    private val covers = object : android.util.LruCache<String, Cover>(24 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Cover) = value.bitmap?.allocationByteCount ?: 1024
+    }
+    private val coverReads = Semaphore(3)
     private val preferences = context.getSharedPreferences("player_preferences", Context.MODE_PRIVATE)
     fun lyricsVisible() = preferences.getBoolean("show_lyrics", false)
     fun analysisMode() = preferences.getBoolean("analysis_mode", false)
@@ -93,11 +100,23 @@ class PlayerAssetsRepository @Inject constructor(
     }
 
     suspend fun artwork(track: Track): Bitmap? = withContext(io) {
+        val key = "${track.uri}:${track.modifiedAt}:${track.sizeBytes}"
+        covers.get(key)?.let { return@withContext it.bitmap }
+        coverReads.withPermit {
+            covers.get(key)?.let { return@withPermit it.bitmap }
+            val bitmap = readArtwork(track)
+            currentCoroutineContext().ensureActive()
+            covers.put(key, Cover(bitmap))
+            bitmap
+        }
+    }
+
+    private suspend fun readArtwork(track: Track): Bitmap? {
         val reader = MediaMetadataRetriever()
-        try {
+        return try {
             reader.setDataSource(context, Uri.parse(track.uri))
-            val bytes = reader.embeddedPicture ?: return@withContext null
-            if (bytes.size > 12 * 1024 * 1024) return@withContext null
+            val bytes = reader.embeddedPicture ?: return null
+            if (bytes.size > 12 * 1024 * 1024) return null
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
             var sample = 1

@@ -44,20 +44,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 /** Glass is composed from a blurred ambient image behind a translucent, sharply drawn control layer. */
 @Composable
 internal fun MoonlitBackdrop(artwork: Bitmap?, modifier: Modifier = Modifier) {
-    Box(modifier.background(Brush.linearGradient(listOf(Color(0xFF42536D), Night, Color(0xFF293F5B))))) {
+    Box(modifier.background(Brush.linearGradient(listOf(Color(0xFF344B65), Night, Color(0xFF254C68))))) {
         val blur = if (Build.VERSION.SDK_INT >= 31) Modifier.blur(56.dp, BlurredEdgeTreatment.Unbounded) else Modifier
-        Box(Modifier.matchParentSize().then(blur).alpha(.48f)) {
+        Box(Modifier.matchParentSize().then(blur).alpha(.7f)) {
             Canvas(Modifier.fillMaxSize()) {
-                drawCircle(Brush.radialGradient(listOf(Mist.copy(alpha = .6f), Color.Transparent),
-                    center = Offset(size.width * .9f, size.height * .28f), radius = size.width * .85f),
-                    size.width * .85f, Offset(size.width * .9f, size.height * .28f))
-                drawCircle(Brush.radialGradient(listOf(Moon.copy(alpha = .4f), Color.Transparent),
-                    center = Offset(size.width * .04f, size.height * .65f), radius = size.width * .7f),
-                    size.width * .7f, Offset(size.width * .04f, size.height * .65f))
+                drawCircle(Brush.radialGradient(listOf(Mist.copy(alpha = .55f), Color.Transparent),
+                    center = Offset(size.width * 1.02f, size.height * .42f), radius = size.width * .85f),
+                    size.width * .85f, Offset(size.width * 1.02f, size.height * .42f))
+                drawCircle(Brush.radialGradient(listOf(Moon.copy(alpha = .36f), Color.Transparent),
+                    center = Offset(-size.width * .2f, size.height * .07f), radius = size.width * .85f),
+                    size.width * .85f, Offset(-size.width * .2f, size.height * .07f))
             }
-            if (artwork != null && Build.VERSION.SDK_INT >= 31) Image(artwork.asImageBitmap(), null, Modifier.fillMaxSize().alpha(.35f), contentScale = ContentScale.Crop)
+            if (artwork != null && Build.VERSION.SDK_INT >= 31) Image(artwork.asImageBitmap(), null, Modifier.fillMaxSize().alpha(.16f), contentScale = ContentScale.Crop)
             else if (Build.VERSION.SDK_INT >= 31) Image(painterResource(R.drawable.stillune_foreground), null,
-                Modifier.fillMaxSize().graphicsLayer(scaleX = 2.3f, scaleY = 2.3f).alpha(.4f), contentScale = ContentScale.Crop)
+                Modifier.fillMaxSize().graphicsLayer(scaleX = 2.3f, scaleY = 2.3f).alpha(.18f), contentScale = ContentScale.Crop)
         }
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Night.copy(alpha = .02f), Night.copy(alpha = .25f)))))
     }
@@ -82,7 +82,6 @@ internal fun PlayerPage(
     val analysis by model.analysis.collectAsStateWithLifecycle()
     var realtime by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        MoonlitBackdrop(artwork, Modifier.matchParentSize())
         val landscape = maxWidth > maxHeight
         val compact = maxHeight - bottomInset < 640.dp
         val horizontal = 24.dp
@@ -105,7 +104,7 @@ internal fun PlayerPage(
                 }
             }
             Row(Modifier.align(Alignment.CenterHorizontally).padding(vertical = 4.dp)) {
-                listOf("极简" to false, "音频分析" to true).forEach { (label, enabled) ->
+                listOf("播放模式" to false, "音频分析" to true).forEach { (label, enabled) ->
                     Column(Modifier.widthIn(min = 96.dp).heightIn(min = 48.dp)
                         .selectable(analysisMode == enabled, role = Role.Tab) { model.setAnalysisMode(enabled) },
                         horizontalAlignment = Alignment.CenterHorizontally) {
@@ -127,7 +126,7 @@ internal fun PlayerPage(
                             }
                             AnalysisSwitcher(analysis, state, model.realtimeAnalysis, model::requestAnalysis, model::seek,realtime,{realtime=it})
                         }
-                        else PlayerVisual(lyrics, lyricsVisible, artwork, state, model, onImportLyrics, Modifier.fillMaxSize())
+                        else PlayerVisual(lyrics, lyricsVisible, artwork, state, model, onImportLyrics, Modifier.fillMaxSize(), showQueue = true)
                     }
                     Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) {
                         if (analysisMode && realtime) RealtimeTransport(state,model,onImportLyrics,onQueue,onOutput)
@@ -151,7 +150,7 @@ internal fun PlayerPage(
                             }
                         }
                         AnalysisSwitcher(analysis, state, model.realtimeAnalysis, model::requestAnalysis, model::seek,realtime,{realtime=it})
-                    } else PlayerVisual(lyrics, lyricsVisible, artwork, state, model, onImportLyrics, Modifier.fillMaxSize())
+                    } else PlayerVisual(lyrics, lyricsVisible, artwork, state, model, onImportLyrics, Modifier.fillMaxSize(), showQueue = true)
                 }
                 if (analysisMode && realtime) RealtimeTransport(state,model,onImportLyrics,onQueue,onOutput)
                 else {
@@ -208,32 +207,10 @@ private fun RealtimeTransport(state: PlaybackState, model: LibraryViewModel, onI
 
 @Composable
 private fun PlayerVisual(lyrics: Lyrics, visible: Boolean, artwork: Bitmap?, state: PlaybackState,
-                         model: LibraryViewModel, onImportLyrics: () -> Unit, modifier: Modifier) {
-    AnimatedContent(visible, modifier, transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(180)) }, label = "cover-lyrics") { show ->
-        if (show) Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = model::toggleLyrics) {
-                    Icon(Icons.Rounded.Album, null, Modifier.size(16.dp))
-                    Text("返回封面", fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
-                }
-            }
-            LyricsPane(lyrics, state.positionMs, state.track != null, model::seek, onImportLyrics,
-                Modifier.weight(1f).fillMaxWidth(), onReturnToCover = model::toggleLyrics)
-        }
-        else BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            val side = minOf(maxWidth - 16.dp, maxHeight - 12.dp, 340.dp).coerceAtLeast(48.dp)
-            Box(Modifier.size(side).shadow(16.dp, RoundedCornerShape(12.dp), ambientColor = Night, spotColor = Night)
-                .clip(RoundedCornerShape(12.dp)).background(Panel)
-                .clickable(onClickLabel = "显示歌词", onClick = model::toggleLyrics), contentAlignment = Alignment.Center) {
-                if (artwork != null) Image(artwork.asImageBitmap(), "专辑封面，点按显示歌词", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                else {
-                    Image(painterResource(R.drawable.stillune_foreground), "月光唱片，点按显示歌词",
-                        Modifier.fillMaxSize().graphicsLayer(scaleX = 1.6f, scaleY = 1.6f))
-                }
-            }
-        }
-    }
+                         model: LibraryViewModel, onImportLyrics: () -> Unit, modifier: Modifier,
+                         showQueue: Boolean = false) {
+    AlbumDeck(state, artwork, lyrics, visible, model::loadArtwork, model::advanceAlbum,
+        model::toggleLyrics, model::seek, onImportLyrics, modifier, showQueue)
 }
 
 @Composable

@@ -42,10 +42,10 @@ class LibraryUiTest {
         compose.onNodeWithText("音频分析").performClick()
         compose.onNodeWithText("音频分析").assertIsSelected()
         compose.onAllNodesWithText("声音画像").onFirst().assertExists()
-        compose.onNodeWithText("极简").performClick()
-        compose.onNodeWithText("极简").assertIsSelected()
+        compose.onNodeWithText("播放模式").performClick()
+        compose.onNodeWithText("播放模式").assertIsSelected()
         // Both layouts offer an explicit reverse path even without a lyric file.
-        listOf("极简", "音频分析").forEach { mode ->
+        listOf("播放模式", "音频分析").forEach { mode ->
             compose.onNodeWithText(mode).performClick()
             try {
                 compose.onNodeWithContentDescription("显示歌词").assertIsOn()
@@ -67,7 +67,7 @@ class LibraryUiTest {
         compose.onNodeWithText("输出设备").assertIsDisplayed()
         compose.onNodeWithText("封面 / 歌词").performClick()
         compose.onNodeWithText("返回封面").performScrollTo().performClick()
-        compose.onNodeWithText("极简").performClick()
+        compose.onNodeWithText("播放模式").performClick()
         compose.onNodeWithContentDescription("全屏播放").performClick()
         compose.onNodeWithContentDescription("退出全屏").assertExists()
         compose.onNodeWithContentDescription("乐库").assertDoesNotExist()

@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'assets/android'
 RES = OUT / 'res'
 LAYER = 1080
-SAFE_RADIUS = 325  # 32.5dp, leaving 0.5dp inside the official 33dp radius.
+SAFE_RADIUS = 300  # More breathing room on OEM circular masks, checked on the supplied phone photo.
+OPTICAL_OFFSET = (10, 16)  # px on the 1080px adaptive layer; open upper-right arcs carry less visual mass.
 
 def write(path, text):
     path = OUT / path
@@ -34,7 +35,8 @@ def main():
     size = tuple(max(1, round(n * scale)) for n in symbol.size)
     symbol = symbol.resize(size, Image.Resampling.LANCZOS)
     foreground = Image.new('RGBA', (LAYER, LAYER))
-    foreground.alpha_composite(symbol, ((LAYER - size[0]) // 2, (LAYER - size[1]) // 2))
+    foreground.alpha_composite(symbol, ((LAYER - size[0]) // 2 + OPTICAL_OFFSET[0],
+                                       (LAYER - size[1]) // 2 + OPTICAL_OFFSET[1]))
     bitmap_dir = RES / 'drawable-nodpi'
     bitmap_dir.mkdir(parents=True, exist_ok=True)
     foreground.save(bitmap_dir / 'stillune_foreground.png', optimize=True)
@@ -61,7 +63,12 @@ def main():
         for name in ['ic_launcher', 'ic_launcher_round']:
             write(f'res/mipmap-anydpi-v{version}/{name}.xml', adaptive)
     write('res/values/strings.xml', '<resources>\n    <string name="app_name">栖声 · Stillune</string>\n</resources>')
-    legacy = Image.open(ROOT / 'assets/branding/stillune-icon-source-square.png').convert('RGBA')
+    # Every mask and listing now uses the same calibrated viewport, including pre-adaptive launchers.
+    square = Image.new('RGBA', (LAYER, LAYER), '#263451')
+    square.alpha_composite(foreground)
+    square = square.crop((180, 180, 900, 900)).resize((1024, 1024), Image.Resampling.LANCZOS)
+    square.save(ROOT / 'assets/branding/stillune-icon-source-square.png', optimize=True)
+    legacy = square.copy()
     brand_mask = Image.new('L', legacy.size)
     ImageDraw.Draw(brand_mask).rounded_rectangle((0, 0, legacy.width - 1, legacy.height - 1), radius=legacy.width * .26, fill=255)
     legacy.putalpha(brand_mask)
@@ -118,7 +125,7 @@ def main():
     import xml.etree.ElementTree as ET
     for path in RES.rglob('*.xml'): ET.parse(path)
     report={'layer_px':LAYER,'layer_dp':108,'safe_circle_dp':66,'alpha_bbox':alpha_box,
-            'visible_radius_px':visible_radius,
+            'visible_radius_px':visible_radius, 'fit_radius_px':SAFE_RADIUS, 'optical_offset_px':OPTICAL_OFFSET,
             'play_bytes':(OUT/'play-store-512.png').stat().st_size,
             'xml_files':len(list(RES.rglob('*.xml'))),'android_build_verified':False}
     (OUT/'export-report.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')

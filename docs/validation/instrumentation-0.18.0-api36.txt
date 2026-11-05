@@ -1,0 +1,16 @@
+
+com.stillune.app.AlbumDeckUiTest:....
+com.stillune.app.ArtworkRepositoryTest:.
+com.stillune.app.NavigationUiTest:.
+com.stillune.app.LibraryUiTest:.
+com.stillune.app.GettingStartedUiTest:.
+com.stillune.app.HearingUiTest:...
+com.stillune.app.PlaybackIntegrationTest:.
+com.stillune.app.AnalysisUiTest:.
+com.stillune.app.RealtimeUiTest:.
+com.stillune.app.ImmersionUiTest:...
+com.stillune.app.LyricsUiTest:..
+
+Time: 70.951
+
+OK (19 tests)

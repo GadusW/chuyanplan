@@ -1,0 +1,144 @@
+{
+  "version": "0.18.0",
+  "date": "2026-11-06",
+  "build": "ARM64 and universal assembleDebug successful",
+  "unitTests": {
+    "passed": 36,
+    "failed": 0
+  },
+  "deviceTests": {
+    "passed": 19,
+    "failed": 0,
+    "platform": "API 36 x86_64 emulator",
+    "classes": [
+      "AlbumDeckUiTest",
+      "ArtworkRepositoryTest",
+      "NavigationUiTest",
+      "LibraryUiTest",
+      "GettingStartedUiTest",
+      "HearingUiTest",
+      "PlaybackIntegrationTest",
+      "AnalysisUiTest",
+      "RealtimeUiTest",
+      "ImmersionUiTest",
+      "LyricsUiTest"
+    ],
+    "addedRegressions": [
+      "smallLandscapeCardPeelsAndCenterDragStillChangesSong",
+      "plainTextLyricsPreviewStartsWithFirstLine"
+    ]
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 38
+  },
+  "playback": {
+    "resumeStateLatencyMs": {
+      "WAV": 117,
+      "AAC": 122,
+      "FLAC": 119,
+      "ALAC": 120,
+      "MP3": 111
+    },
+    "decoderReloadOnSamePausedTrack": false,
+    "earlyPauseStartPositionMs": 2300,
+    "earlyPauseDelaysMs": [
+      0,
+      10,
+      25
+    ],
+    "sourceFormats": [
+      "MP3",
+      "WAV",
+      "FLAC",
+      "AAC",
+      "ALAC"
+    ],
+    "note": "State latency includes 100 ms polling; not an audible-output latency measurement."
+  },
+  "artifacts": [
+    {
+      "name": "Stillune-0.18.0-arm64-debug.apk",
+      "bytes": 74971487,
+      "sha256": "4ca44771a4533f10833599d6abebddbda63cdd7d7b6a30134cfbd25e9b86ada7",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.18.0-universal-debug.apk",
+      "bytes": 230474940,
+      "sha256": "8b6ee79d975ce5fd33ecb697998e12fba70118683bc1e2b8447becb8830cbc4a",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "identicalDexAcrossAbis": true,
+  "originalSigningCertificatePreserved": true,
+  "visuals": {
+    "screenshots": [
+      "album-hearing-v18.png",
+      "album-landscape-peel-v18.png",
+      "album-landscape-v18.png",
+      "album-large-font-v18.png",
+      "album-library-v18.png",
+      "album-lyrics-v18.png",
+      "album-peel-small-v18.png",
+      "album-peel-v18.png",
+      "album-player-v18.png",
+      "album-return-v18.png"
+    ],
+    "fontScale": 1.3,
+    "orientations": [
+      "portrait",
+      "landscape"
+    ],
+    "iconSafety": "Fit radius 300 px; optical offset 10/16 px; visible radius 307.7 px within 330 px safe radius",
+    "recording": "album-interactions-v18.mp4",
+    "contrastFix": "Independent same-location pixel recheck passed for the three flagged small-text areas."
+  },
+  "limitations": [
+    "No physical phone or Bluetooth audible-latency measurement",
+    "Android 12+ native Gaussian blur; Android 8-11 alpha-fade fallback",
+    "Physical optical appearance requires OEM phone review",
+    "Screenshot library contains test-environment metadata, not shipped music"
+  ],
+  "albumDeck": {
+    "commitThresholdFraction": 0.24,
+    "maxPrefetchedUpcomingCovers": 3,
+    "remainingCountExcludesCurrent": true,
+    "originalQueuePreserved": true,
+    "peelCornerMaxDp": 64,
+    "peelCornerMaxFraction": 0.45,
+    "peelReturnMs": 300,
+    "cardFrameFixedDuringPeel": true,
+    "peelReturnsAlongRecordedPath": true,
+    "plainTextLyricsStartAtFirstLine": true
+  },
+  "review": {
+    "disposition": "ship",
+    "scope": "Verdict pass scoring the three material findings from independent native UI review.",
+    "resolved": [
+      "compact landscape peel hit region",
+      "plain TXT lyrics start at first line",
+      "small text contrast on bright glass"
+    ],
+    "contrastRatios": {
+      "heroCount": [
+        4.71,
+        4.98
+      ],
+      "selectedDetails": [
+        5.55,
+        6.14
+      ]
+    },
+    "physicalDeviceValidated": false
+  }
+}

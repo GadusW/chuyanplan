@@ -4,12 +4,22 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -18,20 +28,59 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.hypot
 
-/** A single material: translucent body, top-facing reflection and a fine refractive rim. */
-internal fun Modifier.glassPanel(radius: Dp = 20.dp, strength: Float = 1f): Modifier =
-    clip(androidx.compose.foundation.shape.RoundedCornerShape(radius)).drawWithCache {
-        val r = androidx.compose.ui.geometry.CornerRadius(radius.toPx())
-        val body = Brush.linearGradient(listOf(
-            Color.White.copy(alpha = .17f * strength), Mist.copy(alpha = .055f * strength),
-            Color.White.copy(alpha = .09f * strength)), end = Offset(size.width, size.height))
-        val rim = Brush.linearGradient(listOf(Color.White.copy(alpha = .48f * strength),
-            Color.White.copy(alpha = .04f), Mist.copy(alpha = .22f * strength)),
-            end = Offset(size.width * .6f, size.height))
-        onDrawBehind {
-            drawRoundRect(body, cornerRadius = r)
-            drawRoundRect(rim, cornerRadius = r, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+private class GlassBackdrop(val layer: GraphicsLayer) { var origin = Offset.Zero }
+private val LocalGlassBackdrop = staticCompositionLocalOf<GlassBackdrop?> { null }
+
+/** Record only the environment, never controls or glass itself, so sampling cannot recurse. */
+@Composable
+internal fun GlassScene(artwork: android.graphics.Bitmap?, content: @Composable BoxScope.() -> Unit) {
+    val layer = rememberGraphicsLayer()
+    val backdrop = remember(layer) { GlassBackdrop(layer) }
+    CompositionLocalProvider(LocalGlassBackdrop provides backdrop) {
+        Box(Modifier.fillMaxSize().onGloballyPositioned { backdrop.origin = it.positionInRoot() }) {
+            MoonlitBackdrop(artwork, Modifier.matchParentSize().drawWithCache {
+                onDrawWithContent { layer.record { this@onDrawWithContent.drawContent() }; drawLayer(layer) }
+            })
+            content()
         }
+    }
+}
+
+/** A lens samples the real environment with a small displacement, beneath fine reflected light. */
+internal fun Modifier.glassPanel(radius: Dp = 20.dp, strength: Float = 1f): Modifier =
+    composed {
+    val backdrop = LocalGlassBackdrop.current
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    clip(androidx.compose.foundation.shape.RoundedCornerShape(radius))
+    .onGloballyPositioned { origin = it.positionInRoot() }
+    .drawWithCache {
+        val r = androidx.compose.ui.geometry.CornerRadius(radius.toPx())
+        val displacement = 2.dp.toPx()
+        val body = Brush.linearGradient(listOf(
+            Color.White.copy(alpha = .13f * strength), Mist.copy(alpha = .025f * strength),
+            Color.White.copy(alpha = .07f * strength)), end = Offset(size.width, size.height))
+        val rim = Brush.linearGradient(0f to Color.White.copy(alpha = .75f * strength),
+            .3f to Color.White.copy(alpha = .07f), .62f to Color.White.copy(alpha = .015f),
+            1f to Mist.copy(alpha = .55f * strength), end = Offset(size.width * .7f, size.height))
+        onDrawBehind {
+            backdrop?.let { scene ->
+                val local = origin - scene.origin
+                withTransform({
+                    scale(1.055f, 1.055f, pivot = center)
+                    translate(-local.x + displacement, -local.y - displacement)
+                }) { drawLayer(scene.layer) }
+            }
+            drawRoundRect(body, cornerRadius = r)
+            drawRoundRect(Brush.radialGradient(listOf(Color.White.copy(alpha = .09f), Color.Transparent),
+                center = Offset(size.width * .15f, -size.height * .6f), radius = size.width * .7f), cornerRadius = r)
+            drawRoundRect(rim, cornerRadius = r, style = androidx.compose.ui.graphics.drawscope.Stroke(.7.dp.toPx()))
+            drawRoundRect(Brush.linearGradient(listOf(Color.Transparent, Mist.copy(alpha = .12f), Color.Transparent),
+                start = Offset(0f, size.height * .7f), end = Offset(size.width, size.height)),
+                topLeft = Offset(1.8.dp.toPx(), 1.8.dp.toPx()),
+                size = androidx.compose.ui.geometry.Size((size.width - 3.6.dp.toPx()).coerceAtLeast(0f), (size.height - 3.6.dp.toPx()).coerceAtLeast(0f)),
+                cornerRadius = r, style = androidx.compose.ui.graphics.drawscope.Stroke(1.8.dp.toPx()))
+        }
+    }
     }
 
 internal class RevealCircle(private val center: Offset, private val progress: Float) : Shape {

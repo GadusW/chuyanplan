@@ -9,5 +9,17 @@
     "file": "stillune-foreground-source.png",
     "prompt": "Extract the existing Stillune symbol into a transparent PNG foreground for an Android adaptive app icon. This is STRICT background removal only. Preserve the exact supplied three independent separated concentric C-shaped glass arcs and center hollow ring, all curves, positions, bright champagne-lavender-icy-blue glass lighting and highlights, antialiasing, size and optical offset. Remove only slate-blue backdrop and make all negative spaces transparent, including between arcs and inside the small central ring. Do not redraw, move, recenter, reshape, stylize, fuse or add elements. Keep same square canvas and margins. Preserve luminous translucent glass appearance without adding dark background pixels. Real transparent background, no checkerboard painted into image. Foreground alpha extraction only."
   },
-  "exports": "tools/export_android_icons.py; generated source canvas placement preserved"
+  "exports": "tools/export_android_icons.py; unified calibrated adaptive viewport",
+  "calibration_0_18_0": {
+    "basis": "User-provided phone launcher photo in this chat; reduce crowding at top/left and balance circular mask.",
+    "method": "Deterministic scale/translation of approved foreground only; no new image generation.",
+    "fit_radius_px": 300,
+    "adaptive_canvas_px": 1080,
+    "translation_px": [
+      10,
+      16
+    ],
+    "scale_relative_to_v17": 0.9230769230769231,
+    "square_and_legacy": "Recomposed from same 72dp viewport as adaptive preview."
+  }
 }

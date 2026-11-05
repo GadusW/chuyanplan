@@ -123,12 +123,14 @@ fun StilluneApp(
                 (group == null || LibraryGrouping.key(it, tab) == group)
         }
     }
-    Scaffold(containerColor = Night, snackbarHost = { SnackbarHost(snackbar) },
+    GlassScene(artwork) {
+    Scaffold(containerColor = Color.Transparent, contentColor = MaterialTheme.colorScheme.onBackground,
+        snackbarHost = { SnackbarHost(snackbar) },
         contentWindowInsets = if (fullScreen || immersive) WindowInsets(0, 0, 0, 0) else WindowInsets.safeDrawing,
         bottomBar = {
             if (!fullScreen && !immersive) Column(Modifier.fillMaxWidth().navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
                 AnimatedVisibility(!playerOpen && playback.track != null, enter = fadeIn() + expandVertically(), exit = shrinkVertically() + fadeOut()) {
-                    MiniPlayer(playback, onOpen = { playerOpen = true; healthOpen = false }, onToggle = model::toggle, onNext = model::next)
+                    MiniPlayer(playback, artwork, onOpen = { playerOpen = true; healthOpen = false }, onToggle = model::toggle, onNext = model::next)
                 }
                 FloatingNavigation(playerOpen, { playerOpen = false; healthOpen = false }, { playerOpen = true; healthOpen = false },
                     healthOpen = healthOpen, onHealth = { healthOpen = true; playerOpen = false },
@@ -150,7 +152,6 @@ fun StilluneApp(
                         shape = RevealCircle(revealOrigin - pageOrigin, reveal); clip = true
                     }
                 }) {
-                if (destination != 1) MoonlitBackdrop(null, Modifier.matchParentSize())
                 if (destination == 2) Box(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) {
                     HealthPage(model, onRead = { knowledgeOpen = true })
                 }
@@ -183,12 +184,12 @@ fun StilluneApp(
                         if (tracks.isEmpty()) importOpen = true else { model.play(tracks.first()); playerOpen = true }
                     }) }
                     item {
-                        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
+                        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().glassPanel(12.dp, .65f), singleLine = true,
                             placeholder = { Text("搜索歌曲、艺人或专辑", fontSize = 14.sp) },
                             leadingIcon = { Icon(Icons.Rounded.Search, "搜索") },
                             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "清除搜索") } },
                             shape = RoundedCornerShape(12.dp), colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color.White.copy(alpha = .2f), unfocusedContainerColor = Color.White.copy(alpha = .08f)))
+                                unfocusedBorderColor = Color.Transparent, unfocusedContainerColor = Color.Transparent))
                     }
                     if (scan.running) item {
                         Surface(shape = RoundedCornerShape(16.dp), color = Panel) {
@@ -234,13 +235,14 @@ fun StilluneApp(
                         }
                     } else {
                         items(filtered, key = { it.uri }, contentType = { "track" }) { track ->
-                            TrackRow(track, playback.track?.uri == track.uri, playback.playing) { model.play(track, filtered) }
+                            TrackRow(track, playback.track?.uri == track.uri, playback.playing, model::loadArtwork) { model.play(track, filtered) }
                         }
                     }
                 }
                 }
             }
         }
+    }
     }
     hearingLive.notice?.let { notice ->
         if (reading == null) AlertDialog(onDismissRequest = model.hearing::dismissNotice, title = { Text(notice.title) },
@@ -305,7 +307,7 @@ fun StilluneApp(
         Text("此刻的音乐 · ${playback.queue.size} 首", Modifier.padding(horizontal = 24.dp, vertical = 12.dp), fontSize = 20.sp)
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp).padding(horizontal = 24.dp), contentPadding = PaddingValues(bottom = 32.dp)) {
             items(playback.queue, key = { it.uri }) { track ->
-                TrackRow(track, track.uri == playback.track?.uri, playback.playing) { model.play(track, playback.queue) }
+                TrackRow(track, track.uri == playback.track?.uri, playback.playing, model::loadArtwork) { model.play(track, playback.queue) }
             }
         }
     }
@@ -333,7 +335,7 @@ private fun LibraryHero(count: Int, onClick: () -> Unit) {
                 Modifier.size(88.dp).align(Alignment.CenterEnd), alpha = .85f)
             Column(Modifier.align(Alignment.CenterStart).padding(end = 84.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(if (count == 0) "你的音乐" else "开始聆听", fontSize = 20.sp, fontWeight = FontWeight.Medium, color = Moon)
-                Text(if (count == 0) "导入音乐" else "$count 首歌曲", fontSize = 12.sp, color = Quiet)
+                Text(if (count == 0) "导入音乐" else "$count 首歌曲", fontSize = 12.sp, color = Moon)
             }
         }
     }
@@ -352,33 +354,36 @@ private fun EmptyLibrary(empty: Boolean, onImport: () -> Unit) {
 }
 
 @Composable
-private fun TrackRow(track: Track, selected: Boolean, playing: Boolean, onClick: () -> Unit) {
+private fun TrackRow(track: Track, selected: Boolean, playing: Boolean, loadArtwork: suspend (Track) -> android.graphics.Bitmap?, onClick: () -> Unit) {
+    val cover by rememberTrackArtwork(track, loadArtwork)
+    val detailColor = if (selected) MaterialTheme.colorScheme.onSurface else Quiet
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
         .background(if (selected) Mist.copy(alpha = .09f) else Color.Transparent)
         .clickable(onClick = onClick).padding(vertical = 9.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(44.dp).clip(RoundedCornerShape(8.dp))
             .background(Color.White.copy(alpha = .035f)), contentAlignment = Alignment.Center) {
-            Icon(if (selected && playing) Icons.Rounded.GraphicEq else Icons.Rounded.Album, null, tint = if (selected) Moon else Quiet, modifier = Modifier.size(24.dp))
+            AlbumArtwork(cover, null, Modifier.fillMaxSize())
+            if (selected && playing) Icon(Icons.Rounded.GraphicEq, null, Modifier.align(Alignment.BottomEnd).size(18.dp).background(Night.copy(alpha = .7f), CircleShape), tint = Moon)
         }
         Column(Modifier.weight(1f).padding(horizontal = 13.dp)) {
             Text(track.title, color = if (selected) Moon else MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(5.dp))
-            Text("${track.artist} · ${track.album}", color = Quiet, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${track.artist} · ${track.album}", color = detailColor, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(track.format, color = if (track.lossless) Mist else Quiet, fontSize = 11.sp)
-            Spacer(Modifier.height(6.dp)); Text(timeLabel(track.durationMs), color = Quiet, fontSize = 11.sp)
+            Text(track.format, color = if (selected) detailColor else if (track.lossless) Mist else Quiet, fontSize = 11.sp)
+            Spacer(Modifier.height(6.dp)); Text(timeLabel(track.durationMs), color = detailColor, fontSize = 11.sp)
         }
     }
 }
 
 @Composable
-private fun MiniPlayer(state: PlaybackState, onOpen: () -> Unit, onToggle: () -> Unit, onNext: () -> Unit) {
+private fun MiniPlayer(state: PlaybackState, artwork: android.graphics.Bitmap?, onOpen: () -> Unit, onToggle: () -> Unit, onNext: () -> Unit) {
     Surface(onClick = onOpen, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
         shape = RoundedCornerShape(20.dp), color = Color.Transparent) {
         Column(Modifier.glassPanel()) {
             Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Album, null, Modifier.size(34.dp), tint = Moon)
+                AlbumArtwork(artwork, "当前歌曲专辑封面", Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)))
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(state.track?.title.orEmpty(), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(state.track?.artist.orEmpty(), color = Quiet, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -427,7 +432,8 @@ private fun NavItem(label: String, icon: ImageVector, selected: Boolean, onOrigi
         spring(dampingRatio = .8f, stiffness = 550f), label = "nav-press")
     val fill by animateColorAsState(if (selected) Color.White.copy(alpha = .18f) else Color.Transparent, tween(180), label = "nav-selection")
     var origin by remember { mutableStateOf(Offset.Zero) }
-    Row(Modifier.heightIn(min = 52.dp).widthIn(min = 52.dp).clip(RoundedCornerShape(26.dp)).background(fill)
+    Row(Modifier.heightIn(min = 52.dp).widthIn(min = 52.dp).clip(RoundedCornerShape(26.dp))
+        .then(if (selected) Modifier.glassPanel(26.dp, .55f) else Modifier).background(fill)
         .semantics { contentDescription = label }
         .selectable(selected, interactionSource = interactions, indication = ripple(), role = Role.Tab,
             onClick = { if (!selected) { onOrigin(origin); onClick() } })
