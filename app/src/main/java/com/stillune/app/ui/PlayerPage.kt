@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.stillune.app.R
 import com.stillune.app.data.Lyrics
@@ -43,14 +44,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 /** Glass is composed from a blurred ambient image behind a translucent, sharply drawn control layer. */
 @Composable
 internal fun MoonlitBackdrop(artwork: Bitmap?, modifier: Modifier = Modifier) {
-    Box(modifier.background(Brush.verticalGradient(listOf(Color(0xFF243B59), Night, Color(0xFF15243D))))) {
+    Box(modifier.background(Brush.linearGradient(listOf(Color(0xFF42536D), Night, Color(0xFF293F5B))))) {
         val blur = if (Build.VERSION.SDK_INT >= 31) Modifier.blur(56.dp, BlurredEdgeTreatment.Unbounded) else Modifier
-        Box(Modifier.matchParentSize().then(blur).alpha(.18f)) {
+        Box(Modifier.matchParentSize().then(blur).alpha(.48f)) {
             Canvas(Modifier.fillMaxSize()) {
-                drawCircle(Brush.radialGradient(listOf(Mist.copy(alpha = .65f), Color.Transparent),
+                drawCircle(Brush.radialGradient(listOf(Mist.copy(alpha = .6f), Color.Transparent),
                     center = Offset(size.width * .9f, size.height * .28f), radius = size.width * .85f),
                     size.width * .85f, Offset(size.width * .9f, size.height * .28f))
-                drawCircle(Brush.radialGradient(listOf(Moon.copy(alpha = .28f), Color.Transparent),
+                drawCircle(Brush.radialGradient(listOf(Moon.copy(alpha = .4f), Color.Transparent),
                     center = Offset(size.width * .04f, size.height * .65f), radius = size.width * .7f),
                     size.width * .7f, Offset(size.width * .04f, size.height * .65f))
             }
@@ -58,14 +59,13 @@ internal fun MoonlitBackdrop(artwork: Bitmap?, modifier: Modifier = Modifier) {
             else if (Build.VERSION.SDK_INT >= 31) Image(painterResource(R.drawable.stillune_foreground), null,
                 Modifier.fillMaxSize().graphicsLayer(scaleX = 2.3f, scaleY = 2.3f).alpha(.4f), contentScale = ContentScale.Crop)
         }
-        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Night.copy(alpha = .05f), Night.copy(alpha = .65f)))))
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Night.copy(alpha = .02f), Night.copy(alpha = .25f)))))
     }
 }
 
 @Composable
 internal fun GlassSurface(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
-    Box(modifier.clip(RoundedCornerShape(16.dp))
-        .background(Color.White.copy(alpha = .045f)),
+    Box(modifier.glassPanel(16.dp),
         content = content)
 }
 
@@ -76,6 +76,7 @@ internal fun PlayerPage(
     onImportLyrics: () -> Unit, onImport: () -> Unit, onQueue: () -> Unit, onOutput: () -> Unit,
     onImmersion: () -> Unit = {},
     onKnowledge: () -> Unit = {},
+    bottomInset: Dp = 0.dp,
 ) {
     val analysisMode by model.analysisMode.collectAsStateWithLifecycle()
     val analysis by model.analysis.collectAsStateWithLifecycle()
@@ -83,22 +84,24 @@ internal fun PlayerPage(
     BoxWithConstraints(Modifier.fillMaxSize()) {
         MoonlitBackdrop(artwork, Modifier.matchParentSize())
         val landscape = maxWidth > maxHeight
-        val compact = maxHeight < 640.dp
-        val horizontal = if (landscape) 22.dp else 28.dp
-        Column(Modifier.fillMaxSize().then(if (fullScreen) Modifier.displayCutoutPadding() else Modifier)
+        val compact = maxHeight - bottomInset < 640.dp
+        val horizontal = 24.dp
+        Column(Modifier.fillMaxSize().padding(bottom = bottomInset).then(if (fullScreen) Modifier.displayCutoutPadding() else Modifier)
             .padding(horizontal = horizontal, vertical = if (fullScreen) 20.dp else 8.dp)) {
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.Rounded.KeyboardArrowDown, "收起播放页", tint = Quiet) }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)) { Icon(Icons.Rounded.KeyboardArrowDown, "收起播放页", tint = Quiet) }
+                Column(Modifier.align(Alignment.Center).padding(horizontal = 96.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("栖声 · Stillune", fontSize = 13.sp, color = Moon, fontWeight = FontWeight.Medium)
                     Text(state.track?.album ?: "本地聆听", color = Quiet, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically) {
                 if (state.track != null) IconButton(onClick = onKnowledge) {
                     Icon(Icons.AutoMirrored.Rounded.MenuBook, "聆听知识", tint = Quiet)
                 }
                 IconButton(onClick = onFullScreen) {
                     Icon(if (fullScreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
                         if (fullScreen) "退出全屏" else "全屏播放", tint = Quiet)
+                }
                 }
             }
             Row(Modifier.align(Alignment.CenterHorizontally).padding(vertical = 4.dp)) {
@@ -145,7 +148,6 @@ internal fun PlayerPage(
                             Box(Modifier.size(64.dp)) { PlayerVisual(lyrics, false, artwork, state, model, onImportLyrics, Modifier.fillMaxSize()) }
                             Column {
                                 Text(state.track?.album ?: "本地音乐", color = Quiet, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("点封面查看歌词", color = Quiet, fontSize = 12.sp)
                             }
                         }
                         AnalysisSwitcher(analysis, state, model.realtimeAnalysis, model::requestAnalysis, model::seek,realtime,{realtime=it})
@@ -210,7 +212,7 @@ private fun PlayerVisual(lyrics: Lyrics, visible: Boolean, artwork: Bitmap?, sta
     AnimatedContent(visible, modifier, transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(180)) }, label = "cover-lyrics") { show ->
         if (show) Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (lyrics.synced) "单击返回 · 双击跳转" else "单击歌词返回封面", color = Quiet, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
                 TextButton(onClick = model::toggleLyrics) {
                     Icon(Icons.Rounded.Album, null, Modifier.size(16.dp))
                     Text("返回封面", fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp))
@@ -240,7 +242,7 @@ private fun TrackHeading(state: PlaybackState, compact: Boolean, analysisMode: B
         Column(Modifier.fillMaxWidth().padding(top = 10.dp)) {
             Text(state.track?.title ?: "让声音停泊", color = Moon, fontSize = 19.sp, fontWeight = FontWeight.Medium,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(state.track?.let { "${it.artist} · ${it.format}" } ?: "带上你的珍藏，从一首歌开始",
+            Text(state.track?.let { "${it.artist} · ${it.format}" } ?: "从乐库选择音乐",
                 Modifier.padding(top = 4.dp), color = Quiet, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         return
@@ -250,7 +252,7 @@ private fun TrackHeading(state: PlaybackState, compact: Boolean, analysisMode: B
             Text(title, fontSize = if (compact) 22.sp else 27.sp, lineHeight = 34.sp, fontWeight = FontWeight.Medium,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, color = Color(0xFFF4F2EE))
         }
-        Text(state.track?.artist ?: "带上你的珍藏，从一首歌开始", Modifier.padding(top = 6.dp),
+        Text(state.track?.artist ?: "从乐库选择音乐", Modifier.padding(top = 6.dp),
             color = Quiet, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         state.track?.let { track ->
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -291,9 +293,9 @@ private fun PlayerControls(state: PlaybackState, model: LibraryViewModel, compac
                 Icon(Icons.Rounded.Shuffle, "随机播放", Modifier.size(21.dp), tint = if (state.shuffle) Moon else Quiet)
             }
             IconButton(onClick = model::previous, enabled = state.track != null) { Icon(Icons.Rounded.SkipPrevious, "上一首", Modifier.size(32.dp)) }
-            FilledIconButton(onClick = { if (state.track == null) onImport() else model.toggle() }, modifier = Modifier.size(if (compact) 60.dp else 68.dp),
-                colors = IconButtonDefaults.filledIconButtonColors(containerColor = Moon.copy(alpha = .95f), contentColor = Night)) {
-                if (state.loading) CircularProgressIndicator(Modifier.size(26.dp), color = Night, strokeWidth = 2.dp)
+            FilledIconButton(onClick = { if (state.track == null) onImport() else model.toggle() }, modifier = Modifier.size(if (compact) 60.dp else 68.dp).glassPanel(34.dp, 1.5f),
+                colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.Transparent, contentColor = Moon)) {
+                if (state.loading) CircularProgressIndicator(Modifier.size(26.dp), color = Moon, strokeWidth = 2.dp)
                 else Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放", Modifier.size(34.dp))
             }
             IconButton(onClick = model::next, enabled = state.track != null) { Icon(Icons.Rounded.SkipNext, "下一首", Modifier.size(32.dp)) }
@@ -339,7 +341,7 @@ internal fun LyricsPane(lyrics: Lyrics, positionMs: Long, hasTrack: Boolean, onS
     if (lyrics.lines.isEmpty()) Column(modifier.then(returnGesture).padding(16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Rounded.Lyrics, null, Modifier.size(32.dp), tint = Mist.copy(alpha = .65f))
         Spacer(Modifier.height(18.dp))
-        Text(if (hasTrack) "让旋律，也有文字相伴" else "先选一首音乐", fontSize = 20.sp, color = Moon)
+        Text(if (hasTrack) "暂无歌词" else "先选一首音乐", fontSize = 20.sp, color = Moon)
         Text(lyrics.message ?: "导入本地 LRC / TXT 歌词\n已授权文件夹中的同名歌词会自动读取", Modifier.padding(top = 12.dp),
             color = Quiet, fontSize = 12.sp, lineHeight = 21.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         if (hasTrack) TextButton(onClick = onImport, modifier = Modifier.padding(top = 14.dp)) { Text("选择歌词文件") }

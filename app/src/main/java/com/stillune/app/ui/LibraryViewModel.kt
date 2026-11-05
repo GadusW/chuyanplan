@@ -135,9 +135,9 @@ class LibraryViewModel @Inject constructor(
         }
     }
     fun autoScan() {
-        if (!autoScanned) { autoScanned = true; scanAll(ScanOptions(), true) }
+        if (!autoScanned) { autoScanned = true; scanAll(ScanOptions(), true, quiet = true) }
     }
-    fun scanAll(options: ScanOptions, canReadMedia: Boolean) = launchScan {
+    fun scanAll(options: ScanOptions, canReadMedia: Boolean, quiet: Boolean = false) = launchScan {
         var total = 0; var skipped = 0; var failed = 0
         if (canReadMedia) library.scanMedia(options, ::progress).also { total += it.found; skipped += it.skipped; failed += it.failed }
         for (folder in library.savedFolders()) {
@@ -148,7 +148,9 @@ class LibraryViewModel @Inject constructor(
             catch (_: Exception) { failed++ }
         }
         if (!canReadMedia && library.savedFolders().isEmpty()) "请授权音频访问，或选择音乐文件夹。"
-        else "扫描完成 · 曲库共 ${library.tracks.first().size} 首，过滤 $skipped 项" + if (failed > 0) "，$failed 项未能读取，可重新授权后重试" else ""
+        else if (quiet && failed == 0) null
+        else "扫描完成 · ${library.tracks.first().size} 首" + (if (skipped > 0) "，过滤 $skipped 项" else "") +
+            (if (failed > 0) "，$failed 项未能读取，请检查授权" else "")
     }
     fun scanFolder(uri: Uri, options: ScanOptions) {
         library.rememberFolder(uri)
@@ -162,7 +164,7 @@ class LibraryViewModel @Inject constructor(
         "已导入 ${report.found} 首" + if (report.failed > 0) "，${report.failed} 个文件无法读取或不是音频" else ""
     }
     private fun progress(count: Int) { _scan.update { it.copy(processed = count) } }
-    private fun launchScan(task: suspend () -> String) {
+    private fun launchScan(task: suspend () -> String?) {
         if (_scan.value.running) return
         scanJob = viewModelScope.launch {
             _scan.value = ScanState(running = true)

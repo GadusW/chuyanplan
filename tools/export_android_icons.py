@@ -21,9 +21,11 @@ def write(path, text):
 
 def main():
     source = Image.open(ROOT / 'assets/branding/stillune-foreground-source.png').convert('RGBA')
+    # Remove near-zero alpha encoder dust, retaining the generated optical placement.
+    source.putalpha(source.getchannel('A').point(lambda a: 0 if a <= 2 else a))
     box = source.getchannel('A').getbbox()
     assert box
-    symbol = source.crop(box)
+    symbol = source
     # Fit actual visible pixels, avoiding needless shrinkage from empty corners.
     max_radius = max(math.hypot(i % symbol.width - symbol.width / 2,
                                 i // symbol.width - symbol.height / 2)
@@ -48,7 +50,7 @@ def main():
     android:src="@drawable/stillune_monochrome" android:gravity="fill" />''')
     write('res/drawable/ic_launcher_background.xml', '''
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <gradient android:startColor="#303D53" android:endColor="#252E43" android:angle="315" />
+    <solid android:color="#263451" />
 </shape>''')
     for version in [26, 33]:
         mono_line = '\n    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />' if version == 33 else ''
@@ -59,7 +61,11 @@ def main():
         for name in ['ic_launcher', 'ic_launcher_round']:
             write(f'res/mipmap-anydpi-v{version}/{name}.xml', adaptive)
     write('res/values/strings.xml', '<resources>\n    <string name="app_name">栖声 · Stillune</string>\n</resources>')
-    legacy = Image.open(ROOT / 'assets/branding/stillune-icon.png').convert('RGBA')
+    legacy = Image.open(ROOT / 'assets/branding/stillune-icon-source-square.png').convert('RGBA')
+    brand_mask = Image.new('L', legacy.size)
+    ImageDraw.Draw(brand_mask).rounded_rectangle((0, 0, legacy.width - 1, legacy.height - 1), radius=legacy.width * .26, fill=255)
+    legacy.putalpha(brand_mask)
+    legacy.save(ROOT / 'assets/branding/stillune-icon.png', optimize=True)
     for density, pixels in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]:
         target = RES / f'mipmap-{density}'
         target.mkdir(parents=True, exist_ok=True)
@@ -88,7 +94,7 @@ def main():
     # Mask previews are QA exports, not launcher source layers.
     previews=[]
     for kind in ['round','rounded-square','squircle','themed']:
-        bg=Image.new('RGBA',(LAYER,LAYER),'#252e43' if kind!='themed' else '#d8e4e9')
+        bg=Image.new('RGBA',(LAYER,LAYER),'#263451' if kind!='themed' else '#d8e4e9')
         fg=foreground if kind!='themed' else Image.new('RGBA',foreground.size,'#304650')
         if kind=='themed': fg.putalpha(mono.getchannel('A'))
         bg.alpha_composite(fg)

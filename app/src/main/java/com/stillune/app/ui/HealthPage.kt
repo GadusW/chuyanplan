@@ -134,13 +134,12 @@ internal fun HearingContent(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("护耳", fontSize = 28.sp, color = Moon)
-                    Text("让热爱，听得更长久。", color = Quiet, fontSize = 13.sp)
                 }
                 Switch(settings.enabled, { onUpdate { old -> old.copy(enabled = it) } }, modifier = Modifier.semanticsLabel("启用护耳"))
             }
         }
         item {
-            Text(if (settings.enabled) "已启用 · 在各播放模式与后台持续记录" else "开启后，栖声会记录收听并适时提醒", color = Mist, fontSize = 12.sp)
+            Text(if (settings.enabled) "已启用收听记录" else "开启收听记录与休息提醒", color = Mist, fontSize = 12.sp)
             Text("只记录本应用可观测的播放，不评定听力健康。", Modifier.padding(top = 6.dp), color = Quiet, fontSize = 12.sp)
         }
         item {

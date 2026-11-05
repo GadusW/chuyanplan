@@ -1,7 +1,7 @@
 # 栖声 · Stillune
 
 <p align="center">
-  <img src="assets/branding/stillune-icon.png" width="240" alt="栖声 · Stillune 正式图标：深靛蓝背景上，暖白至雾蓝的半透明弧线环绕唱片轴心，隐约构成月牙。">
+  <img src="assets/branding/stillune-icon.png" width="240" alt="栖声 · Stillune 新图标：纯靛蓝背景，香槟金、淡紫至冰蓝的三道液态玻璃声波与中心圆环。">
 </p>
 
 <p align="center">让声音停泊，让热爱长久。</p>
@@ -10,19 +10,27 @@
 
 栖声 · Stillune 是一个面向 **Android** 的本地音乐播放器项目，致力于将高品质播放、声音分析、从容的聆听体验与听力关怀融为一体。让珍藏的音乐长久相伴，也让双耳适时休憩。
 
-目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.16.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
+目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.17.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
 
 ## 下载安装
 
 开发者知识制作入口见 [零基础使用说明](docs/knowledge-workflow/使用说明.md)。可在电脑上选择文件导入、查看原件与整理笔记、用表单改稿、跨 agent 制作、审核并下载签名知识包。支持检测本机模型和后台生成任务。手机版从 0.13.0 起支持在知识书架导入签名知识包。
 
-当前提供 **0.16.0 开发预览版（调试签名）**：
+当前提供 **0.17.0 开发预览版（调试签名）**：
 
-- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.16.0/Stillune-0.16.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
-- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.16.0/Stillune-0.16.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
-- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.16.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
+- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.17.0/Stillune-0.17.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
+- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.17.0/Stillune-0.17.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
+- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.17.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
 
 最低 Android 8.0。后续推送会同步对应版本的安装包至 [GitHub Releases](https://github.com/GadusW/chuyanplan/releases)。
+
+## 0.17.0 更新 · 明亮玻璃与透明导航
+
+- 采用已确认的明亮液态玻璃声波图标，同步桌面、自适应、主题图标、通知、无封面图及商店资源。
+- 界面统一玻璃亮面与细薄反射边；底部移除整体底板与分隔线，仅当前图标展开文字、显示半透明白色圆角底，切换使用弹簧过渡。
+- 从点击图标中心圆形扩散至目标页面；乐库列表在底部操作区附近渐进高斯模糊，Android 8–11 使用渐隐兼容效果。
+- 修复再次点击当前暂停歌曲会重载解码器的问题，保留暂停位置，并处理快速暂停／恢复的延迟回调；删去重复提示，统一主要边距、标题与横屏对齐。
+- 实际界面：[乐库](docs/screenshots/glass-library-v17.png) · [播放](docs/screenshots/glass-player-v17.png) · [护耳](docs/screenshots/glass-hearing-v17.png) · [横屏](docs/screenshots/glass-landscape-v17.png)。[实现与验证范围](docs/android-glass-ui.md)。
 
 ## 0.16.0 更新 · 阅读库扩展至 60 篇
 
@@ -183,7 +191,7 @@
 
 ## 图标设计
 
-正式图标以深靛蓝铺开静夜，暖月白经淡紫向雾蓝柔和过渡。错落的半透明弧线围绕唱片轴心舒展，既像唱片沟槽与声音涟漪，也隐约勾勒出月牙。若隐若现的边缘与轻盈的空间感，呼应“栖声”的安静气质，以及对音乐品质与双耳健康的关照。
+0.17.0 正式图标采用纯靛蓝背景，香槟金经淡紫向冰蓝过渡。三道独立嵌套的液态玻璃弧线围绕圆环舒展，以清楚的间隔、透光和细薄折射边保留声波与唱片的识别。图案按视觉重量居中，配合界面的明亮玻璃表面。
 
 正式品牌展示版采用四角对称的圆角正方形，外围透明，让轮廓与月光般的轻盈质感相呼应。它用于 README、图册等展示，不能直接代替 Android 自适应启动图标。
 

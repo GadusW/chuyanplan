@@ -33,9 +33,9 @@ class HearingUiTest {
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("打开知识书架"))
         compose.onNodeWithText("打开知识书架").performClick()
         compose.runOnIdle { assertTrue(read) }
-        compose.onAllNodesWithText("护耳", substring = false).onLast().performClick().assertIsSelected()
-        compose.onNodeWithText("此刻").performClick().assertIsSelected()
-        compose.onNodeWithText("乐库").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("护耳").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("此刻").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("乐库").performClick().assertIsSelected()
     }
     @Test fun knowledgeReaderSupportsFavoriteAndClosesWithoutAutoplay() {
         var open by mutableStateOf(true)

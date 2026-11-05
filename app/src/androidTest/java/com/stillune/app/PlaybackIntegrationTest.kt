@@ -128,6 +128,19 @@ class PlaybackIntegrationTest {
                 waitFor("Seek failed: ${track.fileName}") { engine.store.state.value.positionMs >= 2400 }
                 main { engine.pause() }
                 assertFalse(engine.store.state.value.playing)
+                val paused = engine.store.state.value
+                val resumedAt = android.os.SystemClock.elapsedRealtime()
+                // Re-selecting a paused song must reuse the decoder and position in all formats.
+                main { engine.playQueue(listOf(track), 0) }
+                waitFor("Paused song did not resume promptly: ${track.format}", 1500) {
+                    engine.store.state.value.playing
+                }
+                assertEquals("Resume must not reload/seek the decoder", paused.timelineRevision, engine.store.state.value.timelineRevision)
+                assertTrue("Resume must preserve the paused position", engine.store.state.value.positionMs >= paused.positionMs - 50)
+                android.util.Log.i("StilluneResume", "${track.format}: ${android.os.SystemClock.elapsedRealtime() - resumedAt} ms")
+                repeat(3) { main { engine.pause(); engine.resume() } }
+                waitFor("Delayed Paused callback overrode a rapid resume") { engine.store.state.value.playing }
+                main { engine.pause() }
             }
             main { engine.playQueue(tracks, 0) }
             waitFor("Queue did not start") { engine.store.state.value.playing && engine.store.state.value.positionMs > 300 }
@@ -191,6 +204,16 @@ class PlaybackIntegrationTest {
             assertEquals(tracks.first().uri,saved.track?.uri)
             assertTrue(saved.positionMs >= 2200)
             assertFalse(saved.playing)
+            // Pause while the decoder is opening/seeking, before its Playing callback.
+            // The published saved start must survive even if native time is not valid yet.
+            for (pauseAfterMs in listOf(0L, 10L, 25L)) {
+                main { engine.playQueue(listOf(tracks.first()), 0, 2300) }
+                if (pauseAfterMs > 0) Thread.sleep(pauseAfterMs)
+                main { engine.pause() }
+                engine.memory.flush()
+                assertTrue("An early pause must not erase the requested resume position",
+                    requireNotNull(engine.memory.restore()).positionMs >= 2200)
+            }
             main { context.startForegroundService(Intent(context, EnvironmentMonitorService::class.java)) }
             waitFor("Opt-in microphone foreground service did not start: ${engine.hearing.environment.value.status}") {
                 engine.hearing.environment.value.running

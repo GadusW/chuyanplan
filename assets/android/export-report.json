@@ -3,13 +3,14 @@
   "layer_dp": 108,
   "safe_circle_dp": 66,
   "alpha_bbox": [
-    295,
-    290,
-    785,
-    792
+    262,
+    219,
+    844,
+    811
   ],
-  "visible_radius_px": 282.3118842698621,
-  "play_bytes": 267183,
+  "visible_radius_px": 325.0,
+  "play_bytes": 278105,
   "xml_files": 8,
-  "android_build_verified": false
+  "android_build_verified": true,
+  "verified_version": "0.17.0"
 }

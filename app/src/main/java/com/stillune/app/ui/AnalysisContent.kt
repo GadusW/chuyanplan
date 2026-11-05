@@ -35,7 +35,6 @@ internal fun AnalysisContent(cache: AnalysisCache?, state: PlaybackState, onRequ
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("声音画像", fontSize = 17.sp, color = Moon, fontWeight = FontWeight.Medium)
-                Text("离线缓存 · 上滑查看", fontSize = 11.sp, color = Quiet)
             }
             IconButton(onClick = { explain = true }) { Icon(Icons.Rounded.Info, "分析结果说明", tint = Quiet, modifier = Modifier.size(20.dp)) }
         }
@@ -98,7 +97,6 @@ internal fun SpectrumSeekbar(cache: AnalysisCache, positionMs: Long, onSeek: (Lo
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("整曲频谱", color = Moon, fontSize = 13.sp)
-                Text("点按跳转", color = Quiet, fontSize = 11.sp)
             }
             Box(Modifier.fillMaxWidth().height(88.dp).clip(RoundedCornerShape(12.dp))
                 .pointerInput(cache.durationMs) { detectTapGestures { onSeek((it.x/size.width).coerceIn(0f,1f).times(cache.durationMs).toLong()) } }

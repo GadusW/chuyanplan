@@ -36,7 +36,7 @@ class LibraryUiTest {
         compose.onNodeWithText("选择音乐文件夹").assertIsDisplayed()
         compose.onNodeWithText("导入音频文件").assertIsDisplayed()
         compose.onNodeWithContentDescription("关闭导入").performClick()
-        compose.onNodeWithText("此刻").performClick()
+        compose.onNodeWithContentDescription("此刻").performClick()
         compose.onNodeWithContentDescription("播放队列").assertExists()
         compose.onNodeWithContentDescription("播放进度").assertExists()
         compose.onNodeWithText("音频分析").performClick()
@@ -70,7 +70,7 @@ class LibraryUiTest {
         compose.onNodeWithText("极简").performClick()
         compose.onNodeWithContentDescription("全屏播放").performClick()
         compose.onNodeWithContentDescription("退出全屏").assertExists()
-        compose.onNodeWithText("乐库").assertDoesNotExist()
+        compose.onNodeWithContentDescription("乐库").assertDoesNotExist()
         try {
             compose.onNodeWithContentDescription("显示歌词").assertIsOn()
             compose.onNodeWithContentDescription("显示歌词").performSemanticsAction(SemanticsActions.OnClick) { it() }
@@ -80,7 +80,7 @@ class LibraryUiTest {
         compose.onNodeWithContentDescription("显示歌词").performSemanticsAction(SemanticsActions.OnClick) { it() }
         compose.onNodeWithContentDescription("显示歌词").assertIsOff()
         compose.onNodeWithContentDescription("退出全屏").performClick()
-        compose.onNodeWithText("乐库").performClick()
-        compose.onNodeWithText("寻找一首想听的歌").assertIsDisplayed()
+        compose.onNodeWithContentDescription("乐库").performClick()
+        compose.onNodeWithText("搜索歌曲、艺人或专辑").assertIsDisplayed()
     }
 }

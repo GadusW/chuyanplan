@@ -9,13 +9,17 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +36,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
@@ -63,6 +70,8 @@ fun StilluneApp(
 ) {
     var playerOpen by rememberSaveable { mutableStateOf(false) }
     var healthOpen by rememberSaveable { mutableStateOf(false) }
+    var revealOrigin by remember { mutableStateOf(Offset.Zero) }
+    var pageOrigin by remember { mutableStateOf(Offset.Zero) }
     var knowledgeOpen by rememberSaveable { mutableStateOf(false) }
     val knowledge by model.knowledge.state.collectAsStateWithLifecycle()
     val knowledgeImport by model.knowledgeImport.collectAsStateWithLifecycle()
@@ -97,6 +106,7 @@ fun StilluneApp(
     var tab by rememberSaveable { mutableStateOf("歌曲") }
     var group by rememberSaveable { mutableStateOf<String?>(null) }
     var losslessOnly by rememberSaveable { mutableStateOf(false) }
+    val libraryScroll = rememberLazyListState()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(scan.message, playerOpen, healthOpen) {
         // Scan summaries wait for the library so they cannot cover player transport buttons.
@@ -116,23 +126,34 @@ fun StilluneApp(
     Scaffold(containerColor = Night, snackbarHost = { SnackbarHost(snackbar) },
         contentWindowInsets = if (fullScreen || immersive) WindowInsets(0, 0, 0, 0) else WindowInsets.safeDrawing,
         bottomBar = {
-            if (!fullScreen && !immersive) Column(Modifier.navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (!fullScreen && !immersive) Column(Modifier.fillMaxWidth().navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
                 AnimatedVisibility(!playerOpen && playback.track != null, enter = fadeIn() + expandVertically(), exit = shrinkVertically() + fadeOut()) {
                     MiniPlayer(playback, onOpen = { playerOpen = true; healthOpen = false }, onToggle = model::toggle, onNext = model::next)
                 }
                 FloatingNavigation(playerOpen, { playerOpen = false; healthOpen = false }, { playerOpen = true; healthOpen = false },
-                    healthOpen = healthOpen, onHealth = { healthOpen = true; playerOpen = false })
+                    healthOpen = healthOpen, onHealth = { healthOpen = true; playerOpen = false },
+                    onOrigin = { revealOrigin = it })
             }
         }) { padding ->
-        Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding(),
-            bottom = if (playerOpen || healthOpen) padding.calculateBottomPadding() else 0.dp)
+        Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())
             .then(if (immersive) Modifier else Modifier.padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()))
-            .background(Brush.verticalGradient(listOf(Color(0xFF1D2F4B), Night, Night)))) {
-            if (!playerOpen) MoonlitBackdrop(null, Modifier.matchParentSize())
+            .onGloballyPositioned { pageOrigin = it.positionInRoot() }) {
             AnimatedContent(if (healthOpen) 2 else if (playerOpen) 1 else 0, transitionSpec = {
-                (fadeIn(tween(240)) + slideInHorizontally(tween(280)) { it / 10 }) togetherWith fadeOut(tween(160))
+                (fadeIn(tween(1)) togetherWith fadeOut(tween(1, delayMillis = 420)))
+                    .using(SizeTransform(clip = false)).apply { targetContentZIndex = 1f }
             }, label = "library-player") { destination ->
-                if (destination == 2) HealthPage(model, onRead = { knowledgeOpen = true })
+                val reveal by transition.animateFloat(transitionSpec = { tween(420, easing = FastOutSlowInEasing) }, label = "circular-reveal") {
+                    if (it == EnterExitState.PreEnter) 0f else 1f
+                }
+                Box(Modifier.fillMaxSize().graphicsLayer {
+                    if (revealOrigin != Offset.Zero && reveal < 1f) {
+                        shape = RevealCircle(revealOrigin - pageOrigin, reveal); clip = true
+                    }
+                }) {
+                if (destination != 1) MoonlitBackdrop(null, Modifier.matchParentSize())
+                if (destination == 2) Box(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) {
+                    HealthPage(model, onRead = { knowledgeOpen = true })
+                }
                 else if (destination == 1 && immersive) ImmersivePlayer(playback, artwork, ImmersionStyle.valueOf(immersionStyle),
                     onStyle = { immersionStyle = it.name }, onToggle = model::toggle,
                     onPrevious = model::previous, onNext = model::next, onSeek = model::seek, onExit = { immersive = false })
@@ -140,8 +161,10 @@ fun StilluneApp(
                     onBack = { fullScreen = false; playerOpen = false }, onFullScreen = { fullScreen = !fullScreen },
                     onImportLyrics = onImportLyrics, onImport = { importOpen = true },
                     onQueue = { queueOpen = true }, onOutput = { outputOpen = true }, onImmersion = { immersionChooser = true },
-                    onKnowledge = { knowledgeOpen = true })
-                else LazyColumn(contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp,
+                    onKnowledge = { knowledgeOpen = true },
+                    bottomInset = if (fullScreen) 0.dp else padding.calculateBottomPadding())
+                else LazyColumn(state = libraryScroll, modifier = Modifier.fillMaxSize().progressiveLibraryBlur(padding.calculateBottomPadding()),
+                    contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp,
                     bottom = padding.calculateBottomPadding() + 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -150,13 +173,10 @@ fun StilluneApp(
                                 Text("Stillune", color = Quiet, fontSize = 12.sp)
                             }
                             IconButton(onClick = { historyOpen = true }) { Icon(Icons.Rounded.History, "最近播放", tint = Quiet) }
+                            IconButton(onClick = { guideOpen = true }) { Icon(Icons.AutoMirrored.Rounded.HelpOutline, "使用指南", tint = Quiet) }
                             TextButton(onClick = { importOpen = true }, enabled = !scan.running) {
                                 Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(5.dp)); Text("导入音乐")
                             }
-                        }
-                        TextButton(onClick = { guideOpen = true }) {
-                            Icon(Icons.AutoMirrored.Rounded.HelpOutline, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp)); Text("使用指南", fontSize = 12.sp)
                         }
                     }
                     item { LibraryHero(tracks.size, onClick = {
@@ -164,11 +184,11 @@ fun StilluneApp(
                     }) }
                     item {
                         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
-                            placeholder = { Text("寻找一首想听的歌", fontSize = 14.sp) },
+                            placeholder = { Text("搜索歌曲、艺人或专辑", fontSize = 14.sp) },
                             leadingIcon = { Icon(Icons.Rounded.Search, "搜索") },
                             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "清除搜索") } },
                             shape = RoundedCornerShape(12.dp), colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color.Transparent, unfocusedContainerColor = Color.White.copy(alpha = .04f)))
+                                unfocusedBorderColor = Color.White.copy(alpha = .2f), unfocusedContainerColor = Color.White.copy(alpha = .08f)))
                     }
                     if (scan.running) item {
                         Surface(shape = RoundedCornerShape(16.dp), color = Panel) {
@@ -182,7 +202,7 @@ fun StilluneApp(
                     item {
                         LibraryTabs(tab) { tab = it; group = null }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (group != null) LibraryGrouping.label(group!!, tab) else "${filtered.size} 首本地珍藏", Modifier.weight(1f), color = Quiet,
+                            Text(if (group != null) LibraryGrouping.label(group!!, tab) else "${filtered.size} 首歌曲", Modifier.weight(1f), color = Quiet,
                                 fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             if (filtered.isNotEmpty() && (tab == "歌曲" || group != null)) {
                                 TextButton(onClick = { model.play(filtered.first(), filtered) }) {
@@ -217,6 +237,7 @@ fun StilluneApp(
                             TrackRow(track, playback.track?.uri == track.uri, playback.playing) { model.play(track, filtered) }
                         }
                     }
+                }
                 }
             }
         }
@@ -293,10 +314,9 @@ fun StilluneApp(
         ModalBottomSheet(onDismissRequest = { outputOpen = false }, containerColor = Panel) {
             Column(Modifier.padding(horizontal = 28.dp).padding(bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Icon(Icons.Rounded.SpeakerGroup, null, tint = Mist, modifier = Modifier.size(32.dp))
-                Text("让声音，落在耳边", fontSize = 22.sp)
+                Text("输出设备", fontSize = 22.sp)
                 Text(playback.output, color = Moon)
-                Text("音频跟随手机系统选择的输出设备。连接蓝牙或有线耳机后即可播放；拔出耳机会暂停。", color = Quiet, fontSize = 14.sp)
-                Text("无损文件按原格式解码；蓝牙传输编码与系统重采样由设备决定。", color = Quiet, fontSize = 12.sp)
+                Text("跟随系统输出，拔出耳机时暂停。", color = Quiet, fontSize = 14.sp)
                 OutlinedButton(onClick = {
                     try { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) } catch (_: Exception) { }
                 }) { Text("打开蓝牙设置") }
@@ -308,12 +328,12 @@ fun StilluneApp(
 @Composable
 private fun LibraryHero(count: Int, onClick: () -> Unit) {
     Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = Color.Transparent) {
-        Box(Modifier.fillMaxWidth().height(96.dp)) {
+        Box(Modifier.fillMaxWidth().height(96.dp).glassPanel().padding(horizontal = 16.dp)) {
             Image(painterResource(R.drawable.stillune_foreground), null,
                 Modifier.size(88.dp).align(Alignment.CenterEnd), alpha = .85f)
             Column(Modifier.align(Alignment.CenterStart).padding(end = 84.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("把音乐，留在身边。", fontSize = 19.sp, fontWeight = FontWeight.Light, color = Moon)
-                Text(if (count == 0) "导入第一首音乐" else "$count 首本地音乐 · 开始聆听", fontSize = 12.sp, color = Quiet)
+                Text(if (count == 0) "你的音乐" else "开始聆听", fontSize = 20.sp, fontWeight = FontWeight.Medium, color = Moon)
+                Text(if (count == 0) "导入音乐" else "$count 首歌曲", fontSize = 12.sp, color = Quiet)
             }
         }
     }
@@ -324,10 +344,10 @@ private fun EmptyLibrary(empty: Boolean, onImport: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Rounded.LibraryMusic, null, Modifier.size(32.dp), tint = Mist.copy(alpha = .8f))
         Spacer(Modifier.height(14.dp))
-        Text(if (empty) "音乐还在等你带来" else "暂时没有找到音乐", fontSize = 17.sp, color = Moon)
+        Text(if (empty) "还没有音乐" else "没有找到音乐", fontSize = 17.sp, color = Moon)
         Spacer(Modifier.height(8.dp))
         Text(if (empty) "扫描手机，或选一个珍藏音乐的文件夹" else "试试其他关键词，或关闭无损筛选", fontSize = 12.sp, color = Quiet)
-        if (empty) TextButton(onClick = onImport) { Text("寻找本地音乐  →") }
+        if (empty) TextButton(onClick = onImport) { Text("导入音乐") }
     }
 }
 
@@ -355,8 +375,8 @@ private fun TrackRow(track: Track, selected: Boolean, playing: Boolean, onClick:
 @Composable
 private fun MiniPlayer(state: PlaybackState, onOpen: () -> Unit, onToggle: () -> Unit, onNext: () -> Unit) {
     Surface(onClick = onOpen, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(14.dp), color = Color(0xFF26364C)) {
-        Column {
+        shape = RoundedCornerShape(20.dp), color = Color.Transparent) {
+        Column(Modifier.glassPanel()) {
             Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Album, null, Modifier.size(34.dp), tint = Moon)
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
@@ -388,35 +408,39 @@ internal fun LibraryTabs(selected: String, onSelect: (String) -> Unit) {
 
 @Composable
 internal fun FloatingNavigation(playerOpen: Boolean, onLibrary: () -> Unit, onPlayer: () -> Unit,
-    healthOpen: Boolean = false, onHealth: () -> Unit = {}) {
-    Row(Modifier.padding(horizontal = 24.dp, vertical = 10.dp).widthIn(max = 400.dp).fillMaxWidth()
-        .clip(RoundedCornerShape(32.dp)).background(Color(0xFF263950).copy(alpha = .82f))
-        .border(1.dp, Color.White.copy(alpha = .13f), RoundedCornerShape(32.dp))
-        .padding(6.dp).semantics { contentDescription = "悬浮导航" },
-        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        NavItem("乐库", Icons.Rounded.LibraryMusic, !playerOpen && !healthOpen, Modifier.weight(1f), onLibrary)
-        NavItem("此刻", Icons.Rounded.NightsStay, playerOpen && !healthOpen, Modifier.weight(1f), onPlayer)
-        NavItem("护耳", Icons.Rounded.Hearing, healthOpen, Modifier.weight(1f), onHealth)
+    healthOpen: Boolean = false, onHealth: () -> Unit = {}, onOrigin: (Offset) -> Unit = {}) {
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+        .animateContentSize(spring(dampingRatio = .78f, stiffness = 380f))
+        .selectableGroup().semantics { contentDescription = "悬浮导航" },
+        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        NavItem("乐库", Icons.Rounded.LibraryMusic, !playerOpen && !healthOpen, onOrigin, onLibrary)
+        NavItem("此刻", Icons.Rounded.NightsStay, playerOpen && !healthOpen, onOrigin, onPlayer)
+        NavItem("护耳", Icons.Rounded.Hearing, healthOpen, onOrigin, onHealth)
     }
 }
 
 @Composable
-private fun NavItem(label: String, icon: ImageVector, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun NavItem(label: String, icon: ImageVector, selected: Boolean, onOrigin: (Offset) -> Unit, onClick: () -> Unit) {
     val interactions = remember { MutableInteractionSource() }
     val pressed by interactions.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) .90f else if (selected) 1.06f else 1f,
         spring(dampingRatio = .8f, stiffness = 550f), label = "nav-press")
-    val lift by animateFloatAsState(if (selected) -1.5f else 0f, tween(180), label = "nav-lift")
-    val fill by animateColorAsState(if (selected) Moon.copy(alpha = .12f) else Color.Transparent, tween(180), label = "nav-selection")
-    Row(modifier.heightIn(min = 52.dp).clip(RoundedCornerShape(26.dp)).background(fill)
-        .selectable(selected, interactionSource = interactions, indication = ripple(), role = Role.Tab, onClick = onClick)
-        .padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
+    val fill by animateColorAsState(if (selected) Color.White.copy(alpha = .18f) else Color.Transparent, tween(180), label = "nav-selection")
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    Row(Modifier.heightIn(min = 52.dp).widthIn(min = 52.dp).clip(RoundedCornerShape(26.dp)).background(fill)
+        .semantics { contentDescription = label }
+        .selectable(selected, interactionSource = interactions, indication = ripple(), role = Role.Tab,
+            onClick = { if (!selected) { onOrigin(origin); onClick() } })
+        .animateContentSize(spring(dampingRatio = .78f, stiffness = 380f))
+        .padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center) {
-        Icon(icon, null, Modifier.size(22.dp).graphicsLayer {
-            scaleX = scale; scaleY = scale; translationY = lift.dp.toPx()
-        }, tint = if (selected) Moon else Quiet)
-        Spacer(Modifier.width(6.dp))
-        Text(label, fontSize = 13.sp, maxLines = 1, softWrap = false, color = if (selected) Moon else Quiet)
+        Icon(icon, null, Modifier.size(22.dp).onGloballyPositioned {
+            origin = it.localToRoot(Offset(it.size.width / 2f, it.size.height / 2f))
+        }.graphicsLayer { scaleX = scale; scaleY = scale }, tint = if (selected) Color.White else Quiet)
+        AnimatedVisibility(selected, enter = expandHorizontally(spring(dampingRatio = .78f, stiffness = 380f)) + fadeIn(),
+            exit = shrinkHorizontally(tween(110)) + fadeOut(tween(90))) {
+            Text(label, Modifier.padding(start = 8.dp), fontSize = 14.sp, maxLines = 1, softWrap = false, color = Color.White)
+        }
     }
 }
 
@@ -430,10 +454,9 @@ private fun ImportSheet(busy: Boolean, onDismiss: () -> Unit, onScan: (ScanOptio
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("让音乐，在这里栖息", Modifier.weight(1f), fontSize = 23.sp, color = Moon)
+                Text("导入音乐", Modifier.weight(1f), fontSize = 23.sp, color = Moon)
                 IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "关闭导入", tint = Quiet) }
             }
-            Text("只建立本地索引，不移动或修改原文件。", color = Quiet, fontSize = 12.sp)
             ImportAction(Icons.Rounded.Radar, "扫描手机音乐", "查找系统媒体库，并重新扫描已授权文件夹", !busy) { onScan(options) }
             ImportAction(Icons.Rounded.FolderOpen, "选择音乐文件夹", "递归扫描子文件夹，支持 SD 卡授权目录", !busy) { onFolder(options) }
             ImportAction(Icons.Rounded.AudioFile, "导入音频文件", "从系统文件选择器中选择一首或多首", !busy, onImport)
@@ -453,8 +476,8 @@ private fun ImportSheet(busy: Boolean, onDismiss: () -> Unit, onScan: (ScanOptio
 
 @Composable
 private fun ImportAction(icon: ImageVector, title: String, subtitle: String, enabled: Boolean, onClick: () -> Unit) {
-    Surface(onClick = onClick, enabled = enabled, color = Night.copy(alpha = .5f), shape = RoundedCornerShape(18.dp)) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Surface(onClick = onClick, enabled = enabled, color = Color.Transparent, shape = RoundedCornerShape(18.dp)) {
+        Row(Modifier.fillMaxWidth().glassPanel(18.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = Mist, modifier = Modifier.size(26.dp))
             Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                 Text(title, fontSize = 15.sp); Spacer(Modifier.height(5.dp))

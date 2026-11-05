@@ -1,0 +1,102 @@
+{
+  "version": "0.17.0",
+  "date": "2026-11-06",
+  "build": "ARM64 and universal assembleDebug successful",
+  "unitTests": {
+    "passed": 34,
+    "failed": 0
+  },
+  "deviceTests": {
+    "passed": 14,
+    "failed": 0,
+    "platform": "API 36 x86_64 emulator",
+    "classes": [
+      "NavigationUiTest",
+      "LibraryUiTest",
+      "GettingStartedUiTest",
+      "HearingUiTest",
+      "PlaybackIntegrationTest",
+      "AnalysisUiTest",
+      "RealtimeUiTest",
+      "ImmersionUiTest",
+      "LyricsUiTest"
+    ]
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 38
+  },
+  "playback": {
+    "resumeStateLatencyMs": {
+      "WAV": 126,
+      "AAC": 117,
+      "FLAC": 119,
+      "ALAC": 118,
+      "MP3": 122
+    },
+    "decoderReloadOnSamePausedTrack": false,
+    "earlyPauseStartPositionMs": 2300,
+    "earlyPauseDelaysMs": [
+      0,
+      10,
+      25
+    ],
+    "sourceFormats": [
+      "MP3",
+      "WAV",
+      "FLAC",
+      "AAC",
+      "ALAC"
+    ],
+    "note": "State latency includes 100 ms polling; not an audible-output latency measurement."
+  },
+  "artifacts": [
+    {
+      "name": "Stillune-0.17.0-arm64-debug.apk",
+      "bytes": 75028759,
+      "sha256": "3ce73db628fd47b849356645b14feb7d055a39337b9ffaa4ce1ad723e920181c",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.17.0-universal-debug.apk",
+      "bytes": 230491782,
+      "sha256": "e52ec0702210482df4f68c36611574e7fc59175fbfc0f595c37e1137942df3bf",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "identicalDexAcrossAbis": true,
+  "originalSigningCertificatePreserved": true,
+  "visuals": {
+    "screenshots": [
+      "glass-guide-v17.png",
+      "glass-hearing-v17.png",
+      "glass-knowledge-v17.png",
+      "glass-landscape-v17.png",
+      "glass-large-font-v17.png",
+      "glass-library-scroll-v17.png",
+      "glass-library-v17.png",
+      "glass-player-v17.png"
+    ],
+    "fontScale": 1.3,
+    "orientations": [
+      "portrait",
+      "landscape"
+    ],
+    "iconSafety": "Full source optical offset preserved; alpha radius 325 px within 330 px safe radius"
+  },
+  "limitations": [
+    "No physical phone or Bluetooth audible-latency measurement",
+    "Android 12+ native Gaussian blur; Android 8-11 alpha-fade fallback",
+    "38 existing-style Lint warnings remain",
+    "Screenshot library contains test-environment metadata, not shipped music"
+  ]
+}

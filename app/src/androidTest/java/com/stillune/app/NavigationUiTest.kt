@@ -23,6 +23,9 @@ class NavigationUiTest {
                 }
             }
         }
+        compose.onNodeWithText("乐库").assertExists()
+        compose.onNodeWithText("此刻").assertDoesNotExist()
+        val collapsed = compose.onNodeWithContentDescription("此刻").fetchSemanticsNode().boundsInRoot.width
         listOf("专辑", "艺术家", "文件夹").forEach { label ->
             compose.onNodeWithText(label).performClick().assertIsSelected()
             val button = compose.onNodeWithText(label).fetchSemanticsNode().boundsInRoot
@@ -30,10 +33,14 @@ class NavigationUiTest {
             assertEquals("$label horizontal center", button.center.x, text.center.x, 1.5f)
             assertEquals("$label vertical center", button.center.y, text.center.y, 1.5f)
         }
-        compose.onNodeWithText("此刻").performTouchInput { down(center) }
+        compose.onNodeWithContentDescription("此刻").performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(150)
-        compose.onNodeWithText("此刻").performTouchInput { up() }
-        compose.onNodeWithText("此刻").assertIsSelected()
-        compose.onNodeWithText("乐库").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("此刻").performTouchInput { up() }
+        compose.onNodeWithContentDescription("此刻").assertIsSelected()
+        compose.onNodeWithText("此刻").assertExists()
+        compose.onNodeWithText("乐库").assertDoesNotExist()
+        org.junit.Assert.assertTrue("Selected tab expands to include its label",
+            compose.onNodeWithContentDescription("此刻").fetchSemanticsNode().boundsInRoot.width > collapsed)
+        compose.onNodeWithContentDescription("乐库").performClick().assertIsSelected()
     }
 }

@@ -39,8 +39,9 @@ internal fun KnowledgeShelf(
         }
     }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = Night) {
-            Column(Modifier.safeDrawingPadding().widthIn(max = 720.dp).fillMaxWidth()) {
+        Box(Modifier.fillMaxSize()) {
+            MoonlitBackdrop(null, Modifier.matchParentSize())
+            Column(Modifier.safeDrawingPadding().widthIn(max = 720.dp).fillMaxWidth().align(Alignment.TopCenter)) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "关闭知识书架", tint = Quiet) }
                     Text("聆听知识", Modifier.weight(1f), color = Moon, fontSize = 18.sp)
@@ -50,7 +51,6 @@ internal fun KnowledgeShelf(
                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     item {
                         Text("三分钟，听懂一点", color = Moon, fontSize = 27.sp, lineHeight = 38.sp)
-                        Text("每篇约 3–5 分钟，一个小问题，一次从容的休息。", Modifier.padding(top = 12.dp), color = Quiet, fontSize = 14.sp)
                         Text(if (state.version == 0L) "内置内容 · ${state.articles.size} 篇"
                             else "知识包第 ${state.version} 版 · ${state.articles.size} 篇",
                             Modifier.padding(top = 10.dp), color = Mist, fontSize = 12.sp)
@@ -130,8 +130,9 @@ internal fun KnowledgeReader(
     val preferences = remember(context) { context.getSharedPreferences("knowledge-reading-ui", 0) }
     var largeText by rememberSaveable { mutableStateOf(preferences.getBoolean("large-text", false)) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = Night) {
-            Column(Modifier.safeDrawingPadding()) {
+        Box(Modifier.fillMaxSize()) {
+            MoonlitBackdrop(null, Modifier.matchParentSize())
+            Column(Modifier.safeDrawingPadding().widthIn(max = 720.dp).fillMaxWidth().align(Alignment.TopCenter)) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "关闭知识阅读", tint = Quiet) }
                     Text("三分钟，听懂一点", Modifier.weight(1f), color = Quiet, fontSize = 14.sp)
@@ -144,7 +145,7 @@ internal fun KnowledgeReader(
                     }
                 }
                 LazyColumn(Modifier.fillMaxSize().widthIn(max = 640.dp).align(Alignment.CenterHorizontally),
-                    state = list, contentPadding = PaddingValues(28.dp, 20.dp, 28.dp, 40.dp),
+                    state = list, contentPadding = PaddingValues(24.dp, 20.dp, 24.dp, 40.dp),
                     verticalArrangement = Arrangement.spacedBy(22.dp)) {
                     item {
                         Text(article.tags.joinToString(" · "), color = Mist, fontSize = 12.sp)

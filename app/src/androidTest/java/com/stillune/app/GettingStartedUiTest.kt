@@ -9,7 +9,7 @@ class GettingStartedUiTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     @Test fun guideLeadsToReadingSearchAndImportWithoutDeveloperSetup() {
-        compose.onNodeWithText("使用指南").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("使用指南").performScrollTo().performClick()
         compose.onNodeWithText("从一首歌开始").assertIsDisplayed()
         compose.onNodeWithText("先读一篇聆听知识").performScrollTo().performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithText("三分钟，听懂一点").fetchSemanticsNodes().isNotEmpty() }
@@ -25,6 +25,6 @@ class GettingStartedUiTest {
         compose.onNodeWithContentDescription("使用标准字号").assertExists().performClick()
         compose.onNodeWithContentDescription("关闭知识阅读").performClick()
         compose.onNodeWithContentDescription("关闭知识书架").performClick()
-        compose.onNodeWithText("使用指南").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("使用指南").performScrollTo().assertIsDisplayed()
     }
 }

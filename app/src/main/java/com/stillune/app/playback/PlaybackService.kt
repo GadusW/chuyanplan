@@ -60,6 +60,8 @@ class PlaybackService : Service() {
     private var resumeOnFocus = false
     private var foreground = false
     private var hasFocus = false
+    private var wantsPlayback = false
+    private var visitPending = false
     private val shuffleVisited = mutableSetOf<Int>()
     private val s get() = store.state.value
     private val noisy = object : BroadcastReceiver() {
@@ -165,14 +167,21 @@ class PlaybackService : Service() {
 
     fun playQueue(queue: List<Track>, index: Int, startPositionMs: Long = 0) {
         if (queue.isEmpty() || index !in queue.indices) return
+        // Selecting the paused current song is a resume, not a decoder teardown/reload.
+        val sameTrack = s.track?.uri == queue[index].uri && s.error == null && startPositionMs == 0L
         restoreJob?.cancel(); restoreJob = null
         resumeOnFocus = false
         shuffleVisited.clear(); shuffleVisited.add(index)
         store.mutable.update { it.copy(queue = queue.toList(), index = index, error = null) }
+        if (sameTrack) {
+            if (!s.playing && !s.loading) resume()
+            return
+        }
         loadCurrent(startPositionMs)
     }
 
     private fun enterForeground(): Boolean {
+        if (foreground) return true
         return try {
             ContextCompat.startForegroundService(this, Intent(this, PlaybackService::class.java))
             startForeground(NOTIFICATION_ID, notification())
@@ -196,6 +205,8 @@ class PlaybackService : Service() {
     @SuppressLint("Recycle") // Active decoder owns the descriptor until next/stop/error/onDestroy; pending opens close in finally.
     private fun loadCurrent(startPositionMs: Long = 0) {
         val track = s.track ?: return
+        wantsPlayback = true
+        visitPending = true
         loadJob?.cancel()
         player.setEventListener(null)
         player.stop()
@@ -233,13 +244,17 @@ class PlaybackService : Service() {
                 player.setEventListener { event ->
                     when (event.type) {
                         MediaPlayer.Event.Playing -> {
+                            if (!wantsPlayback) { player.pause(); return@setEventListener }
                             if (pendingSeekMs > 0) { player.time = pendingSeekMs; pendingSeekMs = 0 }
                             store.mutable.update { it.copy(playing = true, loading = false, error = null, positionTimestampMs = SystemClock.elapsedRealtime()) }
-                            memory.checkpoint(s, visit = true)
+                            memory.checkpoint(s, visit = visitPending)
+                            visitPending = false
                             if (!wakeLock.isHeld) wakeLock.acquire(30 * 60 * 1000L)
                             updateSession(); notifyPlayback()
                         }
                         MediaPlayer.Event.Paused -> {
+                            // A queued Paused callback can arrive after a rapid resume command.
+                            if (wantsPlayback) return@setEventListener
                             store.mutable.update { it.copy(playing = false, loading = false) }
                             releaseWakeLock(); updateSession(); notifyPlayback()
                         }
@@ -259,16 +274,27 @@ class PlaybackService : Service() {
     fun toggle() { if (s.playing || s.loading) pause() else resume() }
     fun resume() {
         if (s.track == null) return
+        if (wantsPlayback && (s.playing || s.loading)) return
         if (descriptor == null || s.error != null) { loadCurrent(s.positionMs); return }
         if (enterForeground() && requestFocus()) {
+            wantsPlayback = true
+            store.mutable.update { it.copy(loading = true, positionTimestampMs = SystemClock.elapsedRealtime()) }
             if (s.durationMs > 0 && s.positionMs >= s.durationMs - 100) player.time = 0
             player.play()
         }
     }
     fun pause(abandonFocus: Boolean = true) {
+        wantsPlayback = false
         loadJob?.cancel(); loadJob = null
+        val nativePosition = if (::player.isInitialized && descriptor != null) player.time else -1L
+        val position = when {
+            pendingSeekMs > 0 -> pendingSeekMs
+            s.playing && nativePosition >= 0 -> nativePosition
+            else -> s.positionMs
+        }
         if (::player.isInitialized) player.pause()
-        store.mutable.update { it.copy(playing = false, loading = false) }
+        store.mutable.update { it.copy(playing = false, loading = false, positionMs = position,
+            positionTimestampMs = SystemClock.elapsedRealtime()) }
         releaseWakeLock()
         if (abandonFocus) { audio.abandonAudioFocusRequest(focusRequest); hasFocus = false; resumeOnFocus = false }
         updateSession(); leaveForeground(); notifyPlayback()
@@ -373,6 +399,7 @@ class PlaybackService : Service() {
     private fun leaveForeground() { if (foreground) { stopForeground(STOP_FOREGROUND_DETACH); foreground = false } }
     private fun releaseWakeLock() { if (::wakeLock.isInitialized && wakeLock.isHeld) wakeLock.release() }
     private fun fail(message: String) {
+        wantsPlayback = false
         player.stop(); descriptor?.close(); descriptor = null
         store.mutable.update { it.copy(playing = false, loading = false, error = message) }
         releaseWakeLock(); audio.abandonAudioFocusRequest(focusRequest); hasFocus = false
