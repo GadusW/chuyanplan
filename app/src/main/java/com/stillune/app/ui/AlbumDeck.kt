@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,33 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.sign
+
+private data class CardPose(val x: Float, val scale: Float, val turn: Float, val opacity: Float) {
+    fun toward(other: CardPose, fraction: Float): CardPose {
+        fun move(from: Float, to: Float) = from + (to - from) * fraction
+        return CardPose(move(x, other.x), move(scale, other.scale), move(turn, other.turn), move(opacity, other.opacity))
+    }
+}
+
+private val CenterCard = CardPose(0f, 1f, 0f, 1f)
+
+private fun PlaybackState.deckPoses(showQueue: Boolean): Map<Int, CardPose> = buildMap {
+    put(index, CenterCard)
+    if (!showQueue) return@buildMap
+    val next = nextIndex?.takeUnless { it == index }
+    if (next != null) {
+        val following = if (shuffle) listOf(next) else (next until queue.size).take(3).takeWhile { it != index }
+        following.forEachIndexed { offset, trackIndex ->
+            val depth = offset + 1f
+            put(trackIndex, CardPose(.57f + .16f * offset, 1f - .12f * depth,
+                -54f * depth.coerceAtMost(1.3f), (1f - .17f * depth).coerceAtLeast(.25f)))
+        }
+    }
+    previousIndex?.let { previous ->
+        if (previous !in this) put(previous, CardPose(-.62f, .82f, 58f, .56f))
+    }
+}
 
 /** Retains the original queue: passing a card advances its cursor, never removes the music. */
 @Composable
@@ -61,14 +89,10 @@ internal fun AlbumDeck(
     val canAdvance = showQueue && nextIndex != null
     val canGoBack = showQueue && previousIndex != null
     val canTurn = state.track != null
-    val coverIndexes = remember(state.queue, state.index, nextIndex, state.shuffle) {
-        if (nextIndex == null) emptyList()
-        else if (state.shuffle) listOf(nextIndex)
-        else (nextIndex until state.queue.size).take(3).takeWhile { it != state.index }
-    }
     val flip by animateFloatAsState(
         if (lyricsVisible) 180f else 0f, tween(300), label = "album-flip")
     var drag by remember(uri) { mutableFloatStateOf(0f) }
+    val direction by remember(uri) { derivedStateOf { -drag.sign.toInt() } }
     val backFacing by remember { derivedStateOf { flip >= 90f } }
     var settling by remember(uri) { mutableStateOf(false) }
     var motion by remember { mutableStateOf<Job?>(null) }
@@ -82,7 +106,19 @@ internal fun AlbumDeck(
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val side = minOf(maxWidth * (if (showQueue) .86f else .96f), maxHeight - (if (showQueue) 28.dp else 4.dp), 380.dp).coerceAtLeast(48.dp)
         val sidePx = with(density) { side.toPx() }
-        fun forwardProgress() = (-drag / sidePx).coerceIn(0f, 1f)
+        val startPoses = remember(state.index, state.queue.size, nextIndex, previousIndex, state.shuffle, showQueue) {
+            state.deckPoses(showQueue)
+        }
+        val destination = when (direction) {
+            1 -> nextIndex
+            -1 -> previousIndex
+            else -> null
+        }
+        val endPoses = remember(destination, state.queue.size, state.shuffle, state.repeat, showQueue) {
+            destination?.let { state.copy(index = it, shuffleNext = null).deckPoses(showQueue) }
+        }
+        val promotedOnTop by remember(sidePx, uri) { derivedStateOf { abs(drag) >= sidePx * .70f } }
+        val visibleIndexes = remember(startPoses, endPoses) { startPoses.keys + endPoses.orEmpty().keys }
         fun settle(step: Int) {
             if (settling) return
             val target = when {
@@ -125,35 +161,6 @@ internal fun AlbumDeck(
                         if (canGoBack) add(CustomAccessibilityAction("上一首") { requestStep(-1); true })
                     }
                 }, contentAlignment = Alignment.Center) {
-                if (showQueue && !lyricsVisible) {
-                    // Backmost first. Only a bounded set of upcoming covers is ever decoded.
-                    for (slot in coverIndexes.indices.reversed()) {
-                        val depth = slot + 1
-                        val track = state.queue[coverIndexes[slot]]
-                        key(track.uri) {
-                            val cover by rememberTrackArtwork(track, loadArtwork, cachedArtwork)
-                            AlbumArtwork(cover, null, Modifier.size(side).graphicsLayer {
-                                val progress = forwardProgress()
-                                val distance = depth - progress
-                                translationX = sidePx * (.57f + .16f * (distance - 1f)) * (1f - if (depth == 1) progress else 0f)
-                                scaleX = 1f - .12f * distance; scaleY = scaleX
-                                rotationY = -54f * distance.coerceAtMost(1.3f)
-                                cameraDistance = 16f * density.density
-                                alpha = (1f - .17f * distance).coerceIn(.25f, 1f)
-                            }.shadow(10.dp, SquircleShape(12.dp)).clip(SquircleShape(12.dp)))
-                        }
-                    }
-                    previousIndex?.let(state.queue::get)?.let { track ->
-                        val cover by rememberTrackArtwork(track, loadArtwork, cachedArtwork)
-                        AlbumArtwork(cover, null, Modifier.size(side).graphicsLayer {
-                            val back = (drag / sidePx).coerceIn(0f, 1f)
-                            translationX = -sidePx * .62f * (1f - back)
-                            scaleX = .82f + .18f * back; scaleY = scaleX; rotationY = 58f * (1f - back)
-                            cameraDistance = 16f * density.density
-                            alpha = (.56f + .44f * back) * (1f - forwardProgress())
-                        }.clip(SquircleShape(12.dp)))
-                    }
-                }
                 val input = if (backFacing) Modifier else Modifier
                     .pointerInput(uri, nextIndex, previousIndex, canTurn, showQueue, sidePx) {
                         awaitEachGesture {
@@ -192,24 +199,57 @@ internal fun AlbumDeck(
                             else if (!cancelled) turnPage()
                         }
                     }
-                Box(Modifier.size(side).then(input).graphicsLayer {
-                    translationX = drag
-                    rotationZ = if (showQueue) (drag / sidePx) * 7f else 0f
-                    rotationY = if (flip <= 90f) flip else flip - 180f
-                    cameraDistance = 20f * density.density
-                }.shadow(18.dp, SquircleShape(12.dp), ambientColor = InkMuted.copy(alpha = .36f), spotColor = InkAccent.copy(alpha = .26f))
-                    .clip(SquircleShape(12.dp)).background(GlassSurfaceColor).testTag("album-front")
-                    .semantics {
-                        contentDescription = "当前专辑卡片"
-                        if (canTurn || lyricsVisible) onClick(label = if (lyricsVisible) "返回封面" else "查看歌词") { onLyrics(); true }
-                        stateDescription = if (lyricsVisible) "歌词" else "封面"
-                    }) {
-                    if (backFacing) {
-                        AlbumLyricsBack(lyrics, state, side < 176.dp, onLyrics, onSeek, onImportLyrics)
-                    } else {
-                        AlbumArtwork(artwork, "${state.track?.album ?: "本地音乐"}专辑封面", Modifier.fillMaxSize())
+                // Each queue entry owns one keyed layer and one artwork source across its slot changes.
+                for (index in visibleIndexes) {
+                    val track = state.queue.getOrNull(index)
+                    key(index, track?.uri) {
+                        val current = index == state.index
+                        val cover = if (showQueue) rememberTrackArtwork(track, loadArtwork, cachedArtwork).value else artwork
+                        val from = startPoses[index] ?: CardPose(direction * 1.5f, .64f, -direction * 70f, 0f)
+                        val to = endPoses?.get(index) ?: CardPose(-direction * 1.5f, .64f, direction * 70f, 0f)
+                        val cardShape = SquircleShape(12.dp)
+                        Box(Modifier.size(side)
+                            .zIndex(when {
+                                promotedOnTop && index == destination -> 5f
+                                current -> 4f
+                                index == destination -> 3f
+                                else -> 2f - abs(from.x) - abs(to.x)
+                            })
+                            .graphicsLayer {
+                                val fraction = (abs(drag) / sidePx).coerceIn(0f, 1f)
+                                val pose = if (endPoses == null) from else from.toward(to, fraction)
+                                translationX = pose.x * sidePx + if (current && endPoses == null) drag else 0f
+                                scaleX = pose.scale
+                                scaleY = pose.scale
+                                rotationY = pose.turn + if (current) (if (flip <= 90f) flip else flip - 180f) else 0f
+                                cameraDistance = 20f * density.density
+                                alpha = if (!current && lyricsVisible) 0f else pose.opacity
+                                shadowElevation = (10f + ((pose.scale - .82f) / .18f).coerceIn(0f, 1f) * 8f).dp.toPx()
+                                ambientShadowColor = InkMuted.copy(alpha = .36f)
+                                spotShadowColor = InkAccent.copy(alpha = .26f)
+                                shape = cardShape
+                                clip = true
+                            }.background(GlassSurfaceColor).testTag("album-card-${track?.uri.orEmpty()}")) {
+                            Box(Modifier.fillMaxSize().then(if (current) Modifier.testTag("album-front").semantics {
+                                contentDescription = "当前专辑卡片"
+                                if (canTurn || lyricsVisible) onClick(label = if (lyricsVisible) "返回封面" else "查看歌词") {
+                                    onLyrics()
+                                    true
+                                }
+                                stateDescription = if (lyricsVisible) "歌词" else "封面"
+                            } else Modifier)) {
+                                if (current && backFacing) {
+                                    AlbumLyricsBack(lyrics, state, side < 176.dp, onLyrics, onSeek, onImportLyrics)
+                                } else {
+                                    AlbumArtwork(cover, if (current) "${track?.album ?: "本地音乐"}专辑封面" else null,
+                                        Modifier.fillMaxSize())
+                                }
+                            }
+                        }
                     }
                 }
+                if (!backFacing) Box(Modifier.size(side).zIndex(6f).then(input))
+
             }
             if (showQueue) Text(remainingLabel, Modifier.padding(top = 6.dp).testTag("album-remaining"), color = InkMuted, fontSize = 11.sp)
         }

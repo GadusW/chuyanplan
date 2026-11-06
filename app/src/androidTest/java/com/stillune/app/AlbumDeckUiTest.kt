@@ -53,10 +53,13 @@ class AlbumDeckUiTest {
         }
         compose.waitForIdle()
         compose.runOnIdle { assertEquals(0, index) }
+        val following = compose.onNodeWithTag("album-card-test:2", useUnmergedTree = true)
+        val followingId = following.fetchSemanticsNode().id
         compose.onNodeWithTag("album-front").performTouchInput { swipe(center, Offset(-width * .3f, centerY), 350) }
         compose.waitForIdle()
         compose.runOnIdle { assertEquals(1, index) }
         compose.onNodeWithTag("album-remaining").assertTextEquals("接下来 1 首")
+        assertEquals(followingId, following.fetchSemanticsNode().id)
         compose.onNodeWithTag("album-front").performTouchInput { swipe(center, Offset(-width * .3f, centerY), 350) }
         compose.waitForIdle()
         compose.runOnIdle { assertEquals(2, index) }
@@ -64,6 +67,27 @@ class AlbumDeckUiTest {
         compose.onNodeWithTag("album-front").performTouchInput { swipe(center, Offset(-width * .3f, centerY), 350) }
         compose.waitForIdle()
         compose.runOnIdle { assertEquals(2, index) }
+    }
+
+    @Test fun neighboringCardKeepsItsIdentityWhenPromotedByTransport() {
+        render()
+        fun card(index: Int) = compose.onNodeWithTag("album-card-test:$index", useUnmergedTree = true)
+        val front = card(1).fetchSemanticsNode()
+        val neighbor = card(2).fetchSemanticsNode()
+        val frontX = front.boundsInRoot.center.x
+        val neighborX = neighbor.boundsInRoot.center.x
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithText("按键下一首").performClick()
+        compose.mainClock.advanceTimeBy(112)
+        assertEquals(front.id, card(1).fetchSemanticsNode().id)
+        assertEquals(neighbor.id, card(2).fetchSemanticsNode().id)
+        org.junit.Assert.assertTrue(card(1).fetchSemanticsNode().boundsInRoot.center.x < frontX)
+        org.junit.Assert.assertTrue(card(2).fetchSemanticsNode().boundsInRoot.center.x < neighborX)
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithTag("album-remaining").assertTextEquals("接下来 1 首")
+        val promoted = card(2).fetchSemanticsNode()
+        assertEquals(neighbor.id, promoted.id)
+        assertEquals(frontX, promoted.boundsInRoot.center.x, 1f)
     }
 
     @Test fun tapAnywhereOnCoverFlipsAndLyricTapReturns() {
