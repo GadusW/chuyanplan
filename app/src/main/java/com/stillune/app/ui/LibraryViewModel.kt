@@ -185,6 +185,7 @@ class LibraryViewModel @Inject constructor(
         connection.command { it.playQueue(actual, actual.indexOfFirst { t -> t.uri == track.uri }.coerceAtLeast(0)) }
     }
     fun toggle() = connection.command { it.toggle() }
+    fun cachedArtwork(track: Track) = assets.cachedArtwork(track)
     suspend fun loadArtwork(track: Track) = assets.artwork(track)
     fun next() = connection.command { it.next() }
     fun previous() = connection.command { it.previous() }

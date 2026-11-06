@@ -8,7 +8,7 @@ data class ArtworkColors(val primary: Color, val secondary: Color, val ground: C
 
 /** Bounded 32x32 histogram; ignores transparent, near-black and near-white pixels. */
 internal fun artworkColors(bitmap: Bitmap?): ArtworkColors {
-    val fallback = ArtworkColors(Color(0xFF78C8FF), Color(0xFFC0A8F5), Night)
+    val fallback = ArtworkColors(Color(0xFF78C8FF), Color(0xFFC0A8F5), Color(0xFF202D46))
     if (bitmap == null || bitmap.isRecycled) return fallback
     return runCatching {
         val bins = IntArray(4096)
@@ -34,7 +34,7 @@ internal fun artworkColors(bitmap: Bitmap?): ArtworkColors {
         val secondary = if (other != null) {
             android.graphics.Color.colorToHSV(color(other), hsv)
             Color(android.graphics.Color.HSVToColor(floatArrayOf(hsv[0], hsv[1].coerceIn(.4f,.8f), .98f)))
-        } else lerp(primary, Moon, .55f)
+        } else lerp(primary, Color(0xFFFFEDCC), .55f)
         val ground = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, .6f, .13f)))
         ArtworkColors(primary, secondary, ground)
     }.getOrDefault(fallback)

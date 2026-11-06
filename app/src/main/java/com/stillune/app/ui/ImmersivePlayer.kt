@@ -177,7 +177,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                     shadowElevation = 16.dp.toPx()
                     shape = SquircleShape(12.dp)
                     clip = true
-                }.background(Panel)) {
+                }.background(GlassSurfaceColor)) {
                 if (artwork != null) Image(artwork.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 else Image(painterResource(R.drawable.stillune_foreground), null,
                     Modifier.fillMaxSize().graphicsLayer(scaleX = 1.6f, scaleY = 1.6f))
@@ -185,17 +185,17 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
         }
         if (!controls) Text(state.track?.title ?: "让声音停泊", Modifier.align(Alignment.BottomCenter)
             .safeDrawingPadding().padding(horizontal = 28.dp, vertical = 36.dp),
-            color = Moon, fontSize = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            color = if (style == ImmersionStyle.PARALLAX) InkAccent else Color.White, fontSize = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         AnimatedVisibility(controls, Modifier.align(Alignment.BottomCenter), enter = fadeIn(), exit = fadeOut()) {
             Column(Modifier.fillMaxWidth().heightIn(max = controlMaxHeight).safeDrawingPadding().padding(20.dp)
-                .clip(SquircleShape(20.dp)).background(Night.copy(alpha = .94f))
+                .clip(SquircleShape(20.dp)).background(GlassGround.copy(alpha = .94f))
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(state.track?.title ?: "让声音停泊", Modifier.weight(1f), color = Moon,
+                    Text(state.track?.title ?: "让声音停泊", Modifier.weight(1f), color = InkAccent,
                         fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    IconButton(onClick = onExit) { Icon(Icons.Rounded.Close, "退出体感沉浸", tint = Quiet) }
+                    IconButton(onClick = onExit) { Icon(Icons.Rounded.Close, "退出体感沉浸", tint = InkMuted) }
                 }
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     ImmersionStyle.entries.forEach { choice ->
@@ -205,13 +205,13 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                 val signal = energyState?.value ?: energy
                 val motion = tiltState?.value ?: tilt
                 if (style != ImmersionStyle.PARALLAX && !audioAllowed) {
-                    Text("节奏响应需播放波形权限，不采集麦克风。", color = Quiet, fontSize = 12.sp)
+                    Text("节奏响应需播放波形权限，不采集麦克风。", color = InkMuted, fontSize = 12.sp)
                     TextButton(onClick = onAudioPermission) { Text("启用节奏响应") }
-                } else if (style != ImmersionStyle.PARALLAX && signal.message != null) Text(signal.message, color = Quiet, fontSize = 12.sp)
-                if (!motion.available && !reducedMotion) Text("未检测到方向传感器，封面保持静止", color = Quiet, fontSize = 12.sp)
-                if (reducedMotion) Text("已遵循系统设置，减少动态效果", color = Quiet, fontSize = 12.sp)
+                } else if (style != ImmersionStyle.PARALLAX && signal.message != null) Text(signal.message, color = InkMuted, fontSize = 12.sp)
+                if (!motion.available && !reducedMotion) Text("未检测到方向传感器，封面保持静止", color = InkMuted, fontSize = 12.sp)
+                if (reducedMotion) Text("已遵循系统设置，减少动态效果", color = InkMuted, fontSize = 12.sp)
                 ImmersionControls(state, onToggle, onPrevious, onNext, onSeek, ::activity)
-                Text("闲置 10 秒隐藏控制 · 连续轻点画面三下退出", color = Quiet, fontSize = 11.sp)
+                Text("闲置 10 秒隐藏控制 · 连续轻点画面三下退出", color = InkMuted, fontSize = 11.sp)
             }
         }
     }
@@ -266,7 +266,7 @@ private fun ImmersionCanvas(style: ImmersionStyle, frame: State<SceneFrame>, dyn
                 val fade = (1f - progress).pow(1.5f) * (1f - exp(-ripple.age * 32f))
                 val origin = center + Offset((ripple.x + tilt.x * ripple.age * .055f) * unit,
                     (ripple.y + tilt.y * ripple.age * .05f) * unit)
-                val ink = lerp(if (ripple.seed > 3.14f) palette.primary else palette.secondary, Moon, .38f)
+                val ink = lerp(if (ripple.seed > 3.14f) palette.primary else palette.secondary, InkAccent, .38f)
                 repeat(if (f.fullDetail && ripple.age < .5f) 2 else 1) { crest ->
                     val radius = .24f + ripple.age * (.35f + ripple.strength * .16f) - crest * .038f
                     water(radius, ripple.age, ripple.seed, ripple.strength, origin)
@@ -287,7 +287,7 @@ private fun ImmersionCanvas(style: ImmersionStyle, frame: State<SceneFrame>, dyn
                 drawLine(ink.copy(alpha = opacity * .52f), tail, position,
                     (mote.size * .65f).dp.toPx(), cap = StrokeCap.Round)
                 if (f.fullDetail) drawCircle(ink.copy(alpha = opacity * .1f), (mote.size * 3.2f).dp.toPx(), position)
-                drawCircle(lerp(ink, Moon, .65f).copy(alpha = opacity), mote.size.dp.toPx(), position)
+                drawCircle(lerp(ink, InkAccent, .65f).copy(alpha = opacity), mote.size.dp.toPx(), position)
             }
         }
     }
@@ -299,22 +299,16 @@ private fun ImmersionControls(state: PlaybackState, onToggle: () -> Unit, onPrev
     onNext: () -> Unit, onSeek: (Long) -> Unit, onActivity: () -> Unit) {
     var drag by remember(state.track?.uri) { mutableStateOf<Float?>(null) }
     val duration = state.durationMs.coerceAtLeast(1).toFloat()
-    Slider(drag ?: state.positionMs.toFloat().coerceIn(0f, duration),
-        { drag = it; onActivity() }, onValueChangeFinished = { drag?.let { onSeek(it.toLong()) }; drag = null; onActivity() },
-        enabled = state.durationMs > 0, valueRange = 0f..duration,
-        modifier = Modifier.semantics { contentDescription = "沉浸播放进度" },
-        thumb = { Box(Modifier.size(10.dp).background(Moon, androidx.compose.foundation.shape.CircleShape)) },
-        track = { slider -> SliderDefaults.Track(slider, Modifier.height(3.dp),
-            colors = SliderDefaults.colors(activeTrackColor = Moon, inactiveTrackColor = Quiet.copy(alpha = .22f)),
-            thumbTrackGapSize = 0.dp, drawStopIndicator = null) })
+    PlaybackSeekBar(drag ?: state.positionMs.toFloat().coerceIn(0f, duration), state.durationMs, "沉浸播放进度",
+        { drag = it; onActivity() }, { drag?.let { onSeek(it.toLong()) }; drag = null; onActivity() })
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(timeLabel(state.positionMs), color = Quiet, fontSize = 11.sp)
-        Text(timeLabel(state.durationMs), color = Quiet, fontSize = 11.sp)
+        Text(timeLabel(state.positionMs), color = InkMuted, fontSize = 11.sp)
+        Text(timeLabel(state.durationMs), color = InkMuted, fontSize = 11.sp)
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { onPrevious(); onActivity() }, enabled = state.track != null) { Icon(Icons.Rounded.SkipPrevious, "上一首") }
         FilledIconButton(onClick = { onToggle(); onActivity() }, enabled = state.track != null,
-            modifier = Modifier.size(56.dp), colors = IconButtonDefaults.filledIconButtonColors(containerColor = Moon, contentColor = Night)) {
+            modifier = Modifier.size(56.dp), colors = IconButtonDefaults.filledIconButtonColors(containerColor = InkAccent, contentColor = GlassGround)) {
             Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放")
         }
         IconButton(onClick = { onNext(); onActivity() }, enabled = state.track != null) { Icon(Icons.Rounded.SkipNext, "下一首") }

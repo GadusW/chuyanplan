@@ -63,8 +63,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         if (intent?.action == OPEN_PLAYER) openPlayerRequest++
         if (intent?.action == OPEN_HEALTH) openHealthRequest++
-        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT))
         setContent {
             val tracks by model.tracks.collectAsStateWithLifecycle()
             val playback by model.playback.collectAsStateWithLifecycle()

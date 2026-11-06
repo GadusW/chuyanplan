@@ -58,11 +58,11 @@ internal fun Modifier.glassPanel(radius: Dp = 20.dp, strength: Float = 1f): Modi
         val outline = squirclePath(size, radius.toPx())
         val displacement = 2.dp.toPx()
         val body = Brush.linearGradient(listOf(
-            Color.White.copy(alpha = .13f * strength), Mist.copy(alpha = .025f * strength),
-            Color.White.copy(alpha = .07f * strength)), end = Offset(size.width, size.height))
-        val rim = Brush.linearGradient(0f to Color.White.copy(alpha = .75f * strength),
+            Color.White.copy(alpha = (.50f * strength).coerceAtMost(.82f)), Color.White.copy(alpha = .20f * strength),
+            Color.White.copy(alpha = .36f * strength)), end = Offset(size.width, size.height))
+        val rim = Brush.linearGradient(0f to Color.White.copy(alpha = .96f),
             .3f to Color.White.copy(alpha = .07f), .62f to Color.White.copy(alpha = .015f),
-            1f to Mist.copy(alpha = .55f * strength), end = Offset(size.width * .7f, size.height))
+            1f to InkBlue.copy(alpha = .26f * strength), end = Offset(size.width * .7f, size.height))
         onDrawBehind {
             backdrop?.let { scene ->
                 val local = origin - scene.origin
@@ -74,7 +74,7 @@ internal fun Modifier.glassPanel(radius: Dp = 20.dp, strength: Float = 1f): Modi
             drawPath(outline, body)
             drawPath(outline, Brush.radialGradient(listOf(Color.White.copy(alpha = .09f), Color.Transparent),
                 center = Offset(size.width * .15f, -size.height * .6f), radius = size.width * .7f))
-            drawPath(outline, rim, style = androidx.compose.ui.graphics.drawscope.Stroke(.7.dp.toPx()))
+            drawPath(outline, rim, style = androidx.compose.ui.graphics.drawscope.Stroke(1.4.dp.toPx()))
 
         }
     }
@@ -96,7 +96,7 @@ internal fun Modifier.pageReveal(origin: Offset?, pageOrigin: () -> Offset, prog
             aperture.rewind()
             aperture.addOval(Rect(center, radius))
             clipPath(aperture) {
-                drawRect(Night)
+                drawRect(GlassGround)
                 backdrop?.let { scene ->
                     val offset = scene.origin - topLeft
                     translate(offset.x, offset.y) { drawLayer(scene.layer) }
@@ -112,12 +112,12 @@ internal fun Modifier.pageReveal(origin: Offset?, pageOrigin: () -> Offset, prog
 internal fun Modifier.progressiveLibraryBlur(bottomInset: Dp): Modifier {
     val density = LocalDensity.current
     if (Build.VERSION.SDK_INT < 31) return graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithCache {
-        val zone = with(density) { (bottomInset + 48.dp).toPx() }
+        val zone = with(density) { bottomInset.toPx().coerceAtLeast(1f) }
         val mask = Brush.verticalGradient(listOf(Color.White, Color.Transparent), startY = size.height - zone, endY = size.height)
         onDrawWithContent { drawContent(); drawRect(mask, blendMode = BlendMode.DstIn) }
     }
     var size by remember { mutableStateOf(IntSize.Zero) }
-    val zone = with(density) { (bottomInset + 48.dp).toPx() }
+    val zone = with(density) { bottomInset.toPx().coerceAtLeast(1f) }
     val radius = with(density) { 12.dp.toPx() }
     val effect = remember(size, zone, radius) {
         if (size.height == 0) null else maskedBlur(size.height.toFloat(), zone, radius)
@@ -134,7 +134,7 @@ internal fun Modifier.progressiveLibraryBlur(bottomInset: Dp): Modifier {
 private fun maskedBlur(height: Float, zone: Float, radius: Float): RenderEffect {
     // Native Gaussian convolution avoids the multiple text contours of sparse shader sampling.
     fun mask(reverse: Boolean) = android.graphics.RenderEffect.createShaderEffect(android.graphics.LinearGradient(
-        0f, height - zone, 0f, height - zone * .72f, if (reverse) intArrayOf(-1, 0x00FFFFFF) else intArrayOf(0x00FFFFFF, -1),
+        0f, height - zone, 0f, height - zone * .46f, if (reverse) intArrayOf(-1, 0x00FFFFFF) else intArrayOf(0x00FFFFFF, -1),
         null, android.graphics.Shader.TileMode.CLAMP))
     val sharp = android.graphics.RenderEffect.createBlendModeEffect(mask(true),
         android.graphics.RenderEffect.createOffsetEffect(0f, 0f), android.graphics.BlendMode.SRC_IN)

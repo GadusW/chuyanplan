@@ -39,9 +39,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +59,8 @@ import com.stillune.app.playback.*
 import com.stillune.app.immersion.ImmersionStyle
 import java.util.Calendar
 import java.util.Locale
+
+private val StilluneWordmark = FontFamily(Font(R.font.parisienne_regular))
 
 private class PageEntry(val destination: Int, val origin: Offset?)
 
@@ -128,6 +132,7 @@ fun StilluneApp(
     val groups = remember(filtered, tab, group) {
         if (tab != "歌曲" && group == null) filtered.groupBy { LibraryGrouping.key(it, tab) }.toList() else emptyList()
     }
+    val miniPlayerInset = maxOf(72f, 32f * LocalDensity.current.fontScale + 24f).dp
     val albumColumns = ((LocalConfiguration.current.screenWidthDp - 48) / 152).coerceIn(2, 5)
     val destination = if (healthOpen) 2 else if (playerOpen) 1 else 0
     val entry = remember(destination) { PageEntry(destination, navOrigin) }
@@ -156,7 +161,7 @@ fun StilluneApp(
                     if (it == EnterExitState.PreEnter && page.origin != null) 0f else 1f
                 }
                 Box(Modifier.fillMaxSize().pageReveal(page.origin, { pageOrigin }, { reveal })) {
-                if (destination == 2) Box(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding() + if (playback.track != null) MiniPlayerInset else 0.dp)) {
+                if (destination == 2) Box(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding() + if (playback.track != null) miniPlayerInset else 0.dp)) {
                     HealthPage(model, onRead = { knowledgeOpen = true })
                 }
                 else if (destination == 1 && immersive) ImmersivePlayer(playback, artwork, ImmersionStyle.valueOf(immersionStyle),
@@ -169,22 +174,23 @@ fun StilluneApp(
                     onKnowledge = { knowledgeOpen = true },
                     bottomInset = if (fullScreen) 0.dp else padding.calculateBottomPadding())
                 else {
-                    val bottom = padding.calculateBottomPadding() + if (playback.track != null) MiniPlayerInset else 0.dp
-                    LazyColumn(state = libraryScroll, modifier = Modifier.fillMaxSize().progressiveLibraryBlur(bottom),
+                    val bottom = padding.calculateBottomPadding() + if (playback.track != null) miniPlayerInset else 0.dp
+                    LazyColumn(state = libraryScroll, modifier = Modifier.fillMaxSize().progressiveLibraryBlur((bottom - if (playback.track != null) 6.dp else 10.dp).coerceAtLeast(0.dp)),
                         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp, bottom = bottom + 20.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("栖声", color = Moon, fontSize = 32.sp, fontFamily = FontFamily.Serif,
-                                    fontWeight = FontWeight.SemiBold, letterSpacing = 3.sp)
-                                Text("Stillune", color = Quiet, fontSize = 13.sp, fontFamily = FontFamily.Serif, letterSpacing = 1.6.sp)
+                            BoxWithConstraints(Modifier.weight(1f)) {
+                                val fontScale = LocalDensity.current.fontScale
+                                val size = minOf(42f, maxWidth.value / (3.6f * fontScale))
+                                Text("Stillune", color = InkAccent, fontSize = size.sp, fontFamily = StilluneWordmark,
+                                    maxLines = 1, softWrap = false)
                             }
-                            IconButton(onClick = { historyOpen = true }) { Icon(Icons.Rounded.History, "最近播放", tint = Quiet) }
-                            IconButton(onClick = { guideOpen = true }) { Icon(Icons.AutoMirrored.Rounded.HelpOutline, "使用指南", tint = Quiet) }
+                            IconButton(onClick = { historyOpen = true }) { Icon(Icons.Rounded.History, "最近播放", tint = InkMuted) }
+                            IconButton(onClick = { guideOpen = true }) { Icon(Icons.AutoMirrored.Rounded.HelpOutline, "使用指南", tint = InkMuted) }
                             IconButton(onClick = { importOpen = true }, enabled = !scan.running,
-                                modifier = Modifier.clip(SquircleShape(14.dp)).background(Moon.copy(alpha = .10f))) {
-                                Icon(Icons.Rounded.Add, "导入音乐", tint = if (scan.running) Quiet else Moon)
+                                modifier = Modifier.clip(SquircleShape(14.dp)).background(InkAccent.copy(alpha = .10f))) {
+                                Icon(Icons.Rounded.Add, "导入音乐", tint = if (scan.running) InkMuted else InkAccent)
                             }
                         }
                     }
@@ -200,10 +206,10 @@ fun StilluneApp(
                                 unfocusedBorderColor = Color.Transparent, unfocusedContainerColor = Color.Transparent))
                     }
                     if (scan.running) item {
-                        Surface(shape = SquircleShape(16.dp), color = Panel) {
+                        Surface(shape = SquircleShape(16.dp), color = GlassSurfaceColor) {
                             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                                Text("正在寻找音乐 · 已检查 ${scan.processed} 项", Modifier.weight(1f).padding(start = 12.dp), fontSize = 12.sp, color = Quiet)
+                                Text("正在寻找音乐 · 已检查 ${scan.processed} 项", Modifier.weight(1f).padding(start = 12.dp), fontSize = 12.sp, color = InkMuted)
                                 TextButton(onClick = model::cancelScan) { Text("取消") }
                             }
                         }
@@ -211,7 +217,7 @@ fun StilluneApp(
                     item {
                         LibraryTabs(tab) { tab = it; group = null }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(group?.let { LibraryGrouping.label(it, tab) } ?: "${filtered.size} 首歌曲", Modifier.weight(1f), color = Quiet,
+                            Text(group?.let { LibraryGrouping.label(it, tab) } ?: "${filtered.size} 首歌曲", Modifier.weight(1f), color = InkMuted,
                                 fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             if (filtered.isNotEmpty() && (tab == "歌曲" || group != null)) {
                                 TextButton(onClick = { model.play(filtered.first(), filtered) }) {
@@ -242,13 +248,13 @@ fun StilluneApp(
                                 Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                                     if (tab == "格式") AudioFormatBadge(key, showLabel = false)
                                     else Icon(if (tab == "艺术家") Icons.Rounded.PersonOutline else Icons.Rounded.FolderOpen,
-                                        null, tint = Mist)
+                                        null, tint = InkBlue)
                                     Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                                         Text(LibraryGrouping.label(key, tab), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(LibraryGrouping.detail(key, tab, tracks.size), color = Quiet, fontSize = 12.sp,
+                                        Text(LibraryGrouping.detail(key, tab, tracks.size), color = InkMuted, fontSize = 12.sp,
                                             maxLines = 2, overflow = TextOverflow.Ellipsis)
                                     }
-                                    Icon(Icons.Rounded.ChevronRight, null, tint = Quiet)
+                                    Icon(Icons.Rounded.ChevronRight, null, tint = InkMuted)
                                 }
                             }
                         }
@@ -261,7 +267,7 @@ fun StilluneApp(
                 }
                 if (destination != 1 && playback.track != null) {
                     Box(Modifier.align(Alignment.BottomCenter).padding(bottom = padding.calculateBottomPadding())) {
-                        MiniPlayer(playback, artwork, onOpen = { playerOpen = true; healthOpen = false },
+                        MiniPlayer(playback, artwork, miniPlayerInset, onOpen = { playerOpen = true; healthOpen = false },
                             onToggle = model::toggle, onNext = model::next)
                     }
                 }
@@ -284,28 +290,28 @@ fun StilluneApp(
     reading?.let { article -> KnowledgeReader(article, article.id in knowledge.favorites,
         onFavorite = { model.toggleKnowledgeFavorite(article.id) }, onClose = model::closeReading,
         onFinished = { model.finishReading(article.id) }) }
-    if (immersionChooser) ModalBottomSheet(onDismissRequest = { immersionChooser = false }, containerColor = Panel,
+    if (immersionChooser) ModalBottomSheet(onDismissRequest = { immersionChooser = false }, containerColor = GlassSurfaceColor,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("体感沉浸", fontSize = 23.sp, color = Moon)
-            Text("单击画面显示控制，闲置 10 秒后隐藏。连续轻点画面三下，或用系统返回键退出。", color = Quiet, fontSize = 13.sp)
+            Text("体感沉浸", fontSize = 23.sp, color = InkAccent)
+            Text("单击画面显示控制，闲置 10 秒后隐藏。连续轻点画面三下，或用系统返回键退出。", color = InkMuted, fontSize = 13.sp)
             ImmersionStyle.entries.forEach { choice ->
                 Surface(onClick = { immersionStyle = choice.name }, color = Color.Transparent, shape = SquircleShape(12.dp)) {
                     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(immersionStyle == choice.name, null)
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text(choice.title, color = Moon, fontSize = 16.sp)
+                            Text(choice.title, color = InkAccent, fontSize = 16.sp)
                             Text(when(choice) {
                                 ImmersionStyle.PARALLAX -> "倾斜手机，让封面轻轻浮动"
                                 ImmersionStyle.RIPPLES -> "真实播放能量与手部运动，化作柔和波纹"
                                 ImmersionStyle.PARTICLES -> "封面视差与节奏粒子，随音乐舒展"
-                            }, color = Quiet, fontSize = 12.sp, lineHeight = 19.sp)
+                            }, color = InkMuted, fontSize = 12.sp, lineHeight = 19.sp)
                         }
                     }
                 }
             }
-            Text("波纹与粒子需 Android 的播放波形权限（系统称为“录音”）。仅读取本应用播放会话，不采集麦克风；未授权时保留倾斜效果。", color = Quiet, fontSize = 12.sp, lineHeight = 19.sp)
+            Text("波纹与粒子需 Android 的播放波形权限（系统称为“录音”）。仅读取本应用播放会话，不采集麦克风；未授权时保留倾斜效果。", color = InkMuted, fontSize = 12.sp, lineHeight = 19.sp)
             Button(onClick = { immersionChooser = false; immersive = true }, modifier = Modifier.fillMaxWidth()) { Text("进入沉浸") }
         }
     }
@@ -316,20 +322,20 @@ fun StilluneApp(
         onImport = { guideOpen = false; importOpen = true },
         onHealth = { guideOpen = false; healthOpen = true; playerOpen = false },
         onKnowledge = { guideOpen = false; knowledgeOpen = true })
-    if (historyOpen) ModalBottomSheet(onDismissRequest = { historyOpen = false }, containerColor = Panel) {
-        Text("最近播放", Modifier.padding(horizontal = 24.dp, vertical = 12.dp), fontSize = 23.sp, color = Moon)
-        if (recentHistory.isEmpty()) Text("听过的音乐会留在这里", Modifier.padding(24.dp), color = Quiet)
+    if (historyOpen) ModalBottomSheet(onDismissRequest = { historyOpen = false }, containerColor = GlassSurfaceColor) {
+        Text("最近播放", Modifier.padding(horizontal = 24.dp, vertical = 12.dp), fontSize = 23.sp, color = InkAccent)
+        if (recentHistory.isEmpty()) Text("听过的音乐会留在这里", Modifier.padding(24.dp), color = InkMuted)
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp).padding(horizontal = 24.dp), contentPadding = PaddingValues(bottom = 32.dp)) {
             items(recentHistory, key = { it.track.uri }) { entry ->
                 Column(Modifier.fillMaxWidth().clip(SquircleShape(12.dp))
                     .clickable { model.playHistory(entry); historyOpen = false; playerOpen = true }.padding(vertical = 14.dp)) {
-                    Text(entry.track.title, color = Moon, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${entry.track.artist} · 听至 ${timeLabel(entry.positionMs)}", color = Quiet, fontSize = 12.sp)
+                    Text(entry.track.title, color = InkAccent, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${entry.track.artist} · 听至 ${timeLabel(entry.positionMs)}", color = InkMuted, fontSize = 12.sp)
                 }
             }
         }
     }
-    if (queueOpen) ModalBottomSheet(onDismissRequest = { queueOpen = false }, containerColor = Panel) {
+    if (queueOpen) ModalBottomSheet(onDismissRequest = { queueOpen = false }, containerColor = GlassSurfaceColor) {
         Text("此刻的音乐 · ${playback.queue.size} 首", Modifier.padding(horizontal = 24.dp, vertical = 12.dp), fontSize = 20.sp)
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp).padding(horizontal = 24.dp), contentPadding = PaddingValues(bottom = 32.dp)) {
             items(playback.queue, key = { it.uri }) { track ->
@@ -339,12 +345,12 @@ fun StilluneApp(
     }
     if (outputOpen) {
         val context = LocalContext.current
-        ModalBottomSheet(onDismissRequest = { outputOpen = false }, containerColor = Panel) {
+        ModalBottomSheet(onDismissRequest = { outputOpen = false }, containerColor = GlassSurfaceColor) {
             Column(Modifier.padding(horizontal = 28.dp).padding(bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Icon(Icons.Rounded.SpeakerGroup, null, tint = Mist, modifier = Modifier.size(32.dp))
+                Icon(Icons.Rounded.SpeakerGroup, null, tint = InkBlue, modifier = Modifier.size(32.dp))
                 Text("输出设备", fontSize = 22.sp)
-                Text(playback.output, color = Moon)
-                Text("跟随系统输出，拔出耳机时暂停。", color = Quiet, fontSize = 14.sp)
+                Text(playback.output, color = InkAccent)
+                Text("跟随系统输出，拔出耳机时暂停。", color = InkMuted, fontSize = 14.sp)
                 OutlinedButton(onClick = {
                     try { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) } catch (_: Exception) { }
                 }) { Text("打开蓝牙设置") }
@@ -360,8 +366,8 @@ private fun LibraryHero(count: Int, onClick: () -> Unit) {
             Image(painterResource(R.drawable.stillune_foreground), null,
                 Modifier.size(88.dp).align(Alignment.CenterEnd), alpha = .85f)
             Column(Modifier.align(Alignment.CenterStart).padding(end = 84.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (count == 0) "你的音乐" else "开始聆听", fontSize = 20.sp, fontWeight = FontWeight.Medium, color = Moon)
-                if (count == 0) Text("导入音乐", fontSize = 12.sp, color = Moon)
+                Text(if (count == 0) "你的音乐" else "开始聆听", fontSize = 20.sp, fontWeight = FontWeight.Medium, color = InkAccent)
+                if (count == 0) Text("导入音乐", fontSize = 12.sp, color = InkAccent)
             }
         }
     }
@@ -370,11 +376,11 @@ private fun LibraryHero(count: Int, onClick: () -> Unit) {
 @Composable
 private fun EmptyLibrary(empty: Boolean, onImport: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Icons.Rounded.LibraryMusic, null, Modifier.size(32.dp), tint = Mist.copy(alpha = .8f))
+        Icon(Icons.Rounded.LibraryMusic, null, Modifier.size(32.dp), tint = InkBlue.copy(alpha = .8f))
         Spacer(Modifier.height(14.dp))
-        Text(if (empty) "还没有音乐" else "没有找到音乐", fontSize = 17.sp, color = Moon)
+        Text(if (empty) "还没有音乐" else "没有找到音乐", fontSize = 17.sp, color = InkAccent)
         Spacer(Modifier.height(8.dp))
-        Text(if (empty) "扫描手机，或选一个珍藏音乐的文件夹" else "试试其他关键词，或关闭无损筛选", fontSize = 12.sp, color = Quiet)
+        Text(if (empty) "扫描手机，或选一个珍藏音乐的文件夹" else "试试其他关键词，或关闭无损筛选", fontSize = 12.sp, color = InkMuted)
         if (empty) TextButton(onClick = onImport) { Text("导入音乐") }
     }
 }
@@ -392,12 +398,12 @@ private fun LibraryAlbumCard(key: String, tracks: List<Track>, loadArtwork: susp
             }
         }
     }
-    Column(modifier.clip(SquircleShape(16.dp)).background(Color.White.copy(alpha = .065f))
+    Column(modifier.clip(SquircleShape(16.dp)).background(Color.White.copy(alpha = .42f))
         .clickable(onClick = onClick).padding(8.dp)) {
         AlbumArtwork(cover, null, Modifier.fillMaxWidth().aspectRatio(1f).clip(SquircleShape(12.dp)))
         Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp)) {
             Text(LibraryGrouping.label(key, "专辑"), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(LibraryGrouping.detail(key, "专辑", tracks.size), color = Quiet, fontSize = 11.sp,
+            Text(LibraryGrouping.detail(key, "专辑", tracks.size), color = InkMuted, fontSize = 11.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
@@ -406,17 +412,17 @@ private fun LibraryAlbumCard(key: String, tracks: List<Track>, loadArtwork: susp
 @Composable
 private fun TrackRow(track: Track, selected: Boolean, playing: Boolean, loadArtwork: suspend (Track) -> android.graphics.Bitmap?, onClick: () -> Unit) {
     val cover by rememberTrackArtwork(track, loadArtwork)
-    val detailColor = if (selected) MaterialTheme.colorScheme.onSurface else Quiet
+    val detailColor = if (selected) MaterialTheme.colorScheme.onSurface else InkMuted
     Row(Modifier.fillMaxWidth().clip(SquircleShape(14.dp))
-        .background(if (selected) Mist.copy(alpha = .09f) else Color.Transparent)
+        .background(if (selected) InkBlue.copy(alpha = .09f) else Color.Transparent)
         .clickable(onClick = onClick).padding(vertical = 9.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(44.dp).clip(SquircleShape(8.dp))
             .background(Color.White.copy(alpha = .035f)), contentAlignment = Alignment.Center) {
             AlbumArtwork(cover, null, Modifier.fillMaxSize())
-            if (selected && playing) Icon(Icons.Rounded.GraphicEq, null, Modifier.align(Alignment.BottomEnd).size(18.dp).background(Night.copy(alpha = .7f), SquircleShape(5.dp)), tint = Moon)
+            if (selected && playing) Icon(Icons.Rounded.GraphicEq, null, Modifier.align(Alignment.BottomEnd).size(18.dp).background(GlassGround.copy(alpha = .7f), SquircleShape(5.dp)), tint = InkAccent)
         }
         Column(Modifier.weight(1f).padding(horizontal = 13.dp)) {
-            Text(track.title, color = if (selected) Moon else MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(track.title, color = if (selected) InkAccent else MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(5.dp))
             Text("${track.artist} · ${track.album}", color = detailColor, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -427,24 +433,22 @@ private fun TrackRow(track: Track, selected: Boolean, playing: Boolean, loadArtw
     }
 }
 
-private val MiniPlayerInset = 72.dp
-
 @Composable
-private fun MiniPlayer(state: PlaybackState, artwork: android.graphics.Bitmap?, onOpen: () -> Unit, onToggle: () -> Unit, onNext: () -> Unit) {
-    Surface(onClick = onOpen, modifier = Modifier.height(MiniPlayerInset).padding(horizontal = 16.dp, vertical = 6.dp),
+private fun MiniPlayer(state: PlaybackState, artwork: android.graphics.Bitmap?, miniPlayerInset: androidx.compose.ui.unit.Dp, onOpen: () -> Unit, onToggle: () -> Unit, onNext: () -> Unit) {
+    Surface(onClick = onOpen, modifier = Modifier.height(miniPlayerInset).padding(horizontal = 16.dp, vertical = 6.dp),
         shape = SquircleShape(20.dp), color = Color.Transparent) {
         Column(Modifier.glassPanel()) {
             Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 AlbumArtwork(artwork, "当前歌曲专辑封面", Modifier.size(44.dp).clip(SquircleShape(8.dp)))
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(state.track?.title.orEmpty(), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(state.track?.artist.orEmpty(), color = Quiet, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(state.track?.title.orEmpty(), fontSize = 14.sp, lineHeight = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(state.track?.artist.orEmpty(), color = InkMuted, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                IconButton(onClick = onToggle) { Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放", tint = Moon) }
-                IconButton(onClick = onNext, enabled = state.nextIndex != null) { Icon(Icons.Rounded.SkipNext, "下一首", tint = Quiet) }
+                IconButton(onClick = onToggle) { Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放", tint = InkAccent) }
+                IconButton(onClick = onNext, enabled = state.nextIndex != null) { Icon(Icons.Rounded.SkipNext, "下一首", tint = InkMuted) }
             }
             LinearProgressIndicator(progress = { if (state.durationMs > 0) (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f },
-                modifier = Modifier.fillMaxWidth().height(2.dp), color = Mist, trackColor = Color.Transparent)
+                modifier = Modifier.fillMaxWidth().height(2.dp), color = InkBlue, trackColor = Color.Transparent)
         }
     }
 }
@@ -456,7 +460,7 @@ internal fun LibraryTabs(selected: String, onSelect: (String) -> Unit) {
             TextButton(onClick = { onSelect(name) },
                 modifier = Modifier.semantics { this.selected = selected == name; role = Role.Tab },
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
-                Text(name, color = if (selected == name) Moon else Quiet, fontSize = 14.sp,
+                Text(name, color = if (selected == name) InkAccent else InkMuted, fontSize = 14.sp,
                     fontWeight = if (selected == name) FontWeight.Medium else FontWeight.Normal)
             }
         }
@@ -481,7 +485,7 @@ private fun NavItem(label: String, icon: ImageVector, selected: Boolean, onOrigi
     val pressed by interactions.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) .90f else if (selected) 1.06f else 1f,
         spring(dampingRatio = .8f, stiffness = 550f), label = "nav-press")
-    val fill by animateColorAsState(if (selected) Color.White.copy(alpha = .18f) else Color.Transparent, tween(180), label = "nav-selection")
+    val fill by animateColorAsState(if (selected) Color.White.copy(alpha = .72f) else Color.Transparent, tween(180), label = "nav-selection")
     val origin = remember { arrayOf(Offset.Zero) }
     Row(Modifier.heightIn(min = 52.dp).widthIn(min = 52.dp).clip(SquircleShape(26.dp))
         .background(fill)
@@ -492,10 +496,10 @@ private fun NavItem(label: String, icon: ImageVector, selected: Boolean, onOrigi
         horizontalArrangement = Arrangement.Center) {
         Icon(icon, null, Modifier.size(22.dp).onGloballyPositioned {
             origin[0] = it.localToRoot(Offset(it.size.width / 2f, it.size.height / 2f))
-        }.graphicsLayer { scaleX = scale; scaleY = scale }, tint = if (selected) Color.White else Quiet)
+        }.graphicsLayer { scaleX = scale; scaleY = scale }, tint = if (selected) InkAccent else InkMuted)
         AnimatedVisibility(selected, enter = expandHorizontally(spring(dampingRatio = .78f, stiffness = 380f)) + fadeIn(),
             exit = shrinkHorizontally(tween(110)) + fadeOut(tween(90))) {
-            Text(label, Modifier.padding(start = 8.dp), fontSize = 14.sp, maxLines = 1, softWrap = false, color = Color.White)
+            Text(label, Modifier.padding(start = 8.dp), fontSize = 14.sp, maxLines = 1, softWrap = false, color = InkAccent)
         }
     }
 }
@@ -506,26 +510,26 @@ private fun ImportSheet(busy: Boolean, onDismiss: () -> Unit, onScan: (ScanOptio
     var skipShort by rememberSaveable { mutableStateOf(false) }
     var skipSmall by rememberSaveable { mutableStateOf(false) }
     val options = ScanOptions(if (skipShort) 60 else 0, if (skipSmall) 100 else 0)
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Panel,
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = GlassSurfaceColor,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("导入音乐", Modifier.weight(1f), fontSize = 23.sp, color = Moon)
-                IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "关闭导入", tint = Quiet) }
+                Text("导入音乐", Modifier.weight(1f), fontSize = 23.sp, color = InkAccent)
+                IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, "关闭导入", tint = InkMuted) }
             }
             ImportAction(Icons.Rounded.Radar, "扫描手机音乐", "查找系统媒体库，并重新扫描已授权文件夹", !busy) { onScan(options) }
             ImportAction(Icons.Rounded.FolderOpen, "选择音乐文件夹", "递归扫描子文件夹，支持 SD 卡授权目录", !busy) { onFolder(options) }
             ImportAction(Icons.Rounded.AudioFile, "导入音频文件", "从系统文件选择器中选择一首或多首", !busy, onImport)
-            HorizontalDivider(color = Quiet.copy(alpha = .12f))
+            HorizontalDivider(color = InkMuted.copy(alpha = .12f))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("跳过不足 60 秒的音频", Modifier.weight(1f), fontSize = 13.sp, color = Quiet)
+                Text("跳过不足 60 秒的音频", Modifier.weight(1f), fontSize = 13.sp, color = InkMuted)
                 Switch(skipShort, { skipShort = it })
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("跳过小于 100 KB 的文件", Modifier.weight(1f), fontSize = 13.sp, color = Quiet)
+                Text("跳过小于 100 KB 的文件", Modifier.weight(1f), fontSize = 13.sp, color = InkMuted)
                 Switch(skipSmall, { skipSmall = it })
             }
-            Text("支持 MP3 · WAV · FLAC · AAC · ALAC 等格式\n系统未收录的音频，可通过文件夹扫描导入。", fontSize = 11.sp, color = Quiet, lineHeight = 18.sp)
+            Text("支持 MP3 · WAV · FLAC · AAC · ALAC 等格式\n系统未收录的音频，可通过文件夹扫描导入。", fontSize = 11.sp, color = InkMuted, lineHeight = 18.sp)
         }
     }
 }
@@ -534,12 +538,12 @@ private fun ImportSheet(busy: Boolean, onDismiss: () -> Unit, onScan: (ScanOptio
 private fun ImportAction(icon: ImageVector, title: String, subtitle: String, enabled: Boolean, onClick: () -> Unit) {
     Surface(onClick = onClick, enabled = enabled, color = Color.Transparent, shape = SquircleShape(18.dp)) {
         Row(Modifier.fillMaxWidth().glassPanel(18.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = Mist, modifier = Modifier.size(26.dp))
+            Icon(icon, null, tint = InkBlue, modifier = Modifier.size(26.dp))
             Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                 Text(title, fontSize = 15.sp); Spacer(Modifier.height(5.dp))
-                Text(subtitle, fontSize = 11.sp, color = Quiet, lineHeight = 16.sp)
+                Text(subtitle, fontSize = 11.sp, color = InkMuted, lineHeight = 16.sp)
             }
-            Icon(Icons.Rounded.ChevronRight, null, tint = Quiet)
+            Icon(Icons.Rounded.ChevronRight, null, tint = InkMuted)
         }
     }
 }

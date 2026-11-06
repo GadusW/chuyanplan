@@ -37,9 +37,9 @@ internal fun AudioFormatBadge(format: String, modifier: Modifier = Modifier, sho
     }
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.size(if (showLabel) 22.dp else 34.dp).clip(SquircleShape(7.dp))
-            .background(Mist.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, Modifier.size(if (showLabel) 14.dp else 20.dp), tint = Mist)
+            .background(InkBlue.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(if (showLabel) 14.dp else 20.dp), tint = InkBlue)
         }
-        if (showLabel) Text(label, color = Mist, fontSize = 11.sp)
+        if (showLabel) Text(label, color = InkBlue, fontSize = 11.sp)
     }
 }

@@ -95,6 +95,15 @@ class AlbumDeckUiTest {
     }
 
 
+    @Test fun tappingFrontAndLyricsLineFlipsBothWays() {
+        render()
+        compose.onNodeWithTag("album-front").performTouchInput { click(center) }
+        compose.onNodeWithText("测试歌曲 1").assertIsDisplayed()
+        compose.onNodeWithText("第一句歌词").performTouchInput { click(center) }
+        compose.onNodeWithContentDescription("揭角查看歌词").assertExists()
+        compose.onNodeWithText("测试歌曲 1").assertDoesNotExist()
+    }
+
     @Test fun longPeelOpensReadableBackUntilClosed() {
         render()
         compose.onNodeWithTag("album-front").performTouchInput {

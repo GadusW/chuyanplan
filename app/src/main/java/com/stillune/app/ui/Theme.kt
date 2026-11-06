@@ -1,25 +1,27 @@
 package com.stillune.app.ui
 
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-val Night = Color(0xFF202D46)
-val Panel = Color(0xFF344661)
-val Moon = Color(0xFFFFEDCC)
-val Mist = Color(0xFFB7E5FF)
-val Quiet = Color(0xFFC2CFE3)
+val GlassGround = Color(0xFFEDF4F8)
+val GlassSurfaceColor = Color(0xFFF7FAFD)
+val InkAccent = Color(0xFF214B68)
+val InkBlue = Color(0xFF315F7D)
+val InkMuted = Color(0xFF41576C)
 
 @Composable
 fun StilluneTheme(content: @Composable () -> Unit) {
-    // Preserve the reviewed brand palette rather than replacing it with wallpaper colors.
-    MaterialTheme(colorScheme = darkColorScheme(
-        primary = Moon, onPrimary = Night, primaryContainer = Color(0xFF465B79),
-        secondary = Mist, onSecondary = Night,
-        background = Night, onBackground = Color(0xFFF2F1EF),
-        surface = Panel, onSurface = Color(0xFFF2F1EF),
-        surfaceVariant = Color(0xFF3E526D), onSurfaceVariant = Quiet,
-        outline = Color(0xFF59677D), error = Color(0xFFFFB4AB),
-        inverseSurface = Color(0xFF30415B), inverseOnSurface = Moon, inversePrimary = Mist,
+    MaterialTheme(colorScheme = lightColorScheme(
+        primary = InkAccent, onPrimary = Color.White, primaryContainer = Color(0xFFD8EAF5),
+        onPrimaryContainer = Color(0xFF16394F),
+        secondary = InkBlue, onSecondary = Color.White,
+        background = GlassGround, onBackground = Color(0xFF192E42),
+        surface = GlassSurfaceColor, onSurface = Color(0xFF192E42),
+        surfaceVariant = Color(0xFFE2EDF4), onSurfaceVariant = InkMuted,
+        outline = Color(0xFF617990), error = Color(0xFF9C3F3D),
+        inverseSurface = Color(0xFF243F55), inverseOnSurface = Color.White,
+        inversePrimary = Color(0xFFBCE2FA),
     ), content = content)
 }

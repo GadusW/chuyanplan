@@ -132,23 +132,23 @@ internal fun HearingContent(
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("护耳", fontSize = 28.sp, color = Moon)
+                    Text("护耳", fontSize = 28.sp, color = InkAccent)
                 }
                 Switch(settings.enabled, { onUpdate { old -> old.copy(enabled = it) } }, modifier = Modifier.semanticsLabel("启用护耳"))
             }
         }
         item {
-            Text(if (settings.enabled) "已启用收听记录" else "开启收听记录与休息提醒", color = Mist, fontSize = 12.sp)
-            Text("只记录本应用可观测的播放，不评定听力健康。", Modifier.padding(top = 6.dp), color = Quiet, fontSize = 12.sp)
+            Text(if (settings.enabled) "已启用收听记录" else "开启收听记录与休息提醒", color = InkBlue, fontSize = 12.sp)
+            Text("只记录本应用可观测的播放，不评定听力健康。", Modifier.padding(top = 6.dp), color = InkMuted, fontSize = 12.sp)
         }
         item {
-            HorizontalDivider(Modifier.padding(top = 8.dp, bottom = 20.dp), color = Quiet.copy(alpha = .18f))
+            HorizontalDivider(Modifier.padding(top = 8.dp, bottom = 20.dp), color = InkMuted.copy(alpha = .18f))
             Row(Modifier.fillMaxWidth()) {
                 DurationColumn("今日聆听", todayMs, Modifier.weight(1f))
                 DurationColumn("滚动 7 日", weekMs, Modifier.weight(1f))
             }
-            Text("本段累计 ${hearingDuration(live.continuousMs)} · 暂停满 5 分钟后重新计段", Modifier.padding(top = 14.dp), color = Quiet, fontSize = 12.sp)
-            Text("今日连接耳机 / 蓝牙时 ${hearingDuration(todayHeadphones)}\n超过当时提醒档位 ${hearingDuration(todayAbove)}", Modifier.padding(top = 8.dp), color = Quiet, fontSize = 12.sp)
+            Text("本段累计 ${hearingDuration(live.continuousMs)} · 暂停满 5 分钟后重新计段", Modifier.padding(top = 14.dp), color = InkMuted, fontSize = 12.sp)
+            Text("今日连接耳机 / 蓝牙时 ${hearingDuration(todayHeadphones)}\n超过当时提醒档位 ${hearingDuration(todayAbove)}", Modifier.padding(top = 8.dp), color = InkMuted, fontSize = 12.sp)
         }
         item {
             Row(Modifier.fillMaxWidth().height(90.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
@@ -163,18 +163,18 @@ internal fun HearingContent(
                     Column(Modifier.weight(1f).fillMaxHeight().semanticsLabel("${day.monthValue}月${day.dayOfMonth}日 ${hearingDuration(values[index])}"),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                         Box(Modifier.width(12.dp).height(if (values[index] == 0L) 2.dp else (values[index].toFloat() / largest * 56).coerceAtLeast(3f).dp)
-                            .background(if (index == 6) Moon else Mist.copy(alpha = .45f), SquircleShape(3.dp)))
-                        Text(if (index == 6) "今天" else day.format(DateTimeFormatter.ofPattern("M/d")), Modifier.padding(top = 10.dp), color = Quiet, fontSize = 10.sp)
+                            .background(if (index == 6) InkAccent else InkBlue.copy(alpha = .45f), SquircleShape(3.dp)))
+                        Text(if (index == 6) "今天" else day.format(DateTimeFormatter.ofPattern("M/d")), Modifier.padding(top = 10.dp), color = InkMuted, fontSize = 10.sp)
                     }
                 }
             }
-            if (records.isEmpty()) Text("还没有记录。从下一次播放，慢慢积累。", Modifier.padding(top = 12.dp), color = Quiet, fontSize = 12.sp)
+            if (records.isEmpty()) Text("还没有记录。从下一次播放，慢慢积累。", Modifier.padding(top = 12.dp), color = InkMuted, fontSize = 12.sp)
             if (live.storageError) Text("记录未能写入本机，请检查存储空间；部分时长可能缺失。", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-            if (live.unobservedMs > 0) Text("本次存在未观测时段，未将它们当作零暴露。", color = Quiet, fontSize = 12.sp)
+            if (live.unobservedMs > 0) Text("本次存在未观测时段，未将它们当作零暴露。", color = InkMuted, fontSize = 12.sp)
         }
         item { HearingSectionTitle("提醒，按你的节奏") }
         item {
-            Text("累计播放多久提醒一次", color = Moon, fontSize = 15.sp)
+            Text("累计播放多久提醒一次", color = InkAccent, fontSize = 15.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 listOf(20, 40, 60).forEach { minutes ->
                     FilterChip(settings.breakMinutes == minutes, { onUpdate { it.copy(breakMinutes = minutes) } },
@@ -183,29 +183,29 @@ internal fun HearingContent(
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text("提醒时自动暂停", color = Moon, fontSize = 15.sp)
-                    Text("默认只提醒；开启后也不会自动恢复播放。", color = Quiet, fontSize = 12.sp)
+                    Text("提醒时自动暂停", color = InkAccent, fontSize = 15.sp)
+                    Text("默认只提醒；开启后也不会自动恢复播放。", color = InkMuted, fontSize = 12.sp)
                 }
                 Switch(settings.pauseOnReminder, { enabled -> onUpdate { it.copy(pauseOnReminder = enabled) } },
                     enabled = settings.enabled, modifier = Modifier.semanticsLabel("提醒时自动暂停"))
             }
         }
         item {
-            Text("音量档位提醒 · ${settings.volumePercent}%", color = Moon, fontSize = 15.sp)
+            Text("音量档位提醒 · ${settings.volumePercent}%", color = InkAccent, fontSize = 15.sp)
             Slider(settings.volumePercent.toFloat(), { value -> onUpdate { it.copy(volumePercent = value.toInt()) } },
                 valueRange = 30f..90f, steps = 11, enabled = settings.enabled, modifier = Modifier.semanticsLabel("音量档位提醒阈值"))
-            Text("持续超过所选档位 10 秒后提醒，间隔至少 10 分钟。它是个人偏好，不是安全声压阈值。", color = Quiet, fontSize = 12.sp)
+            Text("持续超过所选档位 10 秒后提醒，间隔至少 10 分钟。它是个人偏好，不是安全声压阈值。", color = InkMuted, fontSize = 12.sp)
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("当前系统音量 ${live.volumeStep} / ${live.volumeMax}", Modifier.weight(1f), color = Mist, fontSize = 13.sp)
+                Text("当前系统音量 ${live.volumeStep} / ${live.volumeMax}", Modifier.weight(1f), color = InkBlue, fontSize = 13.sp)
                 TextButton(onClick = onLower, enabled = live.volumeStep > 0) { Text("降低一档") }
             }
-            Text("入耳声压与剂量：尚无经验证的声学校准，不显示估算值。", color = Quiet, fontSize = 12.sp)
+            Text("入耳声压与剂量：尚无经验证的声学校准，不显示估算值。", color = InkMuted, fontSize = 12.sp)
         }
         if (!notifications && settings.enabled) item {
-            Surface(color = Panel, shape = SquircleShape(12.dp)) {
+            Surface(color = GlassSurfaceColor, shape = SquircleShape(12.dp)) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("后台提醒尚未开放", color = Moon, fontSize = 15.sp)
-                    Text("系统通知已关闭，锁屏或切到其他应用时可能收不到提醒。", color = Quiet, fontSize = 12.sp)
+                    Text("后台提醒尚未开放", color = InkAccent, fontSize = 15.sp)
+                    Text("系统通知已关闭，锁屏或切到其他应用时可能收不到提醒。", color = InkMuted, fontSize = 12.sp)
                     TextButton(onClick = onNotifications) { Text("开启通知") }
                 }
             }
@@ -213,29 +213,29 @@ internal fun HearingContent(
         item { HearingSectionTitle("耳机与环境") }
         item {
             Row(Modifier.fillMaxWidth().clickable(onClick = onProfile).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Headphones, null, tint = Mist, modifier = Modifier.size(24.dp))
+                Icon(Icons.Rounded.Headphones, null, tint = InkBlue, modifier = Modifier.size(24.dp))
                 Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                    Text(settings.headphoneName.ifBlank { "填写耳机档案" }, color = Moon, fontSize = 16.sp)
-                    Text(settings.isolation, color = Quiet, fontSize = 12.sp)
+                    Text(settings.headphoneName.ifBlank { "填写耳机档案" }, color = InkAccent, fontSize = 16.sp)
+                    Text(settings.isolation, color = InkMuted, fontSize = 12.sp)
                 }
-                Icon(Icons.Rounded.ChevronRight, "编辑耳机档案", tint = Quiet)
+                Icon(Icons.Rounded.ChevronRight, "编辑耳机档案", tint = InkMuted)
             }
-            Text("$output\n${if (live.headphonesConnected) "检测到耳机 / 蓝牙音频连接（可能含扬声器），路由与佩戴仍以设备为准。" else "未检测到常见耳机连接；部分 USB / 外接设备无法判断。"}", color = Quiet, fontSize = 12.sp)
+            Text("$output\n${if (live.headphonesConnected) "检测到耳机 / 蓝牙音频连接（可能含扬声器），路由与佩戴仍以设备为准。" else "未检测到常见耳机连接；部分 USB / 外接设备无法判断。"}", color = InkMuted, fontSize = 12.sp)
             Text(when (settings.isolation) {
                 "开放式" -> "开放式耳机隔音较少。嘈杂时优先换个安静的地方，避免用更高音量盖过环境。"
                 "主动降噪" -> "合适的佩戴与降噪可减少调高音量的需要；道路上仍需留意周围。"
                 else -> "先确认佩戴舒适与环境合适，再选择较低的音量。耳机解析度不代表声压安全。"
-            }, Modifier.padding(top = 10.dp), color = Mist, fontSize = 13.sp)
+            }, Modifier.padding(top = 10.dp), color = InkBlue, fontSize = 13.sp)
         }
         item {
-            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = Quiet.copy(alpha = .15f))
-            Text("环境声音趋势", color = Moon, fontSize = 16.sp)
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = InkMuted.copy(alpha = .15f))
+            Text("环境声音趋势", color = InkAccent, fontSize = 16.sp)
             environment.changeDb?.let { value ->
-                Text(String.format(Locale.ROOT, "%+.1f dB", value), Modifier.padding(top = 12.dp), color = Mist, fontSize = 28.sp)
-                Text("相对本次基线的输入能量变化 · 非 dBA", color = Quiet, fontSize = 12.sp)
+                Text(String.format(Locale.ROOT, "%+.1f dB", value), Modifier.padding(top = 12.dp), color = InkBlue, fontSize = 28.sp)
+                Text("相对本次基线的输入能量变化 · 非 dBA", color = InkMuted, fontSize = 12.sp)
             }
-            Text(environment.status, Modifier.padding(top = 8.dp), color = Quiet, fontSize = 12.sp)
-            Text("仅比较手机麦克风变化，不测量耳内声音。风声、移动与摩擦都会影响结果。持续上升约 10 dB 时提示留意音量。", Modifier.padding(top = 8.dp), color = Quiet, fontSize = 12.sp)
+            Text(environment.status, Modifier.padding(top = 8.dp), color = InkMuted, fontSize = 12.sp)
+            Text("仅比较手机麦克风变化，不测量耳内声音。风声、移动与摩擦都会影响结果。持续上升约 10 dB 时提示留意音量。", Modifier.padding(top = 8.dp), color = InkMuted, fontSize = 12.sp)
             OutlinedButton(onClick = onEnvironment, enabled = settings.enabled) {
                 Icon(if (environment.running) Icons.Rounded.MicOff else Icons.Rounded.MicNone, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp)); Text(if (environment.running) "停止环境监测" else "开启环境趋势")
@@ -243,7 +243,7 @@ internal fun HearingContent(
         }
         item { HearingSectionTitle("三分钟，听懂一点") }
         item {
-            Text("让双耳休息，读一个关于声音的小问题。", color = Quiet, fontSize = 13.sp)
+            Text("让双耳休息，读一个关于声音的小问题。", color = InkMuted, fontSize = 13.sp)
             OutlinedButton(onClick = onRead) {
                 Icon(Icons.AutoMirrored.Rounded.MenuBook, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
@@ -251,24 +251,24 @@ internal fun HearingContent(
             }
         }
         item {
-            HorizontalDivider(color = Quiet.copy(alpha = .18f))
+            HorizontalDivider(color = InkMuted.copy(alpha = .18f))
             TextButton(onClick = onInfo) { Text("数据范围与资料依据") }
-            TextButton(onClick = onDelete, enabled = records.isNotEmpty() || live.continuousMs > 0) { Text("清除护耳收听记录", color = Quiet) }
-            Text("数据只保存在本机，自动保留最近 31 天。休息不清除历史，也不代表听力已经恢复。", color = Quiet, fontSize = 12.sp)
+            TextButton(onClick = onDelete, enabled = records.isNotEmpty() || live.continuousMs > 0) { Text("清除护耳收听记录", color = InkMuted) }
+            Text("数据只保存在本机，自动保留最近 31 天。休息不清除历史，也不代表听力已经恢复。", color = InkMuted, fontSize = 12.sp)
         }
     }
 }
 
 @Composable private fun DurationColumn(label: String, value: Long, modifier: Modifier) {
     Column(modifier) {
-        Text(label, color = Quiet, fontSize = 12.sp)
-        Text(hearingDuration(value), Modifier.padding(top = 8.dp), color = Moon, fontSize = 24.sp, fontWeight = FontWeight.Light)
+        Text(label, color = InkMuted, fontSize = 12.sp)
+        Text(hearingDuration(value), Modifier.padding(top = 8.dp), color = InkAccent, fontSize = 24.sp, fontWeight = FontWeight.Light)
     }
 }
 @Composable private fun HearingSectionTitle(text: String) {
     Column {
-        HorizontalDivider(Modifier.padding(top = 14.dp, bottom = 24.dp), color = Quiet.copy(alpha = .18f))
-        Text(text, color = Moon, fontSize = 20.sp)
+        HorizontalDivider(Modifier.padding(top = 14.dp, bottom = 24.dp), color = InkMuted.copy(alpha = .18f))
+        Text(text, color = InkAccent, fontSize = 20.sp)
     }
 }
 internal fun hearingDuration(ms: Long): String = when {
@@ -283,13 +283,13 @@ internal fun hearingDuration(ms: Long): String = when {
     AlertDialog(onDismissRequest = onDismiss, title = { Text("我的耳机") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(name, { name = it.take(80) }, label = { Text("品牌 / 型号（选填）") }, singleLine = true)
-            Text("隔音与佩戴形式", color = Quiet)
+            Text("隔音与佩戴形式", color = InkMuted)
             listOf("尚未填写", "开放式", "封闭 / 入耳式", "主动降噪").forEach { choice ->
                 Row(Modifier.fillMaxWidth().clickable { isolation = choice }.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(isolation == choice, null); Text(choice, Modifier.padding(start = 12.dp))
                 }
             }
-            Text("档案用于给出环境与佩戴建议，不能替代声学校准。本版不会根据价格、解析度或蓝牙名称推算分贝。", color = Quiet, fontSize = 12.sp)
+            Text("档案用于给出环境与佩戴建议，不能替代声学校准。本版不会根据价格、解析度或蓝牙名称推算分贝。", color = InkMuted, fontSize = 12.sp)
         }
     }, confirmButton = { TextButton(onClick = { onSave(name, isolation) }) { Text("保存档案") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } })

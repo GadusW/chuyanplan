@@ -1,16 +1,28 @@
 package com.stillune.app.ui
 
 import android.graphics.Bitmap
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Undo
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -28,6 +40,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stillune.app.R
@@ -36,6 +49,7 @@ import com.stillune.app.data.Track
 import com.stillune.app.playback.PlaybackState
 import com.stillune.app.playback.RepeatMode
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -47,6 +61,7 @@ internal fun AlbumDeck(
     onSeek: (Long) -> Unit, onImportLyrics: () -> Unit, modifier: Modifier = Modifier,
     showQueue: Boolean = true,
     onPrevious: () -> Unit = {},
+    cachedArtwork: (Track) -> Bitmap? = { null },
 ) {
     val uri = state.track?.uri
     val remaining = if (state.shuffle) state.shuffleRemaining
@@ -62,25 +77,16 @@ internal fun AlbumDeck(
         else if (state.shuffle) listOf(nextIndex)
         else (nextIndex until state.queue.size).take(3).takeWhile { it != state.index }
     }
-    var lastTrack by remember { mutableStateOf(uri) }
-    var handoff by remember { mutableStateOf<Pair<Int, Float>?>(null) }
-    val trackSlide = remember { Animatable(0f) }
-    LaunchedEffect(uri) {
-        val direction = if (lastTrack == uri || !showQueue) 0 else state.trackDirection
-        lastTrack = uri
-        val carriedProgress = handoff?.takeIf { it.first == state.index }?.second ?: 0f
-        handoff = null
-        trackSlide.snapTo(direction * (1f - carriedProgress))
-        if (direction != 0) trackSlide.animateTo(0f, tween(240))
-    }
     val flip by animateFloatAsState(
         if (lyricsVisible) 180f else 0f, tween(300), label = "album-flip")
-    var drag by remember(uri) { mutableFloatStateOf(0f) }
+    var swipeArrival by remember { mutableStateOf<Pair<String?, String>?>(null) }
+    var drag by remember(uri, lyricsVisible) { mutableFloatStateOf(0f) }
     var fold by remember(uri) { mutableStateOf(Offset.Zero) }
     val showingPeel by remember(uri) { derivedStateOf { fold != Offset.Zero } }
     val backFacing by remember { derivedStateOf { flip >= 90f } }
+    LaunchedEffect(lyricsVisible) { if (lyricsVisible) swipeArrival = null }
     LaunchedEffect(backFacing) { if (backFacing) fold = Offset.Zero }
-    var settling by remember(uri) { mutableStateOf(false) }
+    var settling by remember(uri, lyricsVisible) { mutableStateOf(false) }
     var motion by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
     val advance by rememberUpdatedState(onAdvance)
@@ -110,7 +116,7 @@ internal fun AlbumDeck(
                         val depth = slot + 1
                         val track = state.queue[coverIndexes[slot]]
                         key(track.uri) {
-                            val cover by rememberTrackArtwork(track, loadArtwork)
+                            val cover by rememberTrackArtwork(track, loadArtwork, cachedArtwork)
                             AlbumArtwork(cover, null, Modifier.size(side).graphicsLayer {
                                 val progress = forwardProgress()
                                 val distance = depth - progress
@@ -123,7 +129,7 @@ internal fun AlbumDeck(
                         }
                     }
                     previousIndex?.let(state.queue::get)?.let { track ->
-                        val cover by rememberTrackArtwork(track, loadArtwork)
+                        val cover by rememberTrackArtwork(track, loadArtwork, cachedArtwork)
                         AlbumArtwork(cover, null, Modifier.size(side).graphicsLayer {
                             val back = (drag / sidePx).coerceIn(0f, 1f)
                             translationX = -sidePx * .62f * (1f - back)
@@ -134,17 +140,15 @@ internal fun AlbumDeck(
                     }
                 }
                 Box(Modifier.size(side).graphicsLayer {
-                    val arrival = trackSlide.value
-                    translationX = drag + arrival * sidePx * if (arrival < 0f) .62f else .57f
-                    scaleX = 1f - abs(arrival) * if (arrival < 0f) .18f else .12f
-                    scaleY = scaleX
+                    translationX = drag
                     rotationZ = if (showQueue) (drag / sidePx) * 7f else 0f
-                    rotationY = (if (flip <= 90f) flip else flip - 180f) - arrival * 54f
+                    rotationY = if (flip <= 90f) flip else flip - 180f
                     cameraDistance = 20f * density.density
-                }.shadow(18.dp, SquircleShape(12.dp), ambientColor = Night, spotColor = Night)
-                    .clip(SquircleShape(12.dp)).background(Panel).testTag("album-front")
+                }.shadow(18.dp, SquircleShape(12.dp), ambientColor = InkMuted.copy(alpha = .36f), spotColor = InkAccent.copy(alpha = .26f))
+                    .clip(SquircleShape(12.dp)).background(GlassSurfaceColor).testTag("album-front")
                     .semantics {
                         contentDescription = "当前专辑卡片"
+                        if (canTurn) onClick(label = if (lyricsVisible) "返回封面" else "查看歌词") { onLyrics(); true }
                         stateDescription = if (lyricsVisible) "歌词" else "揭角 ${(fold.getDistance() / (sidePx * 1.414f) * 100).toInt().coerceIn(0, 100)}%"
                     }) {
                     if (backFacing || showingPeel) {
@@ -172,7 +176,10 @@ internal fun AlbumDeck(
                                     if (!claimed && abs(delta.y) > viewConfiguration.touchSlop && abs(delta.y) > abs(delta.x)) {
                                         cancelled = true; break
                                     }
-                                    if (!claimed && showQueue && abs(delta.x) > viewConfiguration.touchSlop) claimed = true
+                                    if (!claimed && abs(delta.x) > viewConfiguration.touchSlop) {
+                                        if (!showQueue) { cancelled = true; break }
+                                        claimed = true
+                                    }
                                     if (claimed) {
                                         change.consume()
                                         if (peel) {
@@ -188,7 +195,9 @@ internal fun AlbumDeck(
                                         }
                                     }
                                 }
-                                if (peel) {
+                                if (!claimed && !cancelled) {
+                                    turnPage()
+                                } else if (peel) {
                                     val opened = !cancelled && (peelTrail.size == 1 ||
                                         -fold.x / size.width >= .66f && -fold.y / size.height >= .58f)
                                     if (opened) turnPage()
@@ -215,10 +224,18 @@ internal fun AlbumDeck(
                                         try {
                                             val target = if (step > 0) nextIndex else previousIndex
                                             if (step != 0 && target != null) {
-                                                handoff = target to (abs(drag) / sidePx).coerceAtMost(1f)
+                                                val finish = -step * sidePx
+                                                val distance = (abs(finish - drag) / sidePx).coerceIn(0f, 1f)
+                                                animate(drag, finish, animationSpec = tween((distance * 150f).toInt())) { value, _ -> drag = value }
+                                                swipeArrival = uri to state.queue[target].uri
                                                 if (step > 0) advance() else goBack()
+                                                // A disconnected service may defer the command. Restore the card if it has not moved yet.
+                                                delay(350)
+                                                swipeArrival = null
+                                                animate(drag, 0f, animationSpec = spring(stiffness = 430f)) { value, _ -> drag = value }
+                                            } else {
+                                                animate(drag, 0f, animationSpec = spring(dampingRatio = .82f, stiffness = 430f)) { value, _ -> drag = value }
                                             }
-                                            animate(drag, 0f, animationSpec = spring(dampingRatio = .82f, stiffness = 430f)) { value, _ -> drag = value }
                                         } finally { settling = false }
                                     }
                                 }
@@ -235,12 +252,32 @@ internal fun AlbumDeck(
                                     start = geometry.tip, end = geometry.midpoint))
                                 drawPath(flap, Color.White.copy(alpha = .58f), style = Stroke(.6.dp.toPx()))
                                 geometry.crease.takeIf { it.size == 2 }?.let {
-                                    drawLine(Night.copy(alpha = .2f), it[0], it[1], 3.dp.toPx())
+                                    drawLine(GlassGround.copy(alpha = .2f), it[0], it[1], 3.dp.toPx())
                                     drawLine(Color.White.copy(alpha = .65f), it[0], it[1], .6.dp.toPx())
                                 }
                             }
                         }) {
-                        AlbumArtwork(artwork, "${state.track?.album ?: "本地音乐"}专辑封面", Modifier.fillMaxSize())
+                        AnimatedContent(uri, Modifier.fillMaxSize(), transitionSpec = {
+                            if (swipeArrival == (initialState to targetState)) {
+                                (EnterTransition.None togetherWith ExitTransition.None).using(null)
+                            } else {
+                                val direction = if (showQueue) state.trackDirection else 0
+                                val enter = if (direction == 0) fadeIn(tween(180)) else slideInHorizontally(tween(220)) { it * direction }
+                                val exit = if (direction == 0) fadeOut(tween(180)) else slideOutHorizontally(tween(220)) { -it * direction }
+                                (enter togetherWith exit).using(null)
+                            }
+                        }, label = "cover-slide") { cardUri ->
+                            var retained by remember { mutableStateOf(artwork) }
+                            DisposableEffect(cardUri) {
+                                onDispose {
+                                    if (swipeArrival?.first == cardUri) swipeArrival = null
+                                }
+                            }
+                            if (cardUri == uri) SideEffect { retained = artwork }
+                            AlbumArtwork(if (cardUri == uri) artwork else retained,
+                                if (cardUri == uri) "${state.track?.album ?: "本地音乐"}专辑封面" else null,
+                                Modifier.fillMaxSize())
+                        }
                         if (canTurn) Box(Modifier.align(Alignment.BottomEnd).size(48.dp).semantics {
                             contentDescription = "揭角查看歌词"
                             onClick(label = "查看歌词") { onLyrics(); true }
@@ -251,22 +288,24 @@ internal fun AlbumDeck(
                     }
                 }
             }
-            if (showQueue) Text(remainingLabel, Modifier.padding(top = 6.dp).testTag("album-remaining"), color = Quiet, fontSize = 11.sp)
+            if (showQueue) Text(remainingLabel, Modifier.padding(top = 6.dp).testTag("album-remaining"), color = InkMuted, fontSize = 11.sp)
         }
     }
 }
 
 @Composable
-internal fun rememberTrackArtwork(track: Track?, loader: suspend (Track) -> Bitmap?): State<Bitmap?> =
-    produceState<Bitmap?>(null, track?.uri, track?.modifiedAt, track?.sizeBytes) {
-        value = null
-        if (track != null) value = loader(track)
+internal fun rememberTrackArtwork(
+    track: Track?, loader: suspend (Track) -> Bitmap?, cached: (Track) -> Bitmap? = { null },
+): State<Bitmap?> = key(track?.uri, track?.modifiedAt, track?.sizeBytes) {
+    produceState(track?.let(cached)) {
+        if (track != null && value == null) value = loader(track)
     }
+}
 
 @Composable
 internal fun AlbumArtwork(bitmap: Bitmap?, description: String?, modifier: Modifier = Modifier) {
     if (bitmap != null) Image(bitmap.asImageBitmap(), description, modifier, contentScale = ContentScale.Crop)
-    else Box(modifier.background(Brush.linearGradient(listOf(Panel, Night))), contentAlignment = Alignment.Center) {
+    else Box(modifier.background(Brush.linearGradient(listOf(GlassSurfaceColor, GlassGround))), contentAlignment = Alignment.Center) {
         Image(painterResource(R.drawable.stillune_foreground), description, Modifier.fillMaxSize())
     }
 }
@@ -274,17 +313,35 @@ internal fun AlbumArtwork(bitmap: Bitmap?, description: String?, modifier: Modif
 @Composable
 private fun AlbumLyricsBack(lyrics: Lyrics, state: PlaybackState, interactive: Boolean, compact: Boolean, onClose: () -> Unit,
                             onSeek: (Long) -> Unit, onImport: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF334F6B), Night))).padding(if (compact) 6.dp else 12.dp)) {
+    Column(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White, Color(0xFFDDECF5))))
+        .then(if (interactive) Modifier.clickable(onClickLabel = "返回封面", onClick = onClose) else Modifier)
+        .padding(if (compact) 6.dp else 14.dp)) {
         if (interactive) {
-            TextButton(onClick = onClose, modifier = Modifier.align(Alignment.End)) { Text("返回封面", fontSize = 12.sp) }
-            LyricsPane(lyrics, state.positionMs, state.track != null, onSeek, onImport, Modifier.weight(1f).fillMaxWidth(), compact = compact)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(start = 6.dp)) {
+                    Text(state.track?.title ?: "未播放", fontSize = if (compact) 13.sp else 17.sp,
+                        fontWeight = FontWeight.SemiBold, color = InkAccent, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    state.track?.let {
+                        Text(it.artist, fontSize = if (compact) 10.sp else 12.sp, color = InkMuted,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                if (compact) IconButton(onClick = onClose) {
+                    Icon(Icons.Rounded.Undo, "返回封面", tint = InkAccent, modifier = Modifier.size(18.dp))
+                } else TextButton(onClick = onClose, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                    Text("返回封面", fontSize = 11.sp)
+                }
+            }
+            if (!compact) state.track?.let { AudioFormatBadge(it.format, Modifier.padding(start = 6.dp, bottom = 4.dp)) }
+            LyricsPane(lyrics, state.positionMs, state.track != null, onSeek, onImport,
+                Modifier.weight(1f).fillMaxWidth(), onReturnToCover = onClose, compact = compact, cardBack = true)
         } else {
             val active = lyrics.activeIndex(state.positionMs).coerceAtLeast(0)
             val lines = lyrics.lines.drop(active).take(4)
             Spacer(Modifier.weight(1f))
-            if (lines.isEmpty()) Text(if (state.track == null) "从乐库选择音乐" else "暂无歌词", color = Moon, fontSize = 20.sp)
+            if (lines.isEmpty()) Text(if (state.track == null) "从乐库选择音乐" else "暂无歌词", color = InkAccent, fontSize = 20.sp)
             else lines.forEachIndexed { i, line ->
-                Text(line.text, Modifier.padding(vertical = 8.dp), color = if (i == 0) Moon else Quiet,
+                Text(line.text, Modifier.padding(vertical = 8.dp), color = if (i == 0) InkAccent else InkMuted,
                     fontSize = 20.sp, fontWeight = if (i == 0) FontWeight.Medium else FontWeight.Normal, maxLines = 2)
             }
             Spacer(Modifier.weight(1f))
