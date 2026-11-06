@@ -152,7 +152,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
         .semantics { contentDescription = "体感沉浸画面"; customActions = listOf(
             CustomAccessibilityAction("显示播放控制") { controls = true; activity(); true },
             CustomAccessibilityAction("退出体感沉浸") { exit(); true }) }) {
-        if (style == ImmersionStyle.PARALLAX || reducedMotion) MoonlitBackdrop(artwork, Modifier.matchParentSize())
+        MoonlitBackdrop(artwork, Modifier.matchParentSize())
         val side by animateDpAsState(if (style == ImmersionStyle.PARALLAX)
             minOf(maxWidth * .86f, maxHeight * .61f, 430.dp)
             else minOf(maxWidth * .52f, maxHeight * .36f, 270.dp), tween(if (reducedMotion) 0 else 280), label = "immersive-cover-size")
@@ -185,7 +185,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
         }
         if (!controls) Text(state.track?.title ?: "让声音停泊", Modifier.align(Alignment.BottomCenter)
             .safeDrawingPadding().padding(horizontal = 28.dp, vertical = 36.dp),
-            color = if (style == ImmersionStyle.PARALLAX) InkAccent else Color.White, fontSize = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            color = InkAccent, fontSize = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         AnimatedVisibility(controls, Modifier.align(Alignment.BottomCenter), enter = fadeIn(), exit = fadeOut()) {
             Column(Modifier.fillMaxWidth().heightIn(max = controlMaxHeight).safeDrawingPadding().padding(20.dp)
@@ -222,13 +222,16 @@ private fun ImmersionCanvas(style: ImmersionStyle, frame: State<SceneFrame>, dyn
     reduced: Boolean, palette: ArtworkColors, modifier: Modifier) {
     val path = remember { Path() }
     val points = remember { FloatArray(48 * 2) }
+    val colors = remember(palette) {
+        listOf(lerp(palette.primary, Color(0xFF247E9B), .42f),
+            lerp(palette.secondary, Color(0xFF765A9D), .43f), Color(0xFFBD7086))
+    }
     Canvas(modifier) {
         if (reduced) return@Canvas
         val f = frame.value // Only redraw/layer updates: no per-frame layout or recomposition.
         val tilt = f.tilt
         val unit = size.minDimension
         val center = Offset(size.width * .5f, size.height * .46f)
-        drawRect(palette.ground)
         if (style == ImmersionStyle.RIPPLES) {
             fun water(radius: Float, age: Float, seed: Float, strength: Float, origin: Offset) {
                 path.reset()
@@ -256,7 +259,7 @@ private fun ImmersionCanvas(style: ImmersionStyle, frame: State<SceneFrame>, dyn
             if (f.energy + tilt.motion > .01f) repeat(if (f.fullDetail) 3 else 1) { index ->
                 water(.30f + index * .095f, f.time, index * 1.7f, f.energy * .3f,
                     center + Offset(tilt.x * unit * .12f, tilt.y * unit * .10f))
-                drawPath(path, palette.primary.copy(alpha = (.05f + f.energy * .10f + tilt.motion * .07f).coerceAtMost(.23f)),
+                drawPath(path, colors[index % colors.size].copy(alpha = (.05f + f.energy * .10f + tilt.motion * .07f).coerceAtMost(.23f)),
                     style = Stroke(.7.dp.toPx()))
             }
             // Keep overdraw bounded even when dense music fills all eight simulation slots.
@@ -266,7 +269,7 @@ private fun ImmersionCanvas(style: ImmersionStyle, frame: State<SceneFrame>, dyn
                 val fade = (1f - progress).pow(1.5f) * (1f - exp(-ripple.age * 32f))
                 val origin = center + Offset((ripple.x + tilt.x * ripple.age * .055f) * unit,
                     (ripple.y + tilt.y * ripple.age * .05f) * unit)
-                val ink = lerp(if (ripple.seed > 3.14f) palette.primary else palette.secondary, InkAccent, .38f)
+                val ink = lerp(colors[(ripple.seed.toInt() % colors.size)], InkAccent, .22f)
                 repeat(if (f.fullDetail && ripple.age < .5f) 2 else 1) { crest ->
                     val radius = .24f + ripple.age * (.35f + ripple.strength * .16f) - crest * .038f
                     water(radius, ripple.age, ripple.seed, ripple.strength, origin)
@@ -280,14 +283,14 @@ private fun ImmersionCanvas(style: ImmersionStyle, frame: State<SceneFrame>, dyn
                 if (mote.age >= mote.life) continue
                 val progress = mote.age / mote.life
                 val opacity = ((1f - progress).pow(1.5f) * (1f - exp(-mote.age * 40f))).coerceIn(0f, 1f)
-                val ink = if (mote.color == 0) palette.secondary else palette.primary
+                val ink = colors[if (index % 5 == 0) 2 else mote.color % 2]
                 val position = center + Offset(mote.x * unit, mote.y * unit)
                 // Velocity-aligned streaks stretch on attacks, curl in the hand's current.
                 val tail = position - Offset(mote.vx * unit, mote.vy * unit) * (.025f + f.pulse * .055f)
                 drawLine(ink.copy(alpha = opacity * .52f), tail, position,
                     (mote.size * .65f).dp.toPx(), cap = StrokeCap.Round)
                 if (f.fullDetail) drawCircle(ink.copy(alpha = opacity * .1f), (mote.size * 3.2f).dp.toPx(), position)
-                drawCircle(lerp(ink, InkAccent, .65f).copy(alpha = opacity), mote.size.dp.toPx(), position)
+                drawCircle(lerp(ink, InkAccent, .28f).copy(alpha = opacity), mote.size.dp.toPx(), position)
             }
         }
     }

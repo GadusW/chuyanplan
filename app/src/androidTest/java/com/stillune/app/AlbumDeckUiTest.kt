@@ -2,6 +2,9 @@ package com.stillune.app
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
+import kotlinx.coroutines.flow.MutableSharedFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
@@ -27,10 +30,17 @@ class AlbumDeckUiTest {
             var lyrics by remember { mutableStateOf(false) }
             StilluneTheme {
                 val state = PlaybackState(queue, cursor, repeat = repeat)
+                val steps = remember { MutableSharedFlow<Int>(extraBufferCapacity = 1) }
+                Column {
                 AlbumDeck(state, null, LrcParser.parse(if (plain) "第一句歌词\n第二句歌词\n第三句歌词" else "[00:00.00]第一句歌词\n[00:03.00]第二句歌词"),
                     lyrics, { null }, { state.nextIndex?.let { cursor = it; index = it } }, { lyrics = !lyrics }, {}, {},
                     (if (small) Modifier.width(154.dp).height(164.dp) else Modifier.fillMaxWidth().height(410.dp)),
-                    onPrevious = { state.previousIndex?.let { cursor = it; index = it } })
+                    onPrevious = { state.previousIndex?.let { cursor = it; index = it } }, stepRequests = steps)
+                Row {
+                    TextButton(onClick = { steps.tryEmit(-1) }) { Text("按键上一首") }
+                    TextButton(onClick = { steps.tryEmit(1) }) { Text("按键下一首") }
+                }
+                }
             }
         }
     }
@@ -56,63 +66,35 @@ class AlbumDeckUiTest {
         compose.runOnIdle { assertEquals(2, index) }
     }
 
-    @Test fun peelingKeepsCardFixedAndReturnsWithoutSkippingMusic() {
+    @Test fun tapAnywhereOnCoverFlipsAndLyricTapReturns() {
         render()
-        val before = compose.onNodeWithTag("album-front").fetchSemanticsNode().boundsInRoot
-        compose.onNodeWithTag("album-front").performTouchInput {
-            down(Offset(width - 40f, height - 40f))
-            moveTo(Offset(width * .4f, height * .45f), 450)
-        }
-        val during = compose.onNodeWithTag("album-front").fetchSemanticsNode()
-        assertEquals(before, during.boundsInRoot)
-        org.junit.Assert.assertFalse(during.config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription].contains("揭角 0%"))
-        compose.onNodeWithTag("album-front").performTouchInput { up() }
-        compose.waitForIdle()
-        compose.onNodeWithTag("album-front").assert(SemanticsMatcher.expectValue(
-            androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "揭角 0%"))
-        compose.runOnIdle { assertEquals(0, index) }
-        // Explicit accessibility action remains available without requiring a precision drag.
-        compose.onNodeWithContentDescription("揭角查看歌词").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
-        compose.onNodeWithText("返回封面").assertExists().performClick()
-    }
-
-    @Test fun smallLandscapeCardPeelsAndCenterDragStillChangesSong() {
-        render(small = true)
-        val before = compose.onNodeWithTag("album-front").fetchSemanticsNode().boundsInRoot
-        compose.onNodeWithTag("album-front").performTouchInput {
-            down(Offset(width - 40f, height - 40f))
-            moveTo(center, 350)
-        }
-        val during = compose.onNodeWithTag("album-front").fetchSemanticsNode()
-        assertEquals(before, during.boundsInRoot)
-        org.junit.Assert.assertFalse(during.config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription] == "揭角 0%")
-        compose.onNodeWithTag("album-front").performTouchInput { up() }
-        compose.waitForIdle()
-        compose.runOnIdle { assertEquals(0, index) }
-        compose.onNodeWithTag("album-front").performTouchInput { swipe(center, Offset(0f, centerY), 350) }
-        compose.waitForIdle()
-        compose.runOnIdle { assertEquals(1, index) }
-    }
-
-
-    @Test fun tappingFrontAndLyricsLineFlipsBothWays() {
-        render()
-        compose.onNodeWithTag("album-front").performTouchInput { click(center) }
+        compose.onNodeWithTag("album-front").performTouchInput { click(Offset(width - 22f, height - 22f)) }
         compose.onNodeWithText("测试歌曲 1").assertIsDisplayed()
+        compose.onNodeWithText("返回封面").assertDoesNotExist()
         compose.onNodeWithText("第一句歌词").performTouchInput { click(center) }
-        compose.onNodeWithContentDescription("揭角查看歌词").assertExists()
         compose.onNodeWithText("测试歌曲 1").assertDoesNotExist()
     }
 
-    @Test fun longPeelOpensReadableBackUntilClosed() {
-        render()
+    @Test fun compactDeckSupportsSwipeWithoutACornerZone() {
+        render(small = true)
         compose.onNodeWithTag("album-front").performTouchInput {
-            swipe(Offset(width - 22f, height - 22f), Offset(width * .06f, height * .08f), 460)
+            swipe(Offset(width - 22f, height - 22f), Offset(0f, height - 22f), 350)
         }
-        compose.onNodeWithText("返回封面").assertIsDisplayed()
-        compose.onNodeWithText("第一句歌词").assertExists()
-        compose.onNodeWithText("返回封面").performClick()
-        compose.onNodeWithContentDescription("揭角查看歌词").assertExists()
+        compose.runOnIdle { assertEquals(1, index) }
+    }
+
+    @Test fun transportAnimatesDeckBeforeCommittingAndWraps() {
+        render(repeat = RepeatMode.ALL)
+        val initial = compose.onNodeWithTag("album-front").fetchSemanticsNode().boundsInRoot
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithText("按键上一首").performClick()
+        compose.mainClock.advanceTimeBy(112)
+        val moving = compose.onNodeWithTag("album-front").fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue(moving.center.x > initial.center.x)
+        assertEquals(0, index)
+        compose.mainClock.autoAdvance = true
+        compose.runOnIdle { assertEquals(2, index) }
+        compose.onNodeWithText("按键下一首").performClick()
         compose.runOnIdle { assertEquals(0, index) }
     }
 
@@ -124,15 +106,10 @@ class AlbumDeckUiTest {
         compose.runOnIdle { assertEquals(0, index) }
     }
 
-    @Test fun plainTextLyricsPreviewStartsWithFirstLine() {
+    @Test fun plainTextBackStartsWithFirstLine() {
         render(plain = true)
-        compose.onNodeWithTag("album-front").performTouchInput {
-            down(Offset(width - 40f, height - 40f))
-            moveTo(Offset(width * .2f, height * .2f), 350)
-        }
-        compose.onNodeWithText("第一句歌词").assertExists()
-        compose.onNodeWithText("第二句歌词").assertExists()
-        compose.onNodeWithTag("album-front").performTouchInput { up() }
-        compose.runOnIdle { assertEquals(0, index) }
+        compose.onNodeWithTag("album-front").performTouchInput { click(center) }
+        compose.onNodeWithText("第一句歌词").assertIsDisplayed()
+        compose.onNodeWithText("第二句歌词").assertIsDisplayed()
     }
 }

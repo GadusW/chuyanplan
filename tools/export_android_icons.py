@@ -6,7 +6,7 @@ The input foreground is an image-generated transparent adaptation, not a new log
 from pathlib import Path
 import json
 import math
-from PIL import Image, ImageDraw, ImageCms
+from PIL import Image, ImageDraw, ImageCms, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'assets/android'
@@ -19,6 +19,30 @@ def write(path, text):
     path = OUT / path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text.strip() + '\n', encoding='utf-8')
+
+def glass_background(foreground):
+    # One full-bleed glass layer so the same lighting survives every launcher mask.
+    side = 360
+    pixels = []
+    for y in range(side):
+        for x in range(side):
+            u, v = (x / side - .5) * 1.5 + .5, (y / side - .5) * 1.5 + .5
+            upper_light = math.exp(-((u - .24) ** 2 + (v - .07) ** 2) / .26)
+            lower_light = math.exp(-((u - .83) ** 2 + (v - .80) ** 2) / .19)
+            reflection = math.exp(-((v - .26 + .54 * u) / .10) ** 2)
+            rim_light = math.exp(-((v - .98 + .12 * u) / .045) ** 2)
+            pixels.append(tuple(round(min(255, c + (255 - c) * (.65 * upper_light + .20 * reflection + .11 * rim_light)))
+                                for c in (210 - 28 * lower_light, 229 - 17 * lower_light, 240 - 7 * lower_light)))
+    base = Image.new('RGB', (side, side))
+    base.putdata(pixels)
+    base = base.resize((LAYER, LAYER), Image.Resampling.BICUBIC).convert('RGBA')
+    # A soft cast shadow seats the existing translucent waves on the illuminated plate.
+    alpha = Image.new('L', foreground.size)
+    alpha.paste(foreground.getchannel('A'), (4, 13))
+    shadow = Image.new('RGBA', foreground.size, '#547890')
+    shadow.putalpha(alpha.filter(ImageFilter.GaussianBlur(12)).point(lambda a: round(a * .30)))
+    base.alpha_composite(shadow)
+    return base
 
 def main():
     source = Image.open(ROOT / 'assets/branding/stillune-foreground-source.png').convert('RGBA')
@@ -50,10 +74,11 @@ def main():
     write('res/drawable/ic_launcher_monochrome.xml', '''
 <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
     android:src="@drawable/stillune_monochrome" android:gravity="fill" />''')
+    background = glass_background(foreground)
+    background.save(bitmap_dir / 'stillune_glass_background.png', optimize=True)
     write('res/drawable/ic_launcher_background.xml', '''
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="#263451" />
-</shape>''')
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/stillune_glass_background" android:gravity="fill" />''')
     for version in [26, 33]:
         mono_line = '\n    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />' if version == 33 else ''
         adaptive = f'''<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -64,7 +89,7 @@ def main():
             write(f'res/mipmap-anydpi-v{version}/{name}.xml', adaptive)
     write('res/values/strings.xml', '<resources>\n    <string name="app_name">栖声 · Stillune</string>\n</resources>')
     # Every mask and listing now uses the same calibrated viewport, including pre-adaptive launchers.
-    square = Image.new('RGBA', (LAYER, LAYER), '#263451')
+    square = background.copy()
     square.alpha_composite(foreground)
     square = square.crop((180, 180, 900, 900)).resize((1024, 1024), Image.Resampling.LANCZOS)
     square.save(ROOT / 'assets/branding/stillune-icon-source-square.png', optimize=True)
@@ -101,7 +126,7 @@ def main():
     # Mask previews are QA exports, not launcher source layers.
     previews=[]
     for kind in ['round','rounded-square','squircle','themed']:
-        bg=Image.new('RGBA',(LAYER,LAYER),'#263451' if kind!='themed' else '#d8e4e9')
+        bg=background.copy() if kind!='themed' else Image.new('RGBA',(LAYER,LAYER),'#d8e4e9')
         fg=foreground if kind!='themed' else Image.new('RGBA',foreground.size,'#304650')
         if kind=='themed': fg.putalpha(mono.getchannel('A'))
         bg.alpha_composite(fg)

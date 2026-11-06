@@ -52,8 +52,8 @@ class LibraryUiTest {
                 compose.onNodeWithContentDescription("显示歌词").performSemanticsAction(SemanticsActions.OnClick) { it() }
             } catch (_: AssertionError) { }
             compose.onNodeWithContentDescription("显示歌词").performSemanticsAction(SemanticsActions.OnClick) { it() }
-            compose.waitUntil(3000) { compose.onAllNodesWithText("返回封面").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("返回封面").performClick()
+            compose.waitUntil(3000) { compose.onAllNodesWithTag("album-front").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("album-front").performSemanticsAction(SemanticsActions.OnClick) { it() }
             compose.onNodeWithContentDescription("显示歌词").assertIsOff()
         }
         compose.onNodeWithText("实时分析").performScrollTo().performClick()
@@ -66,7 +66,7 @@ class LibraryUiTest {
         compose.onNodeWithText("播放队列").assertIsDisplayed()
         compose.onNodeWithText("输出设备").assertIsDisplayed()
         compose.onNodeWithText("封面 / 歌词").performClick()
-        compose.onNodeWithText("返回封面").performScrollTo().performClick()
+        compose.onNodeWithTag("album-front").performScrollTo().performSemanticsAction(SemanticsActions.OnClick) { it() }
         compose.onNodeWithText("播放模式").performClick()
         compose.onNodeWithContentDescription("全屏播放").performClick()
         compose.onNodeWithContentDescription("退出全屏").assertExists()

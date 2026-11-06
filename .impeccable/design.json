@@ -4,23 +4,50 @@
   "title": "Design System: Stillune",
   "extensions": {
     "typographyMeta": {
-      "wordmark": { "displayName": "Parisienne", "purpose": "首页左上角英文字标" }
+      "wordmark": {
+        "displayName": "Parisienne",
+        "purpose": "首页左上角英文字标"
+      }
     },
     "motion": [
-      { "name": "cover-slide", "value": "220ms", "purpose": "固定尺寸的封面横向切换" },
-      { "name": "album-flip", "value": "300ms", "purpose": "封面与歌词背面的翻转" },
-      { "name": "page-reveal", "value": "340ms", "purpose": "从底部导航图标向外揭开目标页" }
+      {
+        "name": "cover-settle",
+        "value": "230ms maximum",
+        "purpose": "手滑和按钮共用卡片移出与邻卡前移"
+      },
+      {
+        "name": "album-flip",
+        "value": "300ms",
+        "purpose": "封面与歌词背面的翻转"
+      },
+      {
+        "name": "page-reveal",
+        "value": "340ms",
+        "purpose": "从底部导航图标向外揭开目标页"
+      }
     ]
   },
   "components": [],
   "narrative": {
     "northStar": "以正在播放的专辑封面为环境光的明亮玻璃",
     "overview": "浅色底承接封面的低频色彩；文字和控制使用蓝灰墨色。",
-    "keyCharacteristics": ["真实封面柔焦", "连续曲率轮廓", "稳定的封面占位"],
-    "rules": [
-      { "name": "歌词背面", "body": "播放模式的歌名和歌手与歌词同在卡片背面。", "section": "components" }
+    "keyCharacteristics": [
+      "真实封面柔焦",
+      "连续曲率轮廓",
+      "稳定的封面占位"
     ],
-    "dos": ["把底部渐进模糊限制在迷你播放器边缘以下"],
-    "donts": ["切歌时改变前景封面的尺寸"]
+    "rules": [
+      {
+        "name": "歌词背面",
+        "body": "播放模式的歌名和歌手与歌词同在卡片背面。",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "把底部渐进模糊限制在迷你播放器边缘以下"
+    ],
+    "donts": [
+      "切歌时改变前景封面的尺寸"
+    ]
   }
 }

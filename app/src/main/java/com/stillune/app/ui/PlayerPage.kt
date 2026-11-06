@@ -35,6 +35,9 @@ import androidx.compose.ui.unit.sp
 import com.stillune.app.data.Lyrics
 import com.stillune.app.playback.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 
 @Composable
 internal fun GlassSurface(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
@@ -54,6 +57,12 @@ internal fun PlayerPage(
     val analysisMode by model.analysisMode.collectAsStateWithLifecycle()
     val analysis by model.analysis.collectAsStateWithLifecycle()
     var realtime by rememberSaveable { mutableStateOf(false) }
+    val stepRequests = remember { MutableSharedFlow<Int>(extraBufferCapacity = 1) }
+    val onStep: (Int) -> Unit = { direction ->
+        if (!analysisMode && (if (direction < 0) state.previousIndex else state.nextIndex) != state.index) {
+            stepRequests.tryEmit(direction)
+        } else if (direction < 0) model.previousTrack() else model.next()
+    }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val landscape = maxWidth > maxHeight
         val compact = maxHeight - bottomInset < 640.dp
@@ -99,13 +108,13 @@ internal fun PlayerPage(
                             }
                             AnalysisSwitcher(analysis, state, model.realtimeAnalysis, model::requestAnalysis, model::seek,realtime,{realtime=it})
                         }
-                        else PlayerVisual(lyrics, lyricsVisible, artwork, state, model, onImportLyrics, Modifier.fillMaxSize(), showQueue = true)
+                        else PlayerVisual(lyrics, lyricsVisible, artwork, state, model, onImportLyrics, Modifier.fillMaxSize(), showQueue = true, stepRequests = stepRequests)
                     }
                     Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) {
                         if (analysisMode && realtime) RealtimeTransport(state,model,onImportLyrics,onQueue,onOutput)
                         else {
                             if (analysisMode) TrackHeading(state)
-                            TransportPanel(state, model, true, lyricsVisible, onImport, onImportLyrics, onQueue, onOutput, dense = true)
+                            TransportPanel(state, model, true, lyricsVisible, onImport, onImportLyrics, onQueue, onOutput, onStep, dense = true)
                         }
                     }
                 }
@@ -122,12 +131,12 @@ internal fun PlayerPage(
                             }
                         }
                         AnalysisSwitcher(analysis, state, model.realtimeAnalysis, model::requestAnalysis, model::seek,realtime,{realtime=it})
-                    } else PlayerVisual(lyrics, lyricsVisible, artwork, state, model, onImportLyrics, Modifier.fillMaxSize(), showQueue = true)
+                    } else PlayerVisual(lyrics, lyricsVisible, artwork, state, model, onImportLyrics, Modifier.fillMaxSize(), showQueue = true, stepRequests = stepRequests)
                 }
                 if (analysisMode && realtime) RealtimeTransport(state,model,onImportLyrics,onQueue,onOutput)
                 else {
                     if (analysisMode) TrackHeading(state)
-                    TransportPanel(state, model, compact || analysisMode, lyricsVisible, onImport, onImportLyrics, onQueue, onOutput)
+                    TransportPanel(state, model, compact || analysisMode, lyricsVisible, onImport, onImportLyrics, onQueue, onOutput, onStep)
                 }
             }
         }
@@ -174,9 +183,9 @@ private fun RealtimeTransport(state: PlaybackState, model: LibraryViewModel, onI
 @Composable
 private fun PlayerVisual(lyrics: Lyrics, visible: Boolean, artwork: Bitmap?, state: PlaybackState,
                          model: LibraryViewModel, onImportLyrics: () -> Unit, modifier: Modifier,
-                         showQueue: Boolean = false) {
+                         showQueue: Boolean = false, stepRequests: Flow<Int> = emptyFlow()) {
     AlbumDeck(state, artwork, lyrics, visible, model::loadArtwork, model::next,
-        model::toggleLyrics, model::seek, onImportLyrics, modifier, showQueue, onPrevious = model::previousTrack, cachedArtwork = model::cachedArtwork)
+        model::toggleLyrics, model::seek, onImportLyrics, modifier, showQueue, onPrevious = model::previousTrack, stepRequests = stepRequests, cachedArtwork = model::cachedArtwork)
 }
 
 @Composable
@@ -195,9 +204,9 @@ private fun TrackHeading(state: PlaybackState) {
 @Composable
 private fun TransportPanel(state: PlaybackState, model: LibraryViewModel, compact: Boolean, lyricsVisible: Boolean,
                            onImport: () -> Unit, onImportLyrics: () -> Unit, onQueue: () -> Unit, onOutput: () -> Unit,
-                           dense: Boolean = false) {
+                           onStep: (Int) -> Unit, dense: Boolean = false) {
     Column(Modifier.fillMaxWidth().glassPanel(22.dp, .84f).padding(horizontal = 10.dp)) {
-        PlayerControls(state, model, compact, onImport, inlineTime = dense)
+        PlayerControls(state, model, compact, onImport, onStep, inlineTime = dense)
         PlayerActions(lyricsVisible, model::toggleLyrics, state, onImportLyrics, onQueue, onOutput, dense)
     }
 }
@@ -205,7 +214,7 @@ private fun TransportPanel(state: PlaybackState, model: LibraryViewModel, compac
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlayerControls(state: PlaybackState, model: LibraryViewModel, compact: Boolean, onImport: () -> Unit,
-                           inlineTime: Boolean) {
+                           onStep: (Int) -> Unit, inlineTime: Boolean) {
     var dragging by remember(state.track?.uri) { mutableStateOf<Float?>(null) }
     val duration = state.durationMs.coerceAtLeast(1).toFloat()
     val position = dragging?.toLong() ?: state.positionMs
@@ -228,14 +237,14 @@ private fun PlayerControls(state: PlaybackState, model: LibraryViewModel, compac
             IconToggleButton(state.shuffle, { model.shuffle() }, enabled = state.track != null) {
                 Icon(Icons.Rounded.Shuffle, "随机播放", Modifier.size(21.dp), tint = if (state.shuffle) InkAccent else InkMuted)
             }
-            IconButton(onClick = model::previousTrack, enabled = state.previousIndex != null) { Icon(Icons.Rounded.SkipPrevious, "上一首", Modifier.size(32.dp)) }
+            IconButton(onClick = { onStep(-1) }, enabled = state.previousIndex != null) { Icon(Icons.Rounded.SkipPrevious, "上一首", Modifier.size(32.dp)) }
             FilledIconButton(onClick = { if (state.track == null) onImport() else model.toggle() }, modifier = Modifier.size(if (compact) 52.dp else 60.dp).glassPanel(20.dp, 1.5f),
                 shape = SquircleShape(20.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.Transparent, contentColor = InkAccent)) {
                 if (state.loading) CircularProgressIndicator(Modifier.size(26.dp), color = InkAccent, strokeWidth = 2.dp)
                 else Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放", Modifier.size(34.dp))
             }
-            IconButton(onClick = model::next, enabled = state.nextIndex != null) { Icon(Icons.Rounded.SkipNext, "下一首", Modifier.size(32.dp)) }
+            IconButton(onClick = { onStep(1) }, enabled = state.nextIndex != null) { Icon(Icons.Rounded.SkipNext, "下一首", Modifier.size(32.dp)) }
             IconButton(onClick = model::repeat, enabled = state.track != null) {
                 Icon(if (state.repeat == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
                     "循环模式：${when (state.repeat) { RepeatMode.ALL -> "列表循环"; RepeatMode.ONE -> "单曲循环"; RepeatMode.OFF -> "顺序播放" }}",

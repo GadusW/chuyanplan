@@ -188,9 +188,8 @@ fun StilluneApp(
                             }
                             IconButton(onClick = { historyOpen = true }) { Icon(Icons.Rounded.History, "最近播放", tint = InkMuted) }
                             IconButton(onClick = { guideOpen = true }) { Icon(Icons.AutoMirrored.Rounded.HelpOutline, "使用指南", tint = InkMuted) }
-                            IconButton(onClick = { importOpen = true }, enabled = !scan.running,
-                                modifier = Modifier.clip(SquircleShape(14.dp)).background(InkAccent.copy(alpha = .10f))) {
-                                Icon(Icons.Rounded.Add, "导入音乐", tint = if (scan.running) InkMuted else InkAccent)
+                            IconButton(onClick = { importOpen = true }, enabled = !scan.running) {
+                                Icon(Icons.Rounded.Add, "导入音乐")
                             }
                         }
                     }
@@ -247,9 +246,9 @@ fun StilluneApp(
                             Surface(onClick = { group = key }, color = Color.Transparent, shape = SquircleShape(12.dp)) {
                                 Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                                     if (tab == "格式") AudioFormatBadge(key, showLabel = false)
-                                    else Icon(if (tab == "艺术家") Icons.Rounded.PersonOutline else Icons.Rounded.FolderOpen,
+                                    else if (tab == "文件夹") Icon(Icons.Rounded.FolderOpen,
                                         null, tint = InkBlue)
-                                    Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                                    Column(Modifier.weight(1f).padding(start = if (tab == "艺术家") 0.dp else 14.dp, end = 14.dp)) {
                                         Text(LibraryGrouping.label(key, tab), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text(LibraryGrouping.detail(key, tab, tracks.size), color = InkMuted, fontSize = 12.sp,
                                             maxLines = 2, overflow = TextOverflow.Ellipsis)
