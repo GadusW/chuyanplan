@@ -82,15 +82,15 @@ class AlbumDeckUiTest {
         assertEquals(front.id, card(1).fetchSemanticsNode().id)
         assertEquals(neighbor.id, card(2).fetchSemanticsNode().id)
         org.junit.Assert.assertTrue(card(1).fetchSemanticsNode().boundsInRoot.center.x < frontX)
-        val outgoing = card(1).fetchSemanticsNode().boundsInRoot
         val incoming = card(2).fetchSemanticsNode().boundsInRoot
         org.junit.Assert.assertTrue(incoming.center.x < neighborX)
-        org.junit.Assert.assertTrue("The two cards must have a physical gap", outgoing.right < incoming.left)
         compose.mainClock.autoAdvance = true
         compose.onNodeWithTag("album-remaining").assertTextEquals("接下来 1 首")
         val promoted = card(2).fetchSemanticsNode()
         assertEquals(neighbor.id, promoted.id)
         assertEquals(frontX, promoted.boundsInRoot.center.x, 1f)
+        org.junit.Assert.assertTrue("Promoted cover must face forward at its full width",
+            promoted.boundsInRoot.width > incoming.width)
     }
 
     @Test fun consecutiveTransportStepsAnimateTheCurrentCardOnEveryPress() {
