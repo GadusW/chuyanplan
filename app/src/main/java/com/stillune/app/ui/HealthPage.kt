@@ -10,7 +10,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -164,7 +163,7 @@ internal fun HearingContent(
                     Column(Modifier.weight(1f).fillMaxHeight().semanticsLabel("${day.monthValue}月${day.dayOfMonth}日 ${hearingDuration(values[index])}"),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                         Box(Modifier.width(12.dp).height(if (values[index] == 0L) 2.dp else (values[index].toFloat() / largest * 56).coerceAtLeast(3f).dp)
-                            .background(if (index == 6) Moon else Mist.copy(alpha = .45f), RoundedCornerShape(3.dp)))
+                            .background(if (index == 6) Moon else Mist.copy(alpha = .45f), SquircleShape(3.dp)))
                         Text(if (index == 6) "今天" else day.format(DateTimeFormatter.ofPattern("M/d")), Modifier.padding(top = 10.dp), color = Quiet, fontSize = 10.sp)
                     }
                 }
@@ -203,7 +202,7 @@ internal fun HearingContent(
             Text("入耳声压与剂量：尚无经验证的声学校准，不显示估算值。", color = Quiet, fontSize = 12.sp)
         }
         if (!notifications && settings.enabled) item {
-            Surface(color = Panel, shape = RoundedCornerShape(12.dp)) {
+            Surface(color = Panel, shape = SquircleShape(12.dp)) {
                 Column(Modifier.padding(16.dp)) {
                     Text("后台提醒尚未开放", color = Moon, fontSize = 15.sp)
                     Text("系统通知已关闭，锁屏或切到其他应用时可能收不到提醒。", color = Quiet, fontSize = 12.sp)

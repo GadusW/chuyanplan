@@ -11,7 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.pointer.pointerInput
@@ -98,7 +97,7 @@ internal fun SpectrumSeekbar(cache: AnalysisCache, positionMs: Long, onSeek: (Lo
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("整曲频谱", color = Moon, fontSize = 13.sp)
             }
-            Box(Modifier.fillMaxWidth().height(88.dp).clip(RoundedCornerShape(12.dp))
+            Box(Modifier.fillMaxWidth().height(88.dp).clip(SquircleShape(12.dp))
                 .pointerInput(cache.durationMs) { detectTapGestures { onSeek((it.x/size.width).coerceIn(0f,1f).times(cache.durationMs).toLong()) } }
                 .semantics { contentDescription = "整曲频谱进度"; progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
                     setProgress { onSeek((it.coerceIn(0f,1f)*cache.durationMs).toLong()); true } }) {

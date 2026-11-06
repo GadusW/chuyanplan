@@ -99,8 +99,11 @@ class PlayerAssetsRepository @Inject constructor(
         return null
     }
 
+    private fun artworkKey(track: Track) = "${track.uri}:${track.modifiedAt}:${track.sizeBytes}"
+    fun cachedArtwork(track: Track): Bitmap? = covers.get(artworkKey(track))?.bitmap
+
     suspend fun artwork(track: Track): Bitmap? = withContext(io) {
-        val key = "${track.uri}:${track.modifiedAt}:${track.sizeBytes}"
+        val key = artworkKey(track)
         covers.get(key)?.let { return@withContext it.bitmap }
         coverReads.withPermit {
             covers.get(key)?.let { return@withPermit it.bitmap }

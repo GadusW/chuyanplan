@@ -7,6 +7,7 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloat
@@ -20,8 +21,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -40,6 +39,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontFamily
@@ -58,6 +58,8 @@ import com.stillune.app.immersion.ImmersionStyle
 import java.util.Calendar
 import java.util.Locale
 
+private class PageEntry(val destination: Int, val origin: Offset?)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StilluneApp(
@@ -70,7 +72,7 @@ fun StilluneApp(
 ) {
     var playerOpen by rememberSaveable { mutableStateOf(false) }
     var healthOpen by rememberSaveable { mutableStateOf(false) }
-    var revealOrigin by remember { mutableStateOf(Offset.Zero) }
+    var navOrigin by remember { mutableStateOf<Offset?>(null) }
     var pageOrigin by remember { mutableStateOf(Offset.Zero) }
     var knowledgeOpen by rememberSaveable { mutableStateOf(false) }
     val knowledge by model.knowledge.state.collectAsStateWithLifecycle()
@@ -123,36 +125,38 @@ fun StilluneApp(
                 (group == null || LibraryGrouping.key(it, tab) == group)
         }
     }
+    val groups = remember(filtered, tab, group) {
+        if (tab != "歌曲" && group == null) filtered.groupBy { LibraryGrouping.key(it, tab) }.toList() else emptyList()
+    }
+    val albumColumns = ((LocalConfiguration.current.screenWidthDp - 48) / 152).coerceIn(2, 5)
+    val destination = if (healthOpen) 2 else if (playerOpen) 1 else 0
+    val entry = remember(destination) { PageEntry(destination, navOrigin) }
     GlassScene(artwork) {
     Scaffold(containerColor = Color.Transparent, contentColor = MaterialTheme.colorScheme.onBackground,
         snackbarHost = { SnackbarHost(snackbar) },
         contentWindowInsets = if (fullScreen || immersive) WindowInsets(0, 0, 0, 0) else WindowInsets.safeDrawing,
         bottomBar = {
             if (!fullScreen && !immersive) Column(Modifier.fillMaxWidth().navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
-                AnimatedVisibility(!playerOpen && playback.track != null, enter = fadeIn() + expandVertically(), exit = shrinkVertically() + fadeOut()) {
-                    MiniPlayer(playback, artwork, onOpen = { playerOpen = true; healthOpen = false }, onToggle = model::toggle, onNext = model::next)
-                }
                 FloatingNavigation(playerOpen, { playerOpen = false; healthOpen = false }, { playerOpen = true; healthOpen = false },
                     healthOpen = healthOpen, onHealth = { healthOpen = true; playerOpen = false },
-                    onOrigin = { revealOrigin = it })
+                    onOrigin = { navOrigin = it })
             }
         }) { padding ->
         Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())
             .then(if (immersive) Modifier else Modifier.padding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()))
             .onGloballyPositioned { pageOrigin = it.positionInRoot() }) {
-            AnimatedContent(if (healthOpen) 2 else if (playerOpen) 1 else 0, transitionSpec = {
-                (fadeIn(tween(1)) togetherWith fadeOut(tween(1, delayMillis = 420)))
-                    .using(SizeTransform(clip = false)).apply { targetContentZIndex = 1f }
-            }, label = "library-player") { destination ->
-                val reveal by transition.animateFloat(transitionSpec = { tween(420, easing = FastOutSlowInEasing) }, label = "circular-reveal") {
-                    if (it == EnterExitState.PreEnter) 0f else 1f
+            LaunchedEffect(destination) { navOrigin = null }
+            AnimatedContent(entry, transitionSpec = {
+                val exit = if (targetState.origin == null) ExitTransition.None
+                    else fadeOut(tween(340, easing = Easing { if (it < 1f) 0f else 1f }))
+                (fadeIn(tween(1)) togetherWith exit).using(null).apply { targetContentZIndex = 1f }
+            }, label = "library-player") { page ->
+                val destination = page.destination
+                val reveal by transition.animateFloat(transitionSpec = { tween(340, easing = FastOutSlowInEasing) }, label = "circular-reveal") {
+                    if (it == EnterExitState.PreEnter && page.origin != null) 0f else 1f
                 }
-                Box(Modifier.fillMaxSize().graphicsLayer {
-                    if (revealOrigin != Offset.Zero && reveal < 1f) {
-                        shape = RevealCircle(revealOrigin - pageOrigin, reveal); clip = true
-                    }
-                }) {
-                if (destination == 2) Box(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) {
+                Box(Modifier.fillMaxSize().pageReveal(page.origin, { pageOrigin }, { reveal })) {
+                if (destination == 2) Box(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding() + if (playback.track != null) MiniPlayerInset else 0.dp)) {
                     HealthPage(model, onRead = { knowledgeOpen = true })
                 }
                 else if (destination == 1 && immersive) ImmersivePlayer(playback, artwork, ImmersionStyle.valueOf(immersionStyle),
@@ -164,19 +168,23 @@ fun StilluneApp(
                     onQueue = { queueOpen = true }, onOutput = { outputOpen = true }, onImmersion = { immersionChooser = true },
                     onKnowledge = { knowledgeOpen = true },
                     bottomInset = if (fullScreen) 0.dp else padding.calculateBottomPadding())
-                else LazyColumn(state = libraryScroll, modifier = Modifier.fillMaxSize().progressiveLibraryBlur(padding.calculateBottomPadding()),
-                    contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp,
-                    bottom = padding.calculateBottomPadding() + 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                else {
+                    val bottom = padding.calculateBottomPadding() + if (playback.track != null) MiniPlayerInset else 0.dp
+                    LazyColumn(state = libraryScroll, modifier = Modifier.fillMaxSize().progressiveLibraryBlur(bottom),
+                        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp, bottom = bottom + 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("栖声", fontSize = 28.sp, fontWeight = FontWeight.Normal, letterSpacing = 2.sp)
-                                Text("Stillune", color = Quiet, fontSize = 12.sp)
+                                Text("栖声", color = Moon, fontSize = 32.sp, fontFamily = FontFamily.Serif,
+                                    fontWeight = FontWeight.SemiBold, letterSpacing = 3.sp)
+                                Text("Stillune", color = Quiet, fontSize = 13.sp, fontFamily = FontFamily.Serif, letterSpacing = 1.6.sp)
                             }
                             IconButton(onClick = { historyOpen = true }) { Icon(Icons.Rounded.History, "最近播放", tint = Quiet) }
                             IconButton(onClick = { guideOpen = true }) { Icon(Icons.AutoMirrored.Rounded.HelpOutline, "使用指南", tint = Quiet) }
-                            TextButton(onClick = { importOpen = true }, enabled = !scan.running) {
-                                Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(5.dp)); Text("导入音乐")
+                            IconButton(onClick = { importOpen = true }, enabled = !scan.running,
+                                modifier = Modifier.clip(SquircleShape(14.dp)).background(Moon.copy(alpha = .10f))) {
+                                Icon(Icons.Rounded.Add, "导入音乐", tint = if (scan.running) Quiet else Moon)
                             }
                         }
                     }
@@ -188,11 +196,11 @@ fun StilluneApp(
                             placeholder = { Text("搜索歌曲、艺人或专辑", fontSize = 14.sp) },
                             leadingIcon = { Icon(Icons.Rounded.Search, "搜索") },
                             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "清除搜索") } },
-                            shape = RoundedCornerShape(12.dp), colors = OutlinedTextFieldDefaults.colors(
+                            shape = SquircleShape(12.dp), colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedBorderColor = Color.Transparent, unfocusedContainerColor = Color.Transparent))
                     }
                     if (scan.running) item {
-                        Surface(shape = RoundedCornerShape(16.dp), color = Panel) {
+                        Surface(shape = SquircleShape(16.dp), color = Panel) {
                             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                                 Text("正在寻找音乐 · 已检查 ${scan.processed} 项", Modifier.weight(1f).padding(start = 12.dp), fontSize = 12.sp, color = Quiet)
@@ -203,7 +211,7 @@ fun StilluneApp(
                     item {
                         LibraryTabs(tab) { tab = it; group = null }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (group != null) LibraryGrouping.label(group!!, tab) else "${filtered.size} 首歌曲", Modifier.weight(1f), color = Quiet,
+                            Text(group?.let { LibraryGrouping.label(it, tab) } ?: "${filtered.size} 首歌曲", Modifier.weight(1f), color = Quiet,
                                 fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             if (filtered.isNotEmpty() && (tab == "歌曲" || group != null)) {
                                 TextButton(onClick = { model.play(filtered.first(), filtered) }) {
@@ -217,16 +225,27 @@ fun StilluneApp(
                     }
                     if (filtered.isEmpty()) item {
                         EmptyLibrary(tracks.isEmpty(), onImport = { importOpen = true })
+                    } else if (tab == "专辑" && group == null) {
+                        items(groups.chunked(albumColumns), key = { "albums:${it.first().first}" }, contentType = { "albums" }) { albums ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                albums.forEach { (key, tracks) ->
+                                    key(key) {
+                                        LibraryAlbumCard(key, tracks, model::loadArtwork, Modifier.weight(1f)) { group = key }
+                                    }
+                                }
+                                repeat(albumColumns - albums.size) { Spacer(Modifier.weight(1f)) }
+                            }
+                        }
                     } else if (tab != "歌曲" && group == null) {
-                        val groups = filtered.groupBy { LibraryGrouping.key(it, tab) }
-                        items(groups.entries.toList(), key = { "group:${it.key}" }, contentType = { "group" }) { entry ->
-                            Surface(onClick = { group = entry.key }, color = Color.Transparent, shape = RoundedCornerShape(12.dp)) {
-                                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(when (tab) { "专辑" -> Icons.Rounded.Album; "艺术家" -> Icons.Rounded.PersonOutline
-                                        "格式" -> Icons.Rounded.AudioFile; else -> Icons.Rounded.FolderOpen }, null, tint = Mist)
+                        items(groups, key = { "group:${it.first}" }, contentType = { "group" }) { (key, tracks) ->
+                            Surface(onClick = { group = key }, color = Color.Transparent, shape = SquircleShape(12.dp)) {
+                                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    if (tab == "格式") AudioFormatBadge(key, showLabel = false)
+                                    else Icon(if (tab == "艺术家") Icons.Rounded.PersonOutline else Icons.Rounded.FolderOpen,
+                                        null, tint = Mist)
                                     Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                                        Text(LibraryGrouping.label(entry.key, tab), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(LibraryGrouping.detail(entry.key, tab, entry.value.size), color = Quiet, fontSize = 12.sp,
+                                        Text(LibraryGrouping.label(key, tab), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(LibraryGrouping.detail(key, tab, tracks.size), color = Quiet, fontSize = 12.sp,
                                             maxLines = 2, overflow = TextOverflow.Ellipsis)
                                     }
                                     Icon(Icons.Rounded.ChevronRight, null, tint = Quiet)
@@ -240,6 +259,13 @@ fun StilluneApp(
                     }
                 }
                 }
+                if (destination != 1 && playback.track != null) {
+                    Box(Modifier.align(Alignment.BottomCenter).padding(bottom = padding.calculateBottomPadding())) {
+                        MiniPlayer(playback, artwork, onOpen = { playerOpen = true; healthOpen = false },
+                            onToggle = model::toggle, onNext = model::next)
+                    }
+                }
+            }
             }
         }
     }
@@ -265,7 +291,7 @@ fun StilluneApp(
             Text("体感沉浸", fontSize = 23.sp, color = Moon)
             Text("单击画面显示控制，闲置 10 秒后隐藏。连续轻点画面三下，或用系统返回键退出。", color = Quiet, fontSize = 13.sp)
             ImmersionStyle.entries.forEach { choice ->
-                Surface(onClick = { immersionStyle = choice.name }, color = Color.Transparent, shape = RoundedCornerShape(12.dp)) {
+                Surface(onClick = { immersionStyle = choice.name }, color = Color.Transparent, shape = SquircleShape(12.dp)) {
                     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(immersionStyle == choice.name, null)
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -295,7 +321,7 @@ fun StilluneApp(
         if (recentHistory.isEmpty()) Text("听过的音乐会留在这里", Modifier.padding(24.dp), color = Quiet)
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp).padding(horizontal = 24.dp), contentPadding = PaddingValues(bottom = 32.dp)) {
             items(recentHistory, key = { it.track.uri }) { entry ->
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                Column(Modifier.fillMaxWidth().clip(SquircleShape(12.dp))
                     .clickable { model.playHistory(entry); historyOpen = false; playerOpen = true }.padding(vertical = 14.dp)) {
                     Text(entry.track.title, color = Moon, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${entry.track.artist} · 听至 ${timeLabel(entry.positionMs)}", color = Quiet, fontSize = 12.sp)
@@ -329,13 +355,13 @@ fun StilluneApp(
 
 @Composable
 private fun LibraryHero(count: Int, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = Color.Transparent) {
+    Surface(onClick = onClick, shape = SquircleShape(12.dp), color = Color.Transparent) {
         Box(Modifier.fillMaxWidth().height(96.dp).glassPanel().padding(horizontal = 16.dp)) {
             Image(painterResource(R.drawable.stillune_foreground), null,
                 Modifier.size(88.dp).align(Alignment.CenterEnd), alpha = .85f)
             Column(Modifier.align(Alignment.CenterStart).padding(end = 84.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(if (count == 0) "你的音乐" else "开始聆听", fontSize = 20.sp, fontWeight = FontWeight.Medium, color = Moon)
-                Text(if (count == 0) "导入音乐" else "$count 首歌曲", fontSize = 12.sp, color = Moon)
+                if (count == 0) Text("导入音乐", fontSize = 12.sp, color = Moon)
             }
         }
     }
@@ -354,16 +380,40 @@ private fun EmptyLibrary(empty: Boolean, onImport: () -> Unit) {
 }
 
 @Composable
+private fun LibraryAlbumCard(key: String, tracks: List<Track>, loadArtwork: suspend (Track) -> android.graphics.Bitmap?,
+                            modifier: Modifier, onClick: () -> Unit) {
+    val cover by produceState<android.graphics.Bitmap?>(null, tracks) {
+        value = null
+        for (track in tracks) {
+            val image = loadArtwork(track)
+            if (image != null) {
+                value = image
+                break
+            }
+        }
+    }
+    Column(modifier.clip(SquircleShape(16.dp)).background(Color.White.copy(alpha = .065f))
+        .clickable(onClick = onClick).padding(8.dp)) {
+        AlbumArtwork(cover, null, Modifier.fillMaxWidth().aspectRatio(1f).clip(SquircleShape(12.dp)))
+        Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp)) {
+            Text(LibraryGrouping.label(key, "专辑"), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(LibraryGrouping.detail(key, "专辑", tracks.size), color = Quiet, fontSize = 11.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
 private fun TrackRow(track: Track, selected: Boolean, playing: Boolean, loadArtwork: suspend (Track) -> android.graphics.Bitmap?, onClick: () -> Unit) {
     val cover by rememberTrackArtwork(track, loadArtwork)
     val detailColor = if (selected) MaterialTheme.colorScheme.onSurface else Quiet
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+    Row(Modifier.fillMaxWidth().clip(SquircleShape(14.dp))
         .background(if (selected) Mist.copy(alpha = .09f) else Color.Transparent)
         .clickable(onClick = onClick).padding(vertical = 9.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(44.dp).clip(RoundedCornerShape(8.dp))
+        Box(Modifier.size(44.dp).clip(SquircleShape(8.dp))
             .background(Color.White.copy(alpha = .035f)), contentAlignment = Alignment.Center) {
             AlbumArtwork(cover, null, Modifier.fillMaxSize())
-            if (selected && playing) Icon(Icons.Rounded.GraphicEq, null, Modifier.align(Alignment.BottomEnd).size(18.dp).background(Night.copy(alpha = .7f), CircleShape), tint = Moon)
+            if (selected && playing) Icon(Icons.Rounded.GraphicEq, null, Modifier.align(Alignment.BottomEnd).size(18.dp).background(Night.copy(alpha = .7f), SquircleShape(5.dp)), tint = Moon)
         }
         Column(Modifier.weight(1f).padding(horizontal = 13.dp)) {
             Text(track.title, color = if (selected) Moon else MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -371,25 +421,27 @@ private fun TrackRow(track: Track, selected: Boolean, playing: Boolean, loadArtw
             Text("${track.artist} · ${track.album}", color = detailColor, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(track.format, color = if (selected) detailColor else if (track.lossless) Mist else Quiet, fontSize = 11.sp)
+            AudioFormatBadge(track.format)
             Spacer(Modifier.height(6.dp)); Text(timeLabel(track.durationMs), color = detailColor, fontSize = 11.sp)
         }
     }
 }
 
+private val MiniPlayerInset = 72.dp
+
 @Composable
 private fun MiniPlayer(state: PlaybackState, artwork: android.graphics.Bitmap?, onOpen: () -> Unit, onToggle: () -> Unit, onNext: () -> Unit) {
-    Surface(onClick = onOpen, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(20.dp), color = Color.Transparent) {
+    Surface(onClick = onOpen, modifier = Modifier.height(MiniPlayerInset).padding(horizontal = 16.dp, vertical = 6.dp),
+        shape = SquircleShape(20.dp), color = Color.Transparent) {
         Column(Modifier.glassPanel()) {
             Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                AlbumArtwork(artwork, "当前歌曲专辑封面", Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)))
+                AlbumArtwork(artwork, "当前歌曲专辑封面", Modifier.size(44.dp).clip(SquircleShape(8.dp)))
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(state.track?.title.orEmpty(), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(state.track?.artist.orEmpty(), color = Quiet, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 IconButton(onClick = onToggle) { Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放", tint = Moon) }
-                IconButton(onClick = onNext) { Icon(Icons.Rounded.SkipNext, "下一首", tint = Quiet) }
+                IconButton(onClick = onNext, enabled = state.nextIndex != null) { Icon(Icons.Rounded.SkipNext, "下一首", tint = Quiet) }
             }
             LinearProgressIndicator(progress = { if (state.durationMs > 0) (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f },
                 modifier = Modifier.fillMaxWidth().height(2.dp), color = Mist, trackColor = Color.Transparent)
@@ -415,7 +467,6 @@ internal fun LibraryTabs(selected: String, onSelect: (String) -> Unit) {
 internal fun FloatingNavigation(playerOpen: Boolean, onLibrary: () -> Unit, onPlayer: () -> Unit,
     healthOpen: Boolean = false, onHealth: () -> Unit = {}, onOrigin: (Offset) -> Unit = {}) {
     Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-        .animateContentSize(spring(dampingRatio = .78f, stiffness = 380f))
         .selectableGroup().semantics { contentDescription = "悬浮导航" },
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         NavItem("乐库", Icons.Rounded.LibraryMusic, !playerOpen && !healthOpen, onOrigin, onLibrary)
@@ -431,17 +482,16 @@ private fun NavItem(label: String, icon: ImageVector, selected: Boolean, onOrigi
     val scale by animateFloatAsState(if (pressed) .90f else if (selected) 1.06f else 1f,
         spring(dampingRatio = .8f, stiffness = 550f), label = "nav-press")
     val fill by animateColorAsState(if (selected) Color.White.copy(alpha = .18f) else Color.Transparent, tween(180), label = "nav-selection")
-    var origin by remember { mutableStateOf(Offset.Zero) }
-    Row(Modifier.heightIn(min = 52.dp).widthIn(min = 52.dp).clip(RoundedCornerShape(26.dp))
-        .then(if (selected) Modifier.glassPanel(26.dp, .55f) else Modifier).background(fill)
+    val origin = remember { arrayOf(Offset.Zero) }
+    Row(Modifier.heightIn(min = 52.dp).widthIn(min = 52.dp).clip(SquircleShape(26.dp))
+        .background(fill)
         .semantics { contentDescription = label }
         .selectable(selected, interactionSource = interactions, indication = ripple(), role = Role.Tab,
-            onClick = { if (!selected) { onOrigin(origin); onClick() } })
-        .animateContentSize(spring(dampingRatio = .78f, stiffness = 380f))
+            onClick = { if (!selected) { onOrigin(origin[0]); onClick() } })
         .padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center) {
         Icon(icon, null, Modifier.size(22.dp).onGloballyPositioned {
-            origin = it.localToRoot(Offset(it.size.width / 2f, it.size.height / 2f))
+            origin[0] = it.localToRoot(Offset(it.size.width / 2f, it.size.height / 2f))
         }.graphicsLayer { scaleX = scale; scaleY = scale }, tint = if (selected) Color.White else Quiet)
         AnimatedVisibility(selected, enter = expandHorizontally(spring(dampingRatio = .78f, stiffness = 380f)) + fadeIn(),
             exit = shrinkHorizontally(tween(110)) + fadeOut(tween(90))) {
@@ -482,7 +532,7 @@ private fun ImportSheet(busy: Boolean, onDismiss: () -> Unit, onScan: (ScanOptio
 
 @Composable
 private fun ImportAction(icon: ImageVector, title: String, subtitle: String, enabled: Boolean, onClick: () -> Unit) {
-    Surface(onClick = onClick, enabled = enabled, color = Color.Transparent, shape = RoundedCornerShape(18.dp)) {
+    Surface(onClick = onClick, enabled = enabled, color = Color.Transparent, shape = SquircleShape(18.dp)) {
         Row(Modifier.fillMaxWidth().glassPanel(18.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = Mist, modifier = Modifier.size(26.dp))
             Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {

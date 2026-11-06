@@ -1,7 +1,9 @@
 package com.stillune.app.ui
 
 import android.graphics.Bitmap
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -9,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -33,6 +34,7 @@ import com.stillune.app.R
 import com.stillune.app.data.Lyrics
 import com.stillune.app.data.Track
 import com.stillune.app.playback.PlaybackState
+import com.stillune.app.playback.RepeatMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -44,71 +46,115 @@ internal fun AlbumDeck(
     loadArtwork: suspend (Track) -> Bitmap?, onAdvance: () -> Unit, onLyrics: () -> Unit,
     onSeek: (Long) -> Unit, onImportLyrics: () -> Unit, modifier: Modifier = Modifier,
     showQueue: Boolean = true,
+    onPrevious: () -> Unit = {},
 ) {
     val uri = state.track?.uri
-    val remaining = (state.queue.size - state.index - 1).coerceAtLeast(0)
-    val canAdvance = showQueue && remaining > 0 && state.index >= 0
+    val remaining = if (state.shuffle) state.shuffleRemaining
+        else if (state.index >= 0) state.queue.lastIndex - state.index else 0
+    val remainingLabel = if (state.repeat == RepeatMode.OFF) "接下来 $remaining 首" else "本轮剩余 $remaining 首"
+    val nextIndex = state.nextIndex?.takeUnless { it == state.index }
+    val previousIndex = state.previousIndex
+    val canAdvance = showQueue && nextIndex != null
+    val canGoBack = showQueue && previousIndex != null
+    val canTurn = state.track != null
+    val coverIndexes = remember(state.queue, state.index, nextIndex, state.shuffle) {
+        if (nextIndex == null) emptyList()
+        else if (state.shuffle) listOf(nextIndex)
+        else (nextIndex until state.queue.size).take(3).takeWhile { it != state.index }
+    }
+    var lastTrack by remember { mutableStateOf(uri) }
+    var handoff by remember { mutableStateOf<Pair<Int, Float>?>(null) }
+    val trackSlide = remember { Animatable(0f) }
+    LaunchedEffect(uri) {
+        val direction = if (lastTrack == uri || !showQueue) 0 else state.trackDirection
+        lastTrack = uri
+        val carriedProgress = handoff?.takeIf { it.first == state.index }?.second ?: 0f
+        handoff = null
+        trackSlide.snapTo(direction * (1f - carriedProgress))
+        if (direction != 0) trackSlide.animateTo(0f, tween(240))
+    }
+    val flip by animateFloatAsState(
+        if (lyricsVisible) 180f else 0f, tween(300), label = "album-flip")
     var drag by remember(uri) { mutableFloatStateOf(0f) }
-    var fold by remember(uri, lyricsVisible) { mutableStateOf(Offset.Zero) }
+    var fold by remember(uri) { mutableStateOf(Offset.Zero) }
+    val showingPeel by remember(uri) { derivedStateOf { fold != Offset.Zero } }
+    val backFacing by remember { derivedStateOf { flip >= 90f } }
+    LaunchedEffect(backFacing) { if (backFacing) fold = Offset.Zero }
     var settling by remember(uri) { mutableStateOf(false) }
     var motion by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
     val advance by rememberUpdatedState(onAdvance)
+    val goBack by rememberUpdatedState(onPrevious)
+    val turnPage by rememberUpdatedState(onLyrics)
     val density = LocalDensity.current
     val corner = with(density) { 64.dp.toPx() }
     DisposableEffect(uri, lyricsVisible) { onDispose { motion?.cancel() } }
 
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
-        val side = minOf(maxWidth * (if (showQueue) .74f else .96f), maxHeight - (if (showQueue) 42.dp else 4.dp), 340.dp).coerceAtLeast(48.dp)
+        val side = minOf(maxWidth * (if (showQueue) .86f else .96f), maxHeight - (if (showQueue) 28.dp else 4.dp), 380.dp).coerceAtLeast(48.dp)
         val sidePx = with(density) { side.toPx() }
-        val progress = (-drag / (sidePx * .9f)).coerceIn(0f, 1f)
+        fun forwardProgress() = (-drag / sidePx).coerceIn(0f, 1f)
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.fillMaxWidth().height(side + 8.dp).testTag("album-deck")
+            Box(Modifier.fillMaxWidth().height(side + 2.dp).testTag("album-deck")
                 .semantics {
                     contentDescription = "专辑卡片组"
-                    stateDescription = "接下来 $remaining 首"
-                    if (canAdvance) customActions = listOf(CustomAccessibilityAction("下一首") { advance(); true })
+                    stateDescription = remainingLabel
+                    customActions = buildList {
+                        if (canAdvance) add(CustomAccessibilityAction("下一首") { advance(); true })
+                        if (canGoBack) add(CustomAccessibilityAction("上一首") { goBack(); true })
+                    }
                 }, contentAlignment = Alignment.Center) {
                 if (showQueue && !lyricsVisible) {
                     // Backmost first. Only a bounded set of upcoming covers is ever decoded.
-                    for (depth in 3 downTo 1) {
-                        state.queue.getOrNull(state.index + depth)?.let { track ->
+                    for (slot in coverIndexes.indices.reversed()) {
+                        val depth = slot + 1
+                        val track = state.queue[coverIndexes[slot]]
+                        key(track.uri) {
                             val cover by rememberTrackArtwork(track, loadArtwork)
-                            val distance = depth - progress
                             AlbumArtwork(cover, null, Modifier.size(side).graphicsLayer {
+                                val progress = forwardProgress()
+                                val distance = depth - progress
                                 translationX = sidePx * (.57f + .16f * (distance - 1f)) * (1f - if (depth == 1) progress else 0f)
                                 scaleX = 1f - .12f * distance; scaleY = scaleX
                                 rotationY = -54f * distance.coerceAtMost(1.3f)
                                 cameraDistance = 16f * density.density
                                 alpha = (1f - .17f * distance).coerceIn(.25f, 1f)
-                            }.shadow(10.dp, RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp)))
+                            }.shadow(10.dp, SquircleShape(12.dp)).clip(SquircleShape(12.dp)))
                         }
                     }
-                    state.queue.getOrNull(state.index - 1)?.let { track ->
+                    previousIndex?.let(state.queue::get)?.let { track ->
                         val cover by rememberTrackArtwork(track, loadArtwork)
                         AlbumArtwork(cover, null, Modifier.size(side).graphicsLayer {
-                            translationX = -sidePx * .62f
-                            scaleX = .82f; scaleY = .82f; rotationY = 58f
-                            cameraDistance = 16f * density.density; alpha = .4f * (1f - progress)
-                        }.clip(RoundedCornerShape(12.dp)))
+                            val back = (drag / sidePx).coerceIn(0f, 1f)
+                            translationX = -sidePx * .62f * (1f - back)
+                            scaleX = .82f + .18f * back; scaleY = scaleX; rotationY = 58f * (1f - back)
+                            cameraDistance = 16f * density.density
+                            alpha = (.56f + .44f * back) * (1f - forwardProgress())
+                        }.clip(SquircleShape(12.dp)))
                     }
                 }
                 Box(Modifier.size(side).graphicsLayer {
-                    translationX = drag
+                    val arrival = trackSlide.value
+                    translationX = drag + arrival * sidePx * if (arrival < 0f) .62f else .57f
+                    scaleX = 1f - abs(arrival) * if (arrival < 0f) .18f else .12f
+                    scaleY = scaleX
                     rotationZ = if (showQueue) (drag / sidePx) * 7f else 0f
-                    alpha = (1f - progress * .35f).coerceIn(0f, 1f)
-                }.shadow(18.dp, RoundedCornerShape(12.dp), ambientColor = Night, spotColor = Night)
-                    .clip(RoundedCornerShape(12.dp)).background(Panel).testTag("album-front")
+                    rotationY = (if (flip <= 90f) flip else flip - 180f) - arrival * 54f
+                    cameraDistance = 20f * density.density
+                }.shadow(18.dp, SquircleShape(12.dp), ambientColor = Night, spotColor = Night)
+                    .clip(SquircleShape(12.dp)).background(Panel).testTag("album-front")
                     .semantics {
                         contentDescription = "当前专辑卡片"
                         stateDescription = if (lyricsVisible) "歌词" else "揭角 ${(fold.getDistance() / (sidePx * 1.414f) * 100).toInt().coerceIn(0, 100)}%"
                     }) {
-                    AlbumLyricsBack(lyrics, state, lyricsVisible, onLyrics, onSeek, onImportLyrics)
-                    if (!lyricsVisible) Box(Modifier.fillMaxSize()
-                        .pointerInput(uri, canAdvance, showQueue) {
+                    if (backFacing || showingPeel) {
+                        AlbumLyricsBack(lyrics, state, backFacing, side < 176.dp, onLyrics, onSeek, onImportLyrics)
+                    }
+                    if (!backFacing) Box(Modifier.fillMaxSize()
+                        .pointerInput(uri, nextIndex, previousIndex, canTurn, showQueue, sidePx) {
                             awaitEachGesture {
                                 val down = awaitFirstDown(requireUnconsumed = false)
-                                if (settling || state.track == null) return@awaitEachGesture
+                                if (settling || !canTurn || flip > 0f) return@awaitEachGesture
                                 motion?.cancel()
                                 val peelCorner = minOf(corner, size.width * .45f, size.height * .45f)
                                 val peel = down.position.x >= size.width - peelCorner && down.position.y >= size.height - peelCorner
@@ -136,35 +182,51 @@ internal fun AlbumDeck(
                                             peelTrail.add(fold)
                                             if (peelTrail.size > 80) peelTrail.removeAt(1)
                                         }
-                                        else drag = if (delta.x < 0 && canAdvance) delta.x.coerceAtLeast(-size.width * 1.3f) else delta.x * .22f
+                                        else {
+                                            val available = if (delta.x < 0) canAdvance else canGoBack
+                                            drag = if (available) delta.x.coerceIn(-size.width.toFloat(), size.width.toFloat()) else delta.x * .22f
+                                        }
                                     }
                                 }
                                 if (peel) {
-                                    if (peelTrail.size == 1) peelTrail.add(fold)
-                                    motion = scope.launch {
-                                        animate(peelTrail.lastIndex.toFloat(), 0f, animationSpec = tween(300)) { value, _ ->
-                                            val i = value.toInt().coerceIn(0, peelTrail.lastIndex)
-                                            val next = (i + 1).coerceAtMost(peelTrail.lastIndex)
-                                            fold = peelTrail[i] + (peelTrail[next] - peelTrail[i]) * (value - i)
+                                    val opened = !cancelled && (peelTrail.size == 1 ||
+                                        -fold.x / size.width >= .66f && -fold.y / size.height >= .58f)
+                                    if (opened) turnPage()
+                                    else {
+                                        if (peelTrail.size == 1) peelTrail.add(fold)
+                                        motion = scope.launch {
+                                            animate(peelTrail.lastIndex.toFloat(), 0f, animationSpec = tween(300)) { value, _ ->
+                                                val i = value.toInt().coerceIn(0, peelTrail.lastIndex)
+                                                val next = (i + 1).coerceAtMost(peelTrail.lastIndex)
+                                                fold = peelTrail[i] + (peelTrail[next] - peelTrail[i]) * (value - i)
+                                            }
+                                            fold = Offset.Zero
                                         }
-                                        fold = Offset.Zero
                                     }
                                 } else if (claimed) {
-                                    val dismiss = !cancelled && canAdvance && drag < -size.width * .24f
+                                    val step = when {
+                                        cancelled -> 0
+                                        canAdvance && drag < -size.width * .24f -> 1
+                                        canGoBack && drag > size.width * .24f -> -1
+                                        else -> 0
+                                    }
                                     settling = true
                                     motion = scope.launch {
                                         try {
-                                            if (dismiss) {
-                                                animate(drag, -sidePx * 1.45f, animationSpec = tween(250)) { value, _ -> drag = value }
-                                                advance()
-                                            } else animate(drag, 0f, animationSpec = spring(dampingRatio = .72f, stiffness = 340f)) { value, _ -> drag = value }
+                                            val target = if (step > 0) nextIndex else previousIndex
+                                            if (step != 0 && target != null) {
+                                                handoff = target to (abs(drag) / sidePx).coerceAtMost(1f)
+                                                if (step > 0) advance() else goBack()
+                                            }
+                                            animate(drag, 0f, animationSpec = spring(dampingRatio = .82f, stiffness = 430f)) { value, _ -> drag = value }
                                         } finally { settling = false }
                                     }
                                 }
                             }
                         }.drawWithContent {
-                            if (fold.getDistance() < 1f) drawContent()
-                            else {
+                            if (fold.getDistance() < 1f) {
+                                drawContent()
+                            } else {
                                 val geometry = AlbumFold.create(size.width, size.height, fold)
                                 clipPath(geometry.front.path()) { this@drawWithContent.drawContent() }
                                 // A straight crease cuts the front. Its reflected polygon is the turned-over paper.
@@ -179,7 +241,7 @@ internal fun AlbumDeck(
                             }
                         }) {
                         AlbumArtwork(artwork, "${state.track?.album ?: "本地音乐"}专辑封面", Modifier.fillMaxSize())
-                        Box(Modifier.align(Alignment.BottomEnd).size(48.dp).semantics {
+                        if (canTurn) Box(Modifier.align(Alignment.BottomEnd).size(48.dp).semantics {
                             contentDescription = "揭角查看歌词"
                             onClick(label = "查看歌词") { onLyrics(); true }
                         }.drawBehind {
@@ -189,7 +251,7 @@ internal fun AlbumDeck(
                     }
                 }
             }
-            if (showQueue) Text("接下来 $remaining 首", Modifier.padding(top = 12.dp).testTag("album-remaining"), color = Quiet, fontSize = 11.sp)
+            if (showQueue) Text(remainingLabel, Modifier.padding(top = 6.dp).testTag("album-remaining"), color = Quiet, fontSize = 11.sp)
         }
     }
 }
@@ -210,12 +272,12 @@ internal fun AlbumArtwork(bitmap: Bitmap?, description: String?, modifier: Modif
 }
 
 @Composable
-private fun AlbumLyricsBack(lyrics: Lyrics, state: PlaybackState, interactive: Boolean, onClose: () -> Unit,
+private fun AlbumLyricsBack(lyrics: Lyrics, state: PlaybackState, interactive: Boolean, compact: Boolean, onClose: () -> Unit,
                             onSeek: (Long) -> Unit, onImport: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF334F6B), Night))).padding(12.dp)) {
+    Column(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF334F6B), Night))).padding(if (compact) 6.dp else 12.dp)) {
         if (interactive) {
             TextButton(onClick = onClose, modifier = Modifier.align(Alignment.End)) { Text("返回封面", fontSize = 12.sp) }
-            LyricsPane(lyrics, state.positionMs, state.track != null, onSeek, onImport, Modifier.weight(1f).fillMaxWidth())
+            LyricsPane(lyrics, state.positionMs, state.track != null, onSeek, onImport, Modifier.weight(1f).fillMaxWidth(), compact = compact)
         } else {
             val active = lyrics.activeIndex(state.positionMs).coerceAtLeast(0)
             val lines = lyrics.lines.drop(active).take(4)
@@ -243,9 +305,13 @@ internal data class AlbumFold(val front: List<Offset>, val flap: List<Offset>, v
             val crease = mutableListOf<Offset>()
             fun clip(front: Boolean): List<Offset> = buildList {
                 for (i in square.indices) {
-                    val a = square[i]; val b = square[(i + 1) % square.size]
-                    val da = distance(a); val db = distance(b)
-                    if (if (front) da <= 0 else da >= 0) add(a)
+                    val a = square[i]
+                    val b = square[(i + 1) % square.size]
+                    val da = distance(a)
+                    val db = distance(b)
+                    if (if (front) da <= 0 else da >= 0) {
+                        add(a)
+                    }
                     if ((da < 0 && db > 0) || (da > 0 && db < 0)) {
                         val hit = a + (b - a) * (da / (da - db))
                         add(hit)

@@ -145,8 +145,8 @@ class PlaybackService : Service() {
         restoreJob = scope.launch {
             val previous = memory.restore()
             if (previous != null && s.track == null) {
-                store.mutable.value = previous.copy(output=s.output)
                 shuffleVisited.clear(); shuffleVisited.add(previous.index)
+                store.mutable.value = previous.copy(output = s.output).planShuffle()
                 notificationArtwork = fallbackArtwork
                 updateMetadata(); updateSession()
             }
@@ -172,7 +172,7 @@ class PlaybackService : Service() {
         restoreJob?.cancel(); restoreJob = null
         resumeOnFocus = false
         shuffleVisited.clear(); shuffleVisited.add(index)
-        store.mutable.update { it.copy(queue = queue.toList(), index = index, error = null) }
+        store.mutable.update { it.copy(queue = queue.toList(), index = index, error = null, trackDirection = 0).planShuffle() }
         if (sameTrack) {
             if (!s.playing && !s.loading) resume()
             return
@@ -307,30 +307,46 @@ class PlaybackService : Service() {
         store.mutable.update { it.copy(positionMs = pos, timelineRevision = it.timelineRevision + 1, positionTimestampMs = SystemClock.elapsedRealtime()) }; updateSession()
         memory.checkpoint(s)
     }
+    private fun PlaybackState.planShuffle(): PlaybackState {
+        if (!shuffle || queue.size < 2) return copy(shuffleNext = null, shuffleRemaining = 0)
+        val remaining = queue.indices.filter { it !in shuffleVisited }
+        val candidates = if (remaining.isEmpty() && repeat != RepeatMode.OFF) queue.indices.filter { it != index } else remaining
+        return copy(shuffleNext = candidates.randomOrNull(), shuffleRemaining = remaining.size)
+    }
+
     fun next(automatic: Boolean = false) {
-        val next = if (s.shuffle && s.queue.size > 1 && !(automatic && s.repeat == RepeatMode.ONE)) {
-            var remaining = s.queue.indices.filter { it !in shuffleVisited }
-            if (remaining.isEmpty() && s.repeat != RepeatMode.OFF) {
-                shuffleVisited.clear(); shuffleVisited.add(s.index)
-                remaining = s.queue.indices.filter { it != s.index }
-            }
-            remaining.randomOrNull()
-        } else QueuePolicy.next(s.index, s.queue.size, s.repeat, automatic)
+        val next = if (automatic && s.repeat == RepeatMode.ONE) s.index.takeIf { s.track != null } else s.nextIndex
         if (next == null) {
             pause(); store.mutable.update { it.copy(positionMs = it.durationMs) }
-        } else { shuffleVisited.add(next); store.mutable.update { it.copy(index = next) }; loadCurrent() }
+        } else {
+            if (s.shuffle && next != s.index && next in shuffleVisited) {
+                shuffleVisited.clear(); shuffleVisited.add(s.index)
+            }
+            moveToTrack(next, direction = 1)
+        }
     }
-    fun previous() {
-        if (s.positionMs > 3000) seek(0)
-        else if (s.queue.isNotEmpty()) { store.mutable.update { it.copy(index = (it.index - 1 + it.queue.size) % it.queue.size) }; loadCurrent() }
+
+    fun previous(restartCurrent: Boolean = true) {
+        val previous = s.previousIndex
+        if (restartCurrent && (s.positionMs > 3000 || previous == null)) seek(0)
+        else if (previous != null) moveToTrack(previous, direction = -1)
     }
+
+    private fun moveToTrack(index: Int, direction: Int) {
+        shuffleVisited.add(index)
+        store.mutable.update { it.copy(index = index, trackDirection = direction).planShuffle() }
+        loadCurrent()
+    }
+
     fun toggleShuffle() {
         shuffleVisited.clear(); shuffleVisited.add(s.index)
-        store.mutable.update { it.copy(shuffle = !it.shuffle) }
+        store.mutable.update { it.copy(shuffle = !it.shuffle).planShuffle() }
         memory.checkpoint(s)
     }
     fun cycleRepeat() {
-        store.mutable.update { it.copy(repeat = RepeatMode.entries[(it.repeat.ordinal + 1) % RepeatMode.entries.size]) }
+        store.mutable.update {
+            it.copy(repeat = RepeatMode.entries[(it.repeat.ordinal + 1) % RepeatMode.entries.size]).planShuffle()
+        }
         memory.checkpoint(s)
     }
     fun clearError() { store.mutable.update { it.copy(error = null) } }

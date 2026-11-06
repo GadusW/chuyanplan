@@ -10,19 +10,28 @@
 
 栖声 · Stillune 是一个面向 **Android** 的本地音乐播放器项目，致力于将高品质播放、声音分析、从容的聆听体验与听力关怀融为一体。让珍藏的音乐长久相伴，也让双耳适时休憩。
 
-目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.18.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
+目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.19.0）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
 
 ## 下载安装
 
 开发者知识制作入口见 [零基础使用说明](docs/knowledge-workflow/使用说明.md)。可在电脑上选择文件导入、查看原件与整理笔记、用表单改稿、跨 agent 制作、审核并下载签名知识包。支持检测本机模型和后台生成任务。手机版从 0.13.0 起支持在知识书架导入签名知识包。
 
-当前提供 **0.18.0 开发预览版（调试签名）**：
+当前提供 **0.19.0 开发预览版（调试签名）**：
 
-- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.18.0/Stillune-0.18.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
-- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.18.0/Stillune-0.18.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
-- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.18.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
+- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.19.0/Stillune-0.19.0-arm64-debug.apk)：常见 64 位安卓手机优先选择。
+- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.19.0/Stillune-0.19.0-universal-debug.apk)：包含多种 CPU 架构，体积更大。
+- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.19.0)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
 
 最低 Android 8.0。后续推送会同步对应版本的安装包至 [GitHub Releases](https://github.com/GadusW/chuyanplan/releases)。
+
+## 0.19.0 更新 · 播放交互与乐库
+
+- 恢复从底部导航图标发出的圆形揭幕，切页期间固定播放页可用高度，封面保持稳定。
+- 放大当前专辑封面、收紧播放控制。左右滑动和上一首／下一首共用队列，顺序播放到边界停止，列表循环首尾相接。
+- 短拉封面右下角可预览歌词，拉过阈值后翻面并停留，可滚动阅读，再点「返回封面」收起。
+- 专辑浏览使用内嵌封面卡片，文件格式在乐库与播放器使用同一组图标。首页缩短导入入口并调整字标，应用内图标底座与封面统一连续曲率圆角。
+
+[0.19.0 构建、测试与签名校验](docs/validation/android-0.19.0.json)。
 
 ## 0.18.0 更新 · 专辑卡片与揭角歌词
 

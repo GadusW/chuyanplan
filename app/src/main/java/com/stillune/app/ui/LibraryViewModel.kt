@@ -109,8 +109,10 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             playback.map { it.track?.uri }.distinctUntilChanged().collectLatest {
                 lyricJob?.cancel()
-                _lyrics.value = Lyrics(); _artwork.value = null
-                playback.value.track?.let { track ->
+                val track = playback.value.track
+                _lyrics.value = Lyrics()
+                _artwork.value = track?.let(assets::cachedArtwork)
+                track?.let {
                     coroutineScope {
                         launch { _artwork.value = assets.artwork(track) }
                         lyricJob = launch { _lyrics.value = assets.lyrics(track) }
@@ -184,13 +186,9 @@ class LibraryViewModel @Inject constructor(
     }
     fun toggle() = connection.command { it.toggle() }
     suspend fun loadArtwork(track: Track) = assets.artwork(track)
-    fun advanceAlbum() {
-        val state = playback.value
-        // The album deck follows the visible queue order, without deleting listening history.
-        state.queue.getOrNull(state.index + 1)?.let { play(it, state.queue) }
-    }
     fun next() = connection.command { it.next() }
     fun previous() = connection.command { it.previous() }
+    fun previousTrack() = connection.command { it.previous(restartCurrent = false) }
     fun seek(position: Long) = connection.command { it.seek(position) }
     fun shuffle() = connection.command { it.toggleShuffle() }
     fun repeat() = connection.command { it.cycleRepeat() }

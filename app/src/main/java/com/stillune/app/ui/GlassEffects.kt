@@ -10,6 +10,9 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -21,10 +24,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.hypot
 
@@ -51,10 +52,10 @@ internal fun Modifier.glassPanel(radius: Dp = 20.dp, strength: Float = 1f): Modi
     composed {
     val backdrop = LocalGlassBackdrop.current
     var origin by remember { mutableStateOf(Offset.Zero) }
-    clip(androidx.compose.foundation.shape.RoundedCornerShape(radius))
+    clip(SquircleShape(radius))
     .onGloballyPositioned { origin = it.positionInRoot() }
     .drawWithCache {
-        val r = androidx.compose.ui.geometry.CornerRadius(radius.toPx())
+        val outline = squirclePath(size, radius.toPx())
         val displacement = 2.dp.toPx()
         val body = Brush.linearGradient(listOf(
             Color.White.copy(alpha = .13f * strength), Mist.copy(alpha = .025f * strength),
@@ -70,25 +71,39 @@ internal fun Modifier.glassPanel(radius: Dp = 20.dp, strength: Float = 1f): Modi
                     translate(-local.x + displacement, -local.y - displacement)
                 }) { drawLayer(scene.layer) }
             }
-            drawRoundRect(body, cornerRadius = r)
-            drawRoundRect(Brush.radialGradient(listOf(Color.White.copy(alpha = .09f), Color.Transparent),
-                center = Offset(size.width * .15f, -size.height * .6f), radius = size.width * .7f), cornerRadius = r)
-            drawRoundRect(rim, cornerRadius = r, style = androidx.compose.ui.graphics.drawscope.Stroke(.7.dp.toPx()))
-            drawRoundRect(Brush.linearGradient(listOf(Color.Transparent, Mist.copy(alpha = .12f), Color.Transparent),
-                start = Offset(0f, size.height * .7f), end = Offset(size.width, size.height)),
-                topLeft = Offset(1.8.dp.toPx(), 1.8.dp.toPx()),
-                size = androidx.compose.ui.geometry.Size((size.width - 3.6.dp.toPx()).coerceAtLeast(0f), (size.height - 3.6.dp.toPx()).coerceAtLeast(0f)),
-                cornerRadius = r, style = androidx.compose.ui.graphics.drawscope.Stroke(1.8.dp.toPx()))
+            drawPath(outline, body)
+            drawPath(outline, Brush.radialGradient(listOf(Color.White.copy(alpha = .09f), Color.Transparent),
+                center = Offset(size.width * .15f, -size.height * .6f), radius = size.width * .7f))
+            drawPath(outline, rim, style = androidx.compose.ui.graphics.drawscope.Stroke(.7.dp.toPx()))
+
         }
     }
     }
 
-internal class RevealCircle(private val center: Offset, private val progress: Float) : Shape {
-    override fun createOutline(size: androidx.compose.ui.geometry.Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        val farX = maxOf(center.x, size.width - center.x)
-        val farY = maxOf(center.y, size.height - center.y)
-        val radius = hypot(farX, farY) * progress.coerceIn(0f, 1f)
-        return Outline.Generic(Path().apply { addOval(Rect(center, radius)) })
+/** A destination needs opaque pixels inside the reveal, including between controls. */
+@Composable
+internal fun Modifier.pageReveal(origin: Offset?, pageOrigin: () -> Offset, progress: () -> Float): Modifier {
+    val backdrop = LocalGlassBackdrop.current
+    val aperture = remember { Path() }
+    return drawWithContent {
+        val fraction = progress()
+        if (origin == null || fraction >= 1f) {
+            drawContent()
+        } else if (fraction > 0f) {
+            val topLeft = pageOrigin()
+            val center = origin - topLeft
+            val radius = hypot(maxOf(center.x, size.width - center.x), maxOf(center.y, size.height - center.y)) * fraction
+            aperture.rewind()
+            aperture.addOval(Rect(center, radius))
+            clipPath(aperture) {
+                drawRect(Night)
+                backdrop?.let { scene ->
+                    val offset = scene.origin - topLeft
+                    translate(offset.x, offset.y) { drawLayer(scene.layer) }
+                }
+                this@drawWithContent.drawContent()
+            }
+        }
     }
 }
 

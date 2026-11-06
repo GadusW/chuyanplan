@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.stillune.app.data.LrcParser
 import com.stillune.app.data.Track
 import com.stillune.app.playback.PlaybackState
+import com.stillune.app.playback.RepeatMode
 import com.stillune.app.ui.AlbumDeck
 import com.stillune.app.ui.StilluneTheme
 import org.junit.Assert.assertEquals
@@ -19,15 +20,17 @@ import org.junit.Test
 class AlbumDeckUiTest {
     @get:Rule val compose = createComposeRule()
     private var index = 0
-    private fun render(small: Boolean = false, plain: Boolean = false) {
+    private fun render(small: Boolean = false, plain: Boolean = false, repeat: RepeatMode = RepeatMode.OFF) {
         val queue = (1..3).map { Track("test:$it", "测试歌曲 $it", fileName = "$it.mp3", source = "test") }
         compose.setContent {
             var cursor by remember { mutableIntStateOf(0) }
             var lyrics by remember { mutableStateOf(false) }
             StilluneTheme {
-                AlbumDeck(PlaybackState(queue, cursor), null, LrcParser.parse(if (plain) "第一句歌词\n第二句歌词\n第三句歌词" else "[00:00.00]第一句歌词\n[00:03.00]第二句歌词"),
-                    lyrics, { null }, { cursor++; index = cursor }, { lyrics = !lyrics }, {}, {},
-                    (if (small) Modifier.width(154.dp).height(164.dp) else Modifier.fillMaxWidth().height(410.dp)))
+                val state = PlaybackState(queue, cursor, repeat = repeat)
+                AlbumDeck(state, null, LrcParser.parse(if (plain) "第一句歌词\n第二句歌词\n第三句歌词" else "[00:00.00]第一句歌词\n[00:03.00]第二句歌词"),
+                    lyrics, { null }, { state.nextIndex?.let { cursor = it; index = it } }, { lyrics = !lyrics }, {}, {},
+                    (if (small) Modifier.width(154.dp).height(164.dp) else Modifier.fillMaxWidth().height(410.dp)),
+                    onPrevious = { state.previousIndex?.let { cursor = it; index = it } })
             }
         }
     }
@@ -63,8 +66,6 @@ class AlbumDeckUiTest {
         val during = compose.onNodeWithTag("album-front").fetchSemanticsNode()
         assertEquals(before, during.boundsInRoot)
         org.junit.Assert.assertFalse(during.config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription].contains("揭角 0%"))
-        compose.onNodeWithTag("album-front").performTouchInput { moveTo(Offset(-width * .3f, -height * .4f), 400) }
-        assertEquals(before, compose.onNodeWithTag("album-front").fetchSemanticsNode().boundsInRoot)
         compose.onNodeWithTag("album-front").performTouchInput { up() }
         compose.waitForIdle()
         compose.onNodeWithTag("album-front").assert(SemanticsMatcher.expectValue(
@@ -91,6 +92,27 @@ class AlbumDeckUiTest {
         compose.onNodeWithTag("album-front").performTouchInput { swipe(center, Offset(0f, centerY), 350) }
         compose.waitForIdle()
         compose.runOnIdle { assertEquals(1, index) }
+    }
+
+
+    @Test fun longPeelOpensReadableBackUntilClosed() {
+        render()
+        compose.onNodeWithTag("album-front").performTouchInput {
+            swipe(Offset(width - 22f, height - 22f), Offset(width * .06f, height * .08f), 460)
+        }
+        compose.onNodeWithText("返回封面").assertIsDisplayed()
+        compose.onNodeWithText("第一句歌词").assertExists()
+        compose.onNodeWithText("返回封面").performClick()
+        compose.onNodeWithContentDescription("揭角查看歌词").assertExists()
+        compose.runOnIdle { assertEquals(0, index) }
+    }
+
+    @Test fun reverseSwipeWrapsBetweenFirstAndLastInLoop() {
+        render(repeat = RepeatMode.ALL)
+        compose.onNodeWithTag("album-front").performTouchInput { swipe(center, Offset(width * 1.2f, centerY), 350) }
+        compose.runOnIdle { assertEquals(2, index) }
+        compose.onNodeWithTag("album-front").performTouchInput { swipe(center, Offset(0f, centerY), 350) }
+        compose.runOnIdle { assertEquals(0, index) }
     }
 
     @Test fun plainTextLyricsPreviewStartsWithFirstLine() {

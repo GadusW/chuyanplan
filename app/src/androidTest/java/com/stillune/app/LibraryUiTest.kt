@@ -25,9 +25,9 @@ class LibraryUiTest {
         compose.onNodeWithText("格式").assertIsSelected()
         compose.onNodeWithText("歌曲").performScrollTo().performClick()
         compose.waitUntil(5000) {
-            try { compose.onNodeWithText("导入音乐").assertIsEnabled(); true } catch (_: AssertionError) { false }
+            try { compose.onNodeWithContentDescription("导入音乐").assertIsEnabled(); true } catch (_: AssertionError) { false }
         }
-        compose.onNodeWithText("导入音乐").performClick()
+        compose.onNodeWithContentDescription("导入音乐").performClick()
         // Modal sheets have a platform window transition in addition to Compose animation time.
         compose.waitUntil(5000) {
             try { compose.onNodeWithText("扫描手机音乐").assertIsDisplayed(); true } catch (_: AssertionError) { false }

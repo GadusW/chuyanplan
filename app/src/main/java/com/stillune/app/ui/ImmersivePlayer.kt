@@ -13,7 +13,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.SkipNext
@@ -176,7 +175,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                     scaleY = scaleX
                     cameraDistance = 24 * density
                     shadowElevation = 16.dp.toPx()
-                    shape = RoundedCornerShape(12.dp)
+                    shape = SquircleShape(12.dp)
                     clip = true
                 }.background(Panel)) {
                 if (artwork != null) Image(artwork.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -190,7 +189,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         AnimatedVisibility(controls, Modifier.align(Alignment.BottomCenter), enter = fadeIn(), exit = fadeOut()) {
             Column(Modifier.fillMaxWidth().heightIn(max = controlMaxHeight).safeDrawingPadding().padding(20.dp)
-                .clip(RoundedCornerShape(20.dp)).background(Night.copy(alpha = .94f))
+                .clip(SquircleShape(20.dp)).background(Night.copy(alpha = .94f))
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

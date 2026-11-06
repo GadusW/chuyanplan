@@ -21,7 +21,18 @@ data class PlaybackState(
     val audioSessionId: Int = 0,
     val timelineRevision: Long = 0,
     val positionTimestampMs: Long = 0,
-) { val track: Track? get() = queue.getOrNull(index) }
+    val shuffleNext: Int? = null,
+    val shuffleRemaining: Int = 0,
+    val trackDirection: Int = 0,
+) {
+    val track: Track? get() = queue.getOrNull(index)
+    val nextIndex: Int? get() = if (shuffle && queue.size > 1) shuffleNext else QueuePolicy.next(index, queue.size, repeat, false)
+    val previousIndex: Int? get() = when {
+        index > 0 -> index - 1
+        index == 0 && queue.size > 1 && repeat != RepeatMode.OFF -> queue.lastIndex
+        else -> null
+    }
+}
 
 @Singleton
 class PlaybackStore @Inject constructor() {
