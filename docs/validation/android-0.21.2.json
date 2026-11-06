@@ -1,0 +1,33 @@
+{
+  "version": "0.21.2",
+  "unitTests": 34,
+  "deviceTests": 23,
+  "device": "Android API 36 x86_64 emulator",
+  "lintErrors": 0,
+  "lintWarnings": 40,
+  "identicalDexAcrossAbis": true,
+  "originalSigningCertificatePreserved": true,
+  "artifacts": [
+    {
+      "name": "Stillune-0.21.2-arm64-debug.apk",
+      "bytes": 75188840,
+      "sha256": "52cd79fdf170ad9edd7dd97fe19f11b84b72c379015d2b1f1f589c539a59b86a",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.21.2-universal-debug.apk",
+      "bytes": 230717315,
+      "sha256": "0b7952370926760a0234318aa7d69715acdc415e376a7bebef2e28ffd8e02ae6",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ]
+}

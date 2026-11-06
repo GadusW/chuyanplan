@@ -82,12 +82,31 @@ class AlbumDeckUiTest {
         assertEquals(front.id, card(1).fetchSemanticsNode().id)
         assertEquals(neighbor.id, card(2).fetchSemanticsNode().id)
         org.junit.Assert.assertTrue(card(1).fetchSemanticsNode().boundsInRoot.center.x < frontX)
-        org.junit.Assert.assertTrue(card(2).fetchSemanticsNode().boundsInRoot.center.x < neighborX)
+        val outgoing = card(1).fetchSemanticsNode().boundsInRoot
+        val incoming = card(2).fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue(incoming.center.x < neighborX)
+        org.junit.Assert.assertTrue("The two cards must have a physical gap", outgoing.right < incoming.left)
         compose.mainClock.autoAdvance = true
         compose.onNodeWithTag("album-remaining").assertTextEquals("接下来 1 首")
         val promoted = card(2).fetchSemanticsNode()
         assertEquals(neighbor.id, promoted.id)
         assertEquals(frontX, promoted.boundsInRoot.center.x, 1f)
+    }
+
+    @Test fun consecutiveTransportStepsAnimateTheCurrentCardOnEveryPress() {
+        render()
+        listOf(1, 1, -1).forEach { step ->
+            val startingIndex = index
+            val center = compose.onNodeWithTag("album-front").fetchSemanticsNode().boundsInRoot.center.x
+            compose.mainClock.autoAdvance = false
+            compose.onNodeWithText(if (step > 0) "按键下一首" else "按键上一首").performClick()
+            compose.mainClock.advanceTimeBy(128)
+            val shifted = compose.onNodeWithTag("album-front").fetchSemanticsNode().boundsInRoot.center.x
+            org.junit.Assert.assertTrue("The active card must move on step from $startingIndex", (center - shifted) * step > 1f)
+            assertEquals(startingIndex, index)
+            compose.mainClock.autoAdvance = true
+            compose.runOnIdle { assertEquals(startingIndex + step, index) }
+        }
     }
 
     @Test fun tapAnywhereOnCoverFlipsAndLyricTapReturns() {
@@ -96,7 +115,7 @@ class AlbumDeckUiTest {
         compose.onNodeWithText("测试歌曲 1").assertIsDisplayed()
         compose.onNodeWithText("返回封面").assertDoesNotExist()
         compose.onNodeWithText("第一句歌词").performTouchInput { click(center) }
-        compose.onNodeWithText("测试歌曲 1").assertDoesNotExist()
+        compose.onNodeWithText("第一句歌词").assertDoesNotExist()
     }
 
     @Test fun compactDeckSupportsSwipeWithoutACornerZone() {
