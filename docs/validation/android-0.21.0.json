@@ -11,7 +11,7 @@
     {
       "name": "Stillune-0.21.0-arm64-debug.apk",
       "bytes": 75188840,
-      "sha256": "9942fc91a751cc4de2020a85fbcd9946850df30a1b65cd30bd9fafd7be165e2c",
+      "sha256": "f913c375c4b37680d6123beb3e68742fef7e77e53ba0cc7fcf57c053ab2ad242",
       "abis": [
         "arm64-v8a"
       ],
@@ -20,7 +20,7 @@
     {
       "name": "Stillune-0.21.0-universal-debug.apk",
       "bytes": 230096479,
-      "sha256": "a1cd2a36317bd689413e1270fe7d16dd432aa827e2436484034079311167363d",
+      "sha256": "3cb4a1c80e08a6fa3a1303d78f4b135c5d4e8e3bcb91716ee8469358ba98662c",
       "abis": [
         "arm64-v8a",
         "armeabi-v7a",

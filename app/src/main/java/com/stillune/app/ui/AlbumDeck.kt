@@ -1,14 +1,6 @@
 package com.stillune.app.ui
 
 import android.graphics.Bitmap
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -76,7 +68,6 @@ internal fun AlbumDeck(
     }
     val flip by animateFloatAsState(
         if (lyricsVisible) 180f else 0f, tween(300), label = "album-flip")
-    var swipeArrival by remember { mutableStateOf<Pair<String?, String>?>(null) }
     var drag by remember(uri) { mutableFloatStateOf(0f) }
     val backFacing by remember { derivedStateOf { flip >= 90f } }
     var settling by remember(uri) { mutableStateOf(false) }
@@ -110,11 +101,9 @@ internal fun AlbumDeck(
                         val finish = -step * sidePx
                         val distance = (abs(finish - drag) / sidePx).coerceIn(0f, 1f)
                         animate(drag, finish, animationSpec = tween((distance * 230f).toInt())) { value, _ -> drag = value }
-                        swipeArrival = uri to targetUri
                         if (step > 0) advance() else goBack()
                         // Restore the card if the service has not acknowledged the step.
                         delay(350)
-                        swipeArrival = null
                     }
                     animate(drag, 0f, animationSpec = spring(dampingRatio = .82f, stiffness = 430f)) { value, _ -> drag = value }
                 } finally {
@@ -218,27 +207,7 @@ internal fun AlbumDeck(
                     if (backFacing) {
                         AlbumLyricsBack(lyrics, state, side < 176.dp, onLyrics, onSeek, onImportLyrics)
                     } else {
-                        AnimatedContent(uri, Modifier.fillMaxSize(), transitionSpec = {
-                            if (swipeArrival == (initialState to targetState)) {
-                                (EnterTransition.None togetherWith ExitTransition.None).using(null)
-                            } else {
-                                val direction = if (showQueue) state.trackDirection else 0
-                                val enter = if (direction == 0) fadeIn(tween(180)) else slideInHorizontally(tween(220)) { it * direction }
-                                val exit = if (direction == 0) fadeOut(tween(180)) else slideOutHorizontally(tween(220)) { -it * direction }
-                                (enter togetherWith exit).using(null)
-                            }
-                        }, label = "cover-slide") { cardUri ->
-                            var retained by remember { mutableStateOf(artwork) }
-                            DisposableEffect(cardUri) {
-                                onDispose {
-                                    if (swipeArrival?.first == cardUri) swipeArrival = null
-                                }
-                            }
-                            if (cardUri == uri) SideEffect { retained = artwork }
-                            AlbumArtwork(if (cardUri == uri) artwork else retained,
-                                if (cardUri == uri) "${state.track?.album ?: "本地音乐"}专辑封面" else null,
-                                Modifier.fillMaxSize())
-                        }
+                        AlbumArtwork(artwork, "${state.track?.album ?: "本地音乐"}专辑封面", Modifier.fillMaxSize())
                     }
                 }
             }
