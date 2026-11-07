@@ -1,7 +1,14 @@
 package com.stillune.app
 
+import android.app.Activity
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.result.ActivityResultRegistry
+import androidx.activity.result.ActivityResultRegistryOwner
+import androidx.activity.result.contract.ActivityResultContract
+import androidx.core.app.ActivityOptionsCompat
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.material3.TextButton
@@ -221,5 +228,51 @@ class AlbumDeckUiTest {
         choose("删除这张图片")
         compose.waitUntil(5_000) { photos.photos(track.identity) == listOf(ids[0]) }
         assertEquals(null, photos.preferred(track.identity))
+    }
+
+    @Test fun firstPickerResultUpdatesTheAlreadyRenderedCard() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val track = Track("test:${UUID.randomUUID()}", "首次导入", fileName = "test.mp3", source = "test")
+        val cover = Bitmap.createBitmap(24, 24, Bitmap.Config.ARGB_8888)
+        val source = File.createTempFile("first-card-photo", ".png", context.cacheDir)
+        source.outputStream().use { cover.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        var pickerRequest: Int? = null
+        val owner = object : ActivityResultRegistryOwner {
+            override val activityResultRegistry = object : ActivityResultRegistry() {
+                override fun <I, O> onLaunch(
+                    requestCode: Int, contract: ActivityResultContract<I, O>, input: I,
+                    options: ActivityOptionsCompat?,
+                ) {
+                    pickerRequest = requestCode
+                }
+            }
+        }
+        try {
+            compose.setContent {
+                CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) {
+                    StilluneTheme {
+                        AlbumDeck(PlaybackState(listOf(track), 0), cover, LrcParser.parse(""), false, { cover },
+                            {}, {}, {}, {}, Modifier.fillMaxWidth().height(410.dp), cachedArtwork = { cover })
+                    }
+                }
+            }
+            fun swipePhoto(direction: Float) = compose.onNodeWithTag("album-front").performTouchInput {
+                swipe(center, center + Offset(0f, height * direction), 350)
+            }
+            swipePhoto(-.4f)
+            compose.runOnIdle {
+                owner.activityResultRegistry.dispatchResult(
+                    checkNotNull(pickerRequest), Activity.RESULT_OK, Intent().setData(Uri.fromFile(source))
+                )
+            }
+            val photos = AlbumCardPhotos(context)
+            compose.waitUntil(5_000) { photos.photos(track.identity).size == 1 }
+            swipePhoto(.4f)
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithContentDescription("自定义卡片图片").fetchSemanticsNodes().isNotEmpty()
+            }
+        } finally {
+            source.delete()
+        }
     }
 }

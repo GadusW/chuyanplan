@@ -292,9 +292,12 @@ internal fun AlbumDeck(
                             track?.identity?.let(photos::preferred)?.takeIf { it in cardPhotos }
                                 ?: cardPhotos.firstOrNull().takeIf { cover == null }
                         }
-                        val displayedPhoto = if (cardPhotos.isEmpty()) null else produceState<Bitmap?>(null, cardPhoto) {
-                            value = cardPhoto?.takeIf { it != coverPhoto }?.let { photos.load(it) }
-                        }.value
+                        val displayedPhoto = if (cardPhotos.isEmpty()) null else key("card-photo-loader") {
+                            // The first import inserts a state slot next to the retained card graphics layer.
+                            produceState<Bitmap?>(null, cardPhoto) {
+                                value = cardPhoto?.takeIf { it != coverPhoto }?.let { photos.load(it) }
+                            }.value
+                        }
                         val cardShape = SquircleShape(12.dp)
                         val face = rememberGraphicsLayer()
                         Box(Modifier.size(side, stageHeight)
