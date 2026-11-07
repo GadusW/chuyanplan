@@ -1,5 +1,7 @@
 package com.stillune.app
 
+import android.graphics.Bitmap
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.material3.TextButton
@@ -10,15 +12,20 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
+import androidx.test.platform.app.InstrumentationRegistry
 import com.stillune.app.data.LrcParser
 import com.stillune.app.data.Track
 import com.stillune.app.playback.PlaybackState
 import com.stillune.app.playback.RepeatMode
 import com.stillune.app.ui.AlbumDeck
+import com.stillune.app.ui.AlbumCardPhotos
 import com.stillune.app.ui.StilluneTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
+import java.util.UUID
+import kotlinx.coroutines.runBlocking
 
 class AlbumDeckUiTest {
     @get:Rule val compose = createComposeRule()
@@ -154,5 +161,53 @@ class AlbumDeckUiTest {
         compose.onNodeWithTag("album-front").performTouchInput { click(center) }
         compose.onNodeWithText("第一句歌词").assertIsDisplayed()
         compose.onNodeWithText("第二句歌词").assertIsDisplayed()
+    }
+
+    @Test fun cardPhotosWrapAndRestorePreferenceOnReturnToSong() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val track = Track("test:${UUID.randomUUID()}", "照片测试", fileName = "test.mp3", source = "test")
+        val cover = Bitmap.createBitmap(24, 24, Bitmap.Config.ARGB_8888)
+        val source = File.createTempFile("card-photo", ".png", context.cacheDir)
+        source.outputStream().use { cover.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        try {
+            runBlocking {
+                val photos = AlbumCardPhotos(context)
+                repeat(2) { assertEquals(true, photos.add(track.identity, Uri.fromFile(source))) }
+            }
+        } finally {
+            source.delete()
+        }
+        var cursor by mutableIntStateOf(0)
+        val queue = listOf(track, track.copy(uri = "test:other", identity = "test:other"))
+        compose.setContent {
+            StilluneTheme {
+                AlbumDeck(PlaybackState(queue, cursor), cover, LrcParser.parse(""), false, { cover },
+                    {}, {}, {}, {}, Modifier.fillMaxWidth().height(410.dp), cachedArtwork = { cover })
+            }
+        }
+        fun down() = compose.onNodeWithTag("album-front").performTouchInput {
+            swipe(center, center + Offset(0f, height * .4f), 350)
+        }
+        fun preferred() = compose.onNodeWithContentDescription("当前是首选图片").assertIsDisplayed()
+        fun selectable() = compose.onNodeWithContentDescription("设为首选图片")
+
+        preferred()
+        down()
+        selectable().assertIsDisplayed()
+        down()
+        selectable().assertIsDisplayed()
+        down()
+        preferred()
+        down()
+        selectable().performTouchInput { click(center) }
+        preferred()
+        down()
+        selectable().assertIsDisplayed()
+        compose.runOnIdle { cursor = 1 }
+        compose.runOnIdle { cursor = 0 }
+        preferred()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithContentDescription("自定义卡片图片").fetchSemanticsNodes().isNotEmpty()
+        }
     }
 }

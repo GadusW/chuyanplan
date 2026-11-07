@@ -1,6 +1,15 @@
 package com.stillune.app.ui
 
 import android.graphics.Bitmap
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -11,8 +20,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
@@ -23,6 +39,7 @@ import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
@@ -75,6 +92,52 @@ internal fun AlbumDeck(
     var settling by remember(uri, state.index) { mutableStateOf(false) }
     var motion by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val photos = remember(context) { AlbumCardPhotos(context.applicationContext) }
+    var photoTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var photoRevision by remember { mutableIntStateOf(0) }
+    var importingPhoto by remember { mutableStateOf(false) }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { result ->
+        val target = photoTarget
+        photoTarget = null
+        if (target != null && result != null) {
+            importingPhoto = true
+            scope.launch {
+                try {
+                    if (photos.add(target, result)) photoRevision++
+                    else Toast.makeText(context, "无法添加这张图片", Toast.LENGTH_SHORT).show()
+                } finally {
+                    importingPhoto = false
+                }
+            }
+        }
+    }
+    val trackKey = state.track?.identity
+    val addedPhotos = remember(trackKey, photoRevision) { trackKey?.let(photos::photos).orEmpty() }
+    var preferred by remember(trackKey) { mutableStateOf(trackKey?.let(photos::preferred)) }
+    var browsed by remember(trackKey, state.index) { mutableStateOf<String?>(null) }
+    val coverPhoto = ""
+    val currentCover = if (showQueue && addedPhotos.isNotEmpty()) {
+        rememberTrackArtwork(state.track, loadArtwork, cachedArtwork).value
+    } else artwork
+    val pages = remember(currentCover != null, addedPhotos) {
+        if (currentCover != null) listOf(coverPhoto) + addedPhotos else addedPhotos
+    }
+    val selectedPhoto = browsed?.takeIf { it in pages } ?: preferred?.takeIf { it in pages } ?: pages.firstOrNull()
+    val displayedPhoto = if (addedPhotos.isEmpty()) null else key(trackKey) {
+        produceState<Bitmap?>(null, selectedPhoto) {
+            value = selectedPhoto?.takeIf { it != coverPhoto }?.let { photos.load(it) }
+        }.value
+    }
+    val nextPhoto by rememberUpdatedState<() -> Unit> {
+        if (pages.size > 1) browsed = pages[(pages.indexOf(selectedPhoto) + 1) % pages.size]
+    }
+    val addPhoto by rememberUpdatedState<() -> Unit> {
+        if (trackKey != null && photoTarget == null && !importingPhoto) {
+            photoTarget = trackKey
+            photoPicker.launch(arrayOf("image/*"))
+        }
+    }
     val advance by rememberUpdatedState(onAdvance)
     val goBack by rememberUpdatedState(onPrevious)
     val turnPage by rememberUpdatedState(onLyrics)
@@ -155,22 +218,34 @@ internal fun AlbumDeck(
                             val down = awaitFirstDown(requireUnconsumed = false)
                             if (settling || !canTurn || flip > 0f) return@awaitEachGesture
                             var dragging = false
+                            var vertical = false
+                            var verticalDistance = 0f
                             var cancelled = false
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull { it.id == down.id }
                                 if (change == null) { cancelled = true; break }
-                                if (!change.pressed) { if (dragging) change.consume(); break }
+                                if (!change.pressed) {
+                                    if (dragging || vertical) change.consume()
+                                    else if (change.isConsumed) cancelled = true
+                                    break
+                                }
                                 val delta = change.position - down.position
-                                if (!dragging) {
-                                    if (change.isConsumed || abs(delta.y) > viewConfiguration.touchSlop && abs(delta.y) > abs(delta.x)) {
+                                if (!dragging && !vertical) {
+                                    if (change.isConsumed) {
                                         cancelled = true
                                         break
                                     }
-                                    if (abs(delta.x) > viewConfiguration.touchSlop) {
+                                    if (abs(delta.y) > viewConfiguration.touchSlop && abs(delta.y) > abs(delta.x)) {
+                                        vertical = true
+                                    } else if (abs(delta.x) > viewConfiguration.touchSlop) {
                                         if (!showQueue) { cancelled = true; break }
                                         dragging = true
                                     }
+                                }
+                                if (vertical) {
+                                    change.consume()
+                                    verticalDistance = delta.y
                                 }
                                 if (dragging) {
                                     change.consume()
@@ -184,7 +259,11 @@ internal fun AlbumDeck(
                                 canGoBack && drag > sidePx * .24f -> -1
                                 else -> 0
                             })
-                            else if (!cancelled) turnPage()
+                            else if (!cancelled && vertical) {
+                                val threshold = minOf(40.dp.toPx(), sidePx * .22f)
+                                if (verticalDistance >= threshold) nextPhoto()
+                                if (verticalDistance <= -threshold) addPhoto()
+                            } else if (!cancelled) turnPage()
                         }
                     }
                 // The signed distance from the focus drives every card's perspective.
@@ -193,7 +272,11 @@ internal fun AlbumDeck(
                     val track = state.queue.getOrNull(index)
                     key(index, track?.uri) {
                         val current = index == state.index
-                        val cover = if (showQueue) rememberTrackArtwork(track, loadArtwork, cachedArtwork).value else artwork
+                        val cover = when {
+                            current && addedPhotos.isNotEmpty() -> currentCover
+                            showQueue -> rememberTrackArtwork(track, loadArtwork, cachedArtwork).value
+                            else -> artwork
+                        }
                         val cardShape = SquircleShape(12.dp)
                         val face = rememberGraphicsLayer()
                         Box(Modifier.size(side, stageHeight)
@@ -241,7 +324,16 @@ internal fun AlbumDeck(
                                         AlbumLyricsBack(lyrics, state, side < 176.dp, onLyrics, onSeek, onImportLyrics)
                                     } else {
                                         val description = if (current) "${track?.album ?: "本地音乐"}专辑封面" else null
-                                        if (showQueue && cover == null && track != null) MissingDeckCover(track, description)
+                                        if (current && addedPhotos.isNotEmpty()) {
+                                            val bitmap = if (selectedPhoto == coverPhoto) cover else displayedPhoto ?: cover
+                                            AnimatedContent(bitmap, transitionSpec = {
+                                                (slideInVertically(tween(220)) { -it / 4 } + fadeIn(tween(220))) togetherWith
+                                                    (slideOutVertically(tween(220)) { it / 4 } + fadeOut(tween(180)))
+                                            }, label = "album-card-photo") { image ->
+                                                if (image == null && showQueue && track != null) MissingDeckCover(track, description)
+                                                else AlbumArtwork(image, if (image === cover) description else "自定义卡片图片", Modifier.fillMaxSize())
+                                            }
+                                        } else if (showQueue && cover == null && track != null) MissingDeckCover(track, description)
                                         else AlbumArtwork(cover, description, Modifier.fillMaxSize())
                                     }
                                 }
@@ -263,7 +355,27 @@ internal fun AlbumDeck(
                         }
                     }
                 }
-                if (!backFacing) Box(Modifier.size(side).zIndex(6f).then(input))
+                if (!backFacing) Box(Modifier.size(side).zIndex(6f).then(input).semantics {
+                    customActions = buildList {
+                        if (canTurn) add(CustomAccessibilityAction("添加卡片图片") { addPhoto(); true })
+                        if (pages.size > 1) add(CustomAccessibilityAction("下一张卡片图片") { nextPhoto(); true })
+                    }
+                }) {
+                    if (trackKey != null && addedPhotos.isNotEmpty() && selectedPhoto != null && !lyricsVisible && drag == 0f && !settling) {
+                        val isPreferred = selectedPhoto == (preferred?.takeIf { it in pages } ?: pages.first())
+                        IconButton(onClick = {
+                            preferred = selectedPhoto.takeUnless { it == coverPhoto }
+                            photos.prefer(trackKey, preferred)
+                        }, modifier = Modifier.align(Alignment.BottomEnd).padding(2.dp).size(minOf(48.dp, side / 2))) {
+                            Box(Modifier.size(23.dp).background(Color.Black.copy(alpha = .48f), CircleShape),
+                                contentAlignment = Alignment.Center) {
+                                Icon(if (isPreferred) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                    if (isPreferred) "当前是首选图片" else "设为首选图片",
+                                    Modifier.size(15.dp), tint = Color.White)
+                            }
+                        }
+                    }
+                }
 
             }
             if (showQueue) Text(remainingLabel, Modifier.padding(top = 6.dp).testTag("album-remaining"), color = InkMuted, fontSize = 11.sp)
