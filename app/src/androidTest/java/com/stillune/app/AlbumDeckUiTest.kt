@@ -215,15 +215,16 @@ class AlbumDeckUiTest {
         menu()
         choose("设为首选图")
         assertEquals(ids[1], photos.preferred(track.identity))
+        val cardImage = hasContentDescription("自定义卡片图片") and
+            hasAnyAncestor(hasTestTag("album-card-${track.uri}"))
+        val imageNode = compose.onNode(cardImage, useUnmergedTree = true)
+        val beforeSwitch = imageNode.fetchSemanticsNode().id
         choose("按键下一首")
         compose.waitUntil(5_000) { compose.onAllNodesWithText("接下来 1 首").fetchSemanticsNodes().isNotEmpty() }
-        val sidePhoto = hasContentDescription("自定义卡片图片") and
-            hasAnyAncestor(hasTestTag("album-card-${track.uri}"))
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(sidePhoto, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
-        }
+        assertEquals(beforeSwitch, imageNode.fetchSemanticsNode().id)
         compose.runOnIdle { cursor = 0 }
         compose.waitUntil(5_000) { compose.onAllNodesWithText("接下来 2 首").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(beforeSwitch, imageNode.fetchSemanticsNode().id)
         menu()
         choose("删除这张图片")
         compose.waitUntil(5_000) { photos.photos(track.identity) == listOf(ids[0]) }

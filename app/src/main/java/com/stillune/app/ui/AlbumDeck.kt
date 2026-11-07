@@ -280,20 +280,23 @@ internal fun AlbumDeck(
                     val track = state.queue.getOrNull(index)
                     key(index, track?.uri) {
                         val current = index == state.index
-                        val cover = when {
-                            current && addedPhotos.isNotEmpty() -> currentCover
-                            showQueue -> rememberTrackArtwork(track, loadArtwork, cachedArtwork).value
-                            else -> artwork
+                        val cover = key("embedded-cover") {
+                            when {
+                                current && addedPhotos.isNotEmpty() -> currentCover
+                                showQueue -> rememberTrackArtwork(track, loadArtwork, cachedArtwork).value
+                                else -> artwork
+                            }
                         }
-                        val cardPhotos = if (current) addedPhotos else remember(track?.identity, photoRevision) {
+                        val cardPhotos = remember(track?.identity, photoRevision) {
                             track?.identity?.let(photos::photos).orEmpty()
                         }
-                        val cardPhoto = if (current) selectedPhoto else remember(track?.identity, photoRevision, cardPhotos, cover != null) {
-                            track?.identity?.let(photos::preferred)?.takeIf { it in cardPhotos }
-                                ?: cardPhotos.firstOrNull().takeIf { cover == null }
+                        val cardPreferred = remember(track?.identity, photoRevision) {
+                            track?.identity?.let(photos::preferred)
                         }
+                        val cardPhoto = if (current) selectedPhoto else cardPreferred?.takeIf { it in cardPhotos }
+                            ?: cardPhotos.firstOrNull().takeIf { cover == null }
                         val displayedPhoto = if (cardPhotos.isEmpty()) null else key("card-photo-loader") {
-                            // The first import inserts a state slot next to the retained card graphics layer.
+                            // Keep the loaded bitmap attached to this card as it moves between slots.
                             produceState<Bitmap?>(null, cardPhoto) {
                                 value = cardPhoto?.takeIf { it != coverPhoto }?.let { photos.load(it) }
                             }.value
