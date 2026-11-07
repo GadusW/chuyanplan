@@ -197,8 +197,8 @@ class AlbumDeckUiTest {
                 }
             }
         }
-        fun down() = compose.onNodeWithTag("album-front").performTouchInput {
-            swipe(center, center + Offset(0f, height * .4f), 350)
+        fun up() = compose.onNodeWithTag("album-front").performTouchInput {
+            swipe(center, center - Offset(0f, height * .4f), 350)
         }
         fun menu() = compose.onNodeWithTag("album-front").performTouchInput { longClick(center) }
         fun choose(text: String) = compose.onNodeWithText(text).performClick()
@@ -207,11 +207,11 @@ class AlbumDeckUiTest {
         menu()
         compose.onNodeWithText("删除这张图片").assertIsNotEnabled()
         choose("设为首选图")
-        down()
+        up()
         menu()
         choose("设为首选图")
         assertEquals(ids[0], photos.preferred(track.identity))
-        down()
+        up()
         menu()
         choose("设为首选图")
         assertEquals(ids[1], photos.preferred(track.identity))
@@ -260,7 +260,7 @@ class AlbumDeckUiTest {
             fun swipePhoto(direction: Float) = compose.onNodeWithTag("album-front").performTouchInput {
                 swipe(center, center + Offset(0f, height * direction), 350)
             }
-            swipePhoto(-.4f)
+            swipePhoto(.4f)
             compose.runOnIdle {
                 owner.activityResultRegistry.dispatchResult(
                     checkNotNull(pickerRequest), Activity.RESULT_OK, Intent().setData(Uri.fromFile(source))
@@ -268,7 +268,7 @@ class AlbumDeckUiTest {
             }
             val photos = AlbumCardPhotos(context)
             compose.waitUntil(5_000) { photos.photos(track.identity).size == 1 }
-            swipePhoto(.4f)
+            swipePhoto(-.4f)
             compose.waitUntil(5_000) {
                 compose.onAllNodesWithContentDescription("自定义卡片图片").fetchSemanticsNodes().isNotEmpty()
             }

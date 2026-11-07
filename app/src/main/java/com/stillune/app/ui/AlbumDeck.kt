@@ -269,8 +269,8 @@ internal fun AlbumDeck(
                             })
                             else if (!cancelled && vertical) {
                                 val threshold = minOf(40.dp.toPx(), sidePx * .22f)
-                                if (verticalDistance >= threshold) nextPhoto()
-                                if (verticalDistance <= -threshold) addPhoto()
+                                if (verticalDistance <= -threshold) nextPhoto()
+                                if (verticalDistance >= threshold) addPhoto()
                             } else if (!cancelled) turnPage()
                         }
                     }
