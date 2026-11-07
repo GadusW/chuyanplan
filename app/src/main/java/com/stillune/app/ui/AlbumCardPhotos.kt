@@ -31,6 +31,21 @@ internal class AlbumCardPhotos(private val context: Context) {
         preferences.edit().putString("preferred:$track", photo).apply()
     }
 
+    suspend fun remove(track: String, photo: String) = withContext(Dispatchers.IO) {
+        synchronized(preferences) {
+            val saved = photos(track)
+            if (photo !in saved) return@withContext
+            preferences.edit()
+                .putString("photos:$track", JSONArray(saved - photo).toString())
+                .apply {
+                    if (preferred(track) == photo) remove("preferred:$track")
+                }
+                .apply()
+        }
+        File(directory, photo).delete()
+        Unit
+    }
+
     suspend fun load(photo: String): Bitmap? = withContext(Dispatchers.IO) {
         BitmapFactory.decodeFile(File(directory, photo).path)
     }

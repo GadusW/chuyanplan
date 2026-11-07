@@ -20,12 +20,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -114,8 +110,9 @@ internal fun AlbumDeck(
     }
     val trackKey = state.track?.identity
     val addedPhotos = remember(trackKey, photoRevision) { trackKey?.let(photos::photos).orEmpty() }
-    var preferred by remember(trackKey) { mutableStateOf(trackKey?.let(photos::preferred)) }
+    val preferred = remember(trackKey, photoRevision) { trackKey?.let(photos::preferred) }
     var browsed by remember(trackKey, state.index) { mutableStateOf<String?>(null) }
+    var menuPhoto by remember(trackKey, state.index, lyricsVisible) { mutableStateOf<String?>(null) }
     val coverPhoto = ""
     val currentCover = if (showQueue && addedPhotos.isNotEmpty()) {
         rememberTrackArtwork(state.track, loadArtwork, cachedArtwork).value
@@ -124,11 +121,8 @@ internal fun AlbumDeck(
         if (currentCover != null) listOf(coverPhoto) + addedPhotos else addedPhotos
     }
     val selectedPhoto = browsed?.takeIf { it in pages } ?: preferred?.takeIf { it in pages } ?: pages.firstOrNull()
-    val displayedPhoto = if (addedPhotos.isEmpty()) null else key(trackKey) {
-        produceState<Bitmap?>(null, selectedPhoto) {
-            value = selectedPhoto?.takeIf { it != coverPhoto }?.let { photos.load(it) }
-        }.value
-    }
+    val manageablePhoto by rememberUpdatedState(selectedPhoto)
+    val openPhotoMenu by rememberUpdatedState<() -> Unit> { menuPhoto = selectedPhoto }
     val nextPhoto by rememberUpdatedState<() -> Unit> {
         if (pages.size > 1) browsed = pages[(pages.indexOf(selectedPhoto) + 1) % pages.size]
     }
@@ -221,13 +215,27 @@ internal fun AlbumDeck(
                             var vertical = false
                             var verticalDistance = 0f
                             var cancelled = false
+                            val longPressAt = down.uptimeMillis + viewConfiguration.longPressTimeoutMillis
+                            var eventTime = down.uptimeMillis
                             while (true) {
-                                val event = awaitPointerEvent()
+                                val event = if (!dragging && !vertical && manageablePhoto != null) {
+                                    withTimeoutOrNull((longPressAt - eventTime).coerceAtLeast(1L)) { awaitPointerEvent() }
+                                } else awaitPointerEvent()
+                                if (event == null) {
+                                    openPhotoMenu()
+                                    return@awaitEachGesture
+                                }
                                 val change = event.changes.firstOrNull { it.id == down.id }
                                 if (change == null) { cancelled = true; break }
+                                eventTime = change.uptimeMillis
                                 if (!change.pressed) {
                                     if (dragging || vertical) change.consume()
                                     else if (change.isConsumed) cancelled = true
+                                    else if (manageablePhoto != null && eventTime >= longPressAt) {
+                                        change.consume()
+                                        openPhotoMenu()
+                                        return@awaitEachGesture
+                                    }
                                     break
                                 }
                                 val delta = change.position - down.position
@@ -277,6 +285,16 @@ internal fun AlbumDeck(
                             showQueue -> rememberTrackArtwork(track, loadArtwork, cachedArtwork).value
                             else -> artwork
                         }
+                        val cardPhotos = if (current) addedPhotos else remember(track?.identity, photoRevision) {
+                            track?.identity?.let(photos::photos).orEmpty()
+                        }
+                        val cardPhoto = if (current) selectedPhoto else remember(track?.identity, photoRevision, cardPhotos, cover != null) {
+                            track?.identity?.let(photos::preferred)?.takeIf { it in cardPhotos }
+                                ?: cardPhotos.firstOrNull().takeIf { cover == null }
+                        }
+                        val displayedPhoto = if (cardPhotos.isEmpty()) null else produceState<Bitmap?>(null, cardPhoto) {
+                            value = cardPhoto?.takeIf { it != coverPhoto }?.let { photos.load(it) }
+                        }.value
                         val cardShape = SquircleShape(12.dp)
                         val face = rememberGraphicsLayer()
                         Box(Modifier.size(side, stageHeight)
@@ -318,14 +336,18 @@ internal fun AlbumDeck(
                                         onLyrics()
                                         true
                                     }
+                                    if (!lyricsVisible && selectedPhoto != null) onLongClick(label = "管理卡片图片") {
+                                        openPhotoMenu()
+                                        true
+                                    }
                                     stateDescription = if (lyricsVisible) "歌词" else "封面"
                                 } else Modifier)) {
                                     if (current && backFacing) {
                                         AlbumLyricsBack(lyrics, state, side < 176.dp, onLyrics, onSeek, onImportLyrics)
                                     } else {
                                         val description = if (current) "${track?.album ?: "本地音乐"}专辑封面" else null
-                                        if (current && addedPhotos.isNotEmpty()) {
-                                            val bitmap = if (selectedPhoto == coverPhoto) cover else displayedPhoto ?: cover
+                                        if (cardPhotos.isNotEmpty()) {
+                                            val bitmap = if (cardPhoto.isNullOrEmpty()) cover else displayedPhoto ?: cover
                                             AnimatedContent(bitmap, transitionSpec = {
                                                 (slideInVertically(tween(220)) { -it / 4 } + fadeIn(tween(220))) togetherWith
                                                     (slideOutVertically(tween(220)) { it / 4 } + fadeOut(tween(180)))
@@ -360,19 +382,23 @@ internal fun AlbumDeck(
                         if (canTurn) add(CustomAccessibilityAction("添加卡片图片") { addPhoto(); true })
                         if (pages.size > 1) add(CustomAccessibilityAction("下一张卡片图片") { nextPhoto(); true })
                     }
-                }) {
-                    if (trackKey != null && addedPhotos.isNotEmpty() && selectedPhoto != null && !lyricsVisible && drag == 0f && !settling) {
-                        val isPreferred = selectedPhoto == (preferred?.takeIf { it in pages } ?: pages.first())
-                        IconButton(onClick = {
-                            preferred = selectedPhoto.takeUnless { it == coverPhoto }
-                            photos.prefer(trackKey, preferred)
-                        }, modifier = Modifier.align(Alignment.BottomEnd).padding(2.dp).size(minOf(48.dp, side / 2))) {
-                            Box(Modifier.size(23.dp).background(Color.Black.copy(alpha = .48f), CircleShape),
-                                contentAlignment = Alignment.Center) {
-                                Icon(if (isPreferred) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                    if (isPreferred) "当前是首选图片" else "设为首选图片",
-                                    Modifier.size(15.dp), tint = Color.White)
-                            }
+                })
+                val photo = menuPhoto
+                if (trackKey != null && photo != null && photo in pages && !backFacing) {
+                    Box(Modifier.align(Alignment.Center)) {
+                        DropdownMenu(expanded = true, onDismissRequest = { menuPhoto = null }) {
+                            DropdownMenuItem(text = { Text("设为首选图") }, onClick = {
+                                photos.prefer(trackKey, photo.takeUnless { it == coverPhoto })
+                                photoRevision++
+                                menuPhoto = null
+                            })
+                            DropdownMenuItem(text = { Text("删除这张图片") }, enabled = photo != coverPhoto, onClick = {
+                                menuPhoto = null
+                                scope.launch {
+                                    photos.remove(trackKey, photo)
+                                    photoRevision++
+                                }
+                            })
                         }
                     }
                 }

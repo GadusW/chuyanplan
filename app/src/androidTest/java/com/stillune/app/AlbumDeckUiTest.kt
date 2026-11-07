@@ -163,51 +163,63 @@ class AlbumDeckUiTest {
         compose.onNodeWithText("第二句歌词").assertIsDisplayed()
     }
 
-    @Test fun cardPhotosWrapAndRestorePreferenceOnReturnToSong() {
+    @Test fun longPressManagesPhotosAndPreferredPhotoStaysOnSideCard() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val track = Track("test:${UUID.randomUUID()}", "照片测试", fileName = "test.mp3", source = "test")
         val cover = Bitmap.createBitmap(24, 24, Bitmap.Config.ARGB_8888)
         val source = File.createTempFile("card-photo", ".png", context.cacheDir)
+        val photos = AlbumCardPhotos(context)
         source.outputStream().use { cover.compress(Bitmap.CompressFormat.PNG, 100, it) }
         try {
             runBlocking {
-                val photos = AlbumCardPhotos(context)
                 repeat(2) { assertEquals(true, photos.add(track.identity, Uri.fromFile(source))) }
             }
         } finally {
             source.delete()
         }
         var cursor by mutableIntStateOf(0)
-        val queue = listOf(track, track.copy(uri = "test:other", identity = "test:other"))
+        val queue = listOf(track) + (1..2).map { track.copy(uri = "test:other:$it", identity = "test:other:$it") }
+        val steps = MutableSharedFlow<Int>(extraBufferCapacity = 1)
         compose.setContent {
             StilluneTheme {
-                AlbumDeck(PlaybackState(queue, cursor), cover, LrcParser.parse(""), false, { cover },
-                    {}, {}, {}, {}, Modifier.fillMaxWidth().height(410.dp), cachedArtwork = { cover })
+                Column {
+                    AlbumDeck(PlaybackState(queue, cursor, repeat = RepeatMode.OFF), cover, LrcParser.parse(""), false, { cover },
+                        { cursor++ }, {}, {}, {}, Modifier.fillMaxWidth().height(410.dp),
+                        stepRequests = steps, cachedArtwork = { cover })
+                    TextButton(onClick = { steps.tryEmit(1) }) { Text("按键下一首") }
+                }
             }
         }
         fun down() = compose.onNodeWithTag("album-front").performTouchInput {
             swipe(center, center + Offset(0f, height * .4f), 350)
         }
-        fun preferred() = compose.onNodeWithContentDescription("当前是首选图片").assertIsDisplayed()
-        fun selectable() = compose.onNodeWithContentDescription("设为首选图片")
+        fun menu() = compose.onNodeWithTag("album-front").performTouchInput { longClick(center) }
+        fun choose(text: String) = compose.onNodeWithText(text).performClick()
+        val ids = photos.photos(track.identity)
 
-        preferred()
+        menu()
+        compose.onNodeWithText("删除这张图片").assertIsNotEnabled()
+        choose("设为首选图")
         down()
-        selectable().assertIsDisplayed()
+        menu()
+        choose("设为首选图")
+        assertEquals(ids[0], photos.preferred(track.identity))
         down()
-        selectable().assertIsDisplayed()
-        down()
-        preferred()
-        down()
-        selectable().performTouchInput { click(center) }
-        preferred()
-        down()
-        selectable().assertIsDisplayed()
-        compose.runOnIdle { cursor = 1 }
-        compose.runOnIdle { cursor = 0 }
-        preferred()
+        menu()
+        choose("设为首选图")
+        assertEquals(ids[1], photos.preferred(track.identity))
+        choose("按键下一首")
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("接下来 1 首").fetchSemanticsNodes().isNotEmpty() }
+        val sidePhoto = hasContentDescription("自定义卡片图片") and
+            hasAnyAncestor(hasTestTag("album-card-${track.uri}"))
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithContentDescription("自定义卡片图片").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodes(sidePhoto, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
+        compose.runOnIdle { cursor = 0 }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("接下来 2 首").fetchSemanticsNodes().isNotEmpty() }
+        menu()
+        choose("删除这张图片")
+        compose.waitUntil(5_000) { photos.photos(track.identity) == listOf(ids[0]) }
+        assertEquals(null, photos.preferred(track.identity))
     }
 }
