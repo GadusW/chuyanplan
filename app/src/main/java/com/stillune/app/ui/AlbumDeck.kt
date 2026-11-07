@@ -355,8 +355,8 @@ internal fun AlbumDeck(
                                         if (cardPhotos.isNotEmpty()) {
                                             val bitmap = if (cardPhoto.isNullOrEmpty()) cover else displayedPhoto ?: cover
                                             AnimatedContent(bitmap, transitionSpec = {
-                                                (slideInVertically(tween(220)) { -it / 4 } + fadeIn(tween(220))) togetherWith
-                                                    (slideOutVertically(tween(220)) { it / 4 } + fadeOut(tween(180)))
+                                                (slideInVertically(tween(220)) { it / 4 } + fadeIn(tween(220))) togetherWith
+                                                    (slideOutVertically(tween(220)) { -it / 4 } + fadeOut(tween(180)))
                                             }, label = "album-card-photo") { image ->
                                                 if (image == null && showQueue && track != null) MissingDeckCover(track, description)
                                                 else AlbumArtwork(image, if (image === cover) description else "自定义卡片图片", Modifier.fillMaxSize())
