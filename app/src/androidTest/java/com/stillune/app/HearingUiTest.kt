@@ -16,12 +16,11 @@ class HearingUiTest {
     @Test fun healthIsThirdDestinationAndControlsAreHonestAndOperable() {
         var settings by mutableStateOf(HearingSettings())
         var read = false
-        var info = false
         var selected by mutableIntStateOf(0)
         compose.setContent { StilluneTheme { Column {
             Box(Modifier.weight(1f)) {
                 HearingContent(settings, HearingLive(volumeStep = 4, volumeMax = 15), emptyList(), EnvironmentReading(), false,
-                    "系统音频输出", false, { settings = it(settings) }, {}, {}, {}, { read = true }, {}, { info = true }, {})
+                    "系统音频输出", false, { settings = it(settings) }, {}, {}, {}, { read = true }, {}, {}, {})
             }
             FloatingNavigation(selected == 1, { selected = 0 }, { selected = 1 }, selected == 2, { selected = 2 })
         } } }
@@ -30,14 +29,12 @@ class HearingUiTest {
         compose.onNodeWithText("20 分钟").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(20, settings.breakMinutes) }
         compose.onNodeWithContentDescription("提醒时自动暂停").performScrollTo().performClick().assertIsOn()
-        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("数据范围与资料依据"))
-        compose.onNodeWithText("数据范围与资料依据").performClick()
-        compose.runOnIdle { assertTrue(info) }
+        compose.onNodeWithText("入耳声压与剂量：尚无经验证的声学校准，不显示估算值。").performScrollTo().assertExists()
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("打开知识书架"))
         compose.onNodeWithText("打开知识书架").performClick()
         compose.runOnIdle { assertTrue(read) }
         compose.onNodeWithContentDescription("护耳").performClick().assertIsSelected()
-        compose.onNodeWithContentDescription("播放页").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("此刻").performClick().assertIsSelected()
         compose.onNodeWithContentDescription("乐库").performClick().assertIsSelected()
     }
     @Test fun knowledgeReaderSupportsFavoriteAndClosesWithoutAutoplay() {

@@ -1,46 +1,30 @@
 {
-  "current": {
-    "version": "0.23.6",
-    "source": "stillune-icon.svg",
-    "reference": "Developer-approved refined flat two-arc PNG concept generated with OpenAI imagegen",
-    "authorization": "Developer requested vector finalization and application to the software",
-    "method": "Reconstructed from the approved concept as concentric circular paths with round caps",
-    "palette": {
-      "blue": "#122B62",
-      "white": "#FFFFFF",
-      "pink": "#F779B4",
-      "background": "#E8E8E8"
-    },
-    "export": "tools/export_android_icons.py"
+  "tool": "OpenAI built-in imagegen",
+  "approval": "Developer explicitly selected the last bright variant as the new application icon in this chat.",
+  "square": {
+    "file": "stillune-icon-source-square.png",
+    "prompt": "Edit this Stillune app icon. The user's specific correction: the glass is TOO DARK and lacks bright light. Make the foreground substantially brighter and more luminous while keeping real liquid-glass clarity and delicate edges. Preserve EXACT current geometry, optical centering, size and spacing: three independent nested nonintersecting C arcs plus small hollow ring. Preserve flat solid slate-indigo #263451 background, do not brighten background. LIGHTING: illuminate the glass with a large bright softbox upper left and soft cool transmitted light from lower right. The upper-left half of every arc should visibly catch luminous pale champagne/ivory light across a broad elegant surface area, not merely a thin rim. Transition through light translucent lavender to clear luminous icy blue along lower-right sweeps. Lift glass midtones strongly, approximately one photographic stop brighter than reference; enough body light to read clearly at small icon size. Glass must look like it is collecting and transmitting daylight, with light-filled transparent volume, brighter refractive caustic accents and clean near-white specular glints in a few controlled places. Keep moderate transparent blue depth in selected interior parts for contrast. Central ring should also be clearly bright and translucent with warm upper-left light and icy blue lower-right refraction. Edge quality stays fine and optical: narrow bright/dark refraction bands, no thick uniform white outline, no opaque milky plastic, no pearlescent rubber, no metallic chrome. Smooth fluid meniscus and modest local swelling, not inflated tubes. NO dim smoked glass, no muddy grey foreground, no heavy dark tint, no global fog or neon outer glow. Do not change curve paths, add crossing, or fuse bands. One square full bleed app icon, no text, no corner mask."
   },
-  "historical_glass_icon": {
-    "tool": "OpenAI built-in imagegen",
-    "approval": "Developer explicitly selected the last bright variant as the new application icon in this chat.",
-    "square": {
-      "file": "stillune-icon-source-square.png",
-      "prompt": "Edit this Stillune app icon. The user's specific correction: the glass is TOO DARK and lacks bright light. Make the foreground substantially brighter and more luminous while keeping real liquid-glass clarity and delicate edges. Preserve EXACT current geometry, optical centering, size and spacing: three independent nested nonintersecting C arcs plus small hollow ring. Preserve flat solid slate-indigo #263451 background, do not brighten background. LIGHTING: illuminate the glass with a large bright softbox upper left and soft cool transmitted light from lower right. The upper-left half of every arc should visibly catch luminous pale champagne/ivory light across a broad elegant surface area, not merely a thin rim. Transition through light translucent lavender to clear luminous icy blue along lower-right sweeps. Lift glass midtones strongly, approximately one photographic stop brighter than reference; enough body light to read clearly at small icon size. Glass must look like it is collecting and transmitting daylight, with light-filled transparent volume, brighter refractive caustic accents and clean near-white specular glints in a few controlled places. Keep moderate transparent blue depth in selected interior parts for contrast. Central ring should also be clearly bright and translucent with warm upper-left light and icy blue lower-right refraction. Edge quality stays fine and optical: narrow bright/dark refraction bands, no thick uniform white outline, no opaque milky plastic, no pearlescent rubber, no metallic chrome. Smooth fluid meniscus and modest local swelling, not inflated tubes. NO dim smoked glass, no muddy grey foreground, no heavy dark tint, no global fog or neon outer glow. Do not change curve paths, add crossing, or fuse bands. One square full bleed app icon, no text, no corner mask."
-    },
-    "foreground": {
-      "file": "stillune-foreground-source.png",
-      "prompt": "Extract the existing Stillune symbol into a transparent PNG foreground for an Android adaptive app icon. This is STRICT background removal only. Preserve the exact supplied three independent separated concentric C-shaped glass arcs and center hollow ring, all curves, positions, bright champagne-lavender-icy-blue glass lighting and highlights, antialiasing, size and optical offset. Remove only slate-blue backdrop and make all negative spaces transparent, including between arcs and inside the small central ring. Do not redraw, move, recenter, reshape, stylize, fuse or add elements. Keep same square canvas and margins. Preserve luminous translucent glass appearance without adding dark background pixels. Real transparent background, no checkerboard painted into image. Foreground alpha extraction only."
-    },
-    "exports": "tools/export_android_icons.py; unified calibrated adaptive viewport",
-    "calibration_0_18_0": {
-      "basis": "User-provided phone launcher photo in this chat; reduce crowding at top/left and balance circular mask.",
-      "method": "Deterministic scale/translation of approved foreground only; no new image generation.",
-      "fit_radius_px": 300,
-      "adaptive_canvas_px": 1080,
-      "translation_px": [
-        10,
-        16
-      ],
-      "scale_relative_to_v17": 0.9230769230769231,
-      "square_and_legacy": "Recomposed from same 72dp viewport as adaptive preview."
-    },
-    "background_0_21_0": {
-      "method": "Pillow procedural lighting, translucent plate appearance and soft cast shadow",
-      "foreground": "Original foreground, identical safe zone and optical offset",
-      "exports": "adaptive color, legacy, round, Play, and brand renders"
-    }
+  "foreground": {
+    "file": "stillune-foreground-source.png",
+    "prompt": "Extract the existing Stillune symbol into a transparent PNG foreground for an Android adaptive app icon. This is STRICT background removal only. Preserve the exact supplied three independent separated concentric C-shaped glass arcs and center hollow ring, all curves, positions, bright champagne-lavender-icy-blue glass lighting and highlights, antialiasing, size and optical offset. Remove only slate-blue backdrop and make all negative spaces transparent, including between arcs and inside the small central ring. Do not redraw, move, recenter, reshape, stylize, fuse or add elements. Keep same square canvas and margins. Preserve luminous translucent glass appearance without adding dark background pixels. Real transparent background, no checkerboard painted into image. Foreground alpha extraction only."
+  },
+  "exports": "tools/export_android_icons.py; unified calibrated adaptive viewport",
+  "calibration_0_18_0": {
+    "basis": "User-provided phone launcher photo in this chat; reduce crowding at top/left and balance circular mask.",
+    "method": "Deterministic scale/translation of approved foreground only; no new image generation.",
+    "fit_radius_px": 300,
+    "adaptive_canvas_px": 1080,
+    "translation_px": [
+      10,
+      16
+    ],
+    "scale_relative_to_v17": 0.9230769230769231,
+    "square_and_legacy": "Recomposed from same 72dp viewport as adaptive preview."
+  },
+  "background_0_21_0": {
+    "method": "Pillow procedural lighting, translucent plate appearance and soft cast shadow",
+    "foreground": "Original foreground, identical safe zone and optical offset",
+    "exports": "adaptive color, legacy, round, Play, and brand renders"
   }
 }

@@ -5,6 +5,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -41,9 +43,16 @@ private fun clock(ms: Long) = String.format(Locale.ROOT,"%d:%02d",ms/60000,ms/10
 internal fun AnalysisSwitcher(cache: AnalysisCache?, state: PlaybackState, repository: RealtimeAnalysisRepository,
                               onRequest: () -> Unit, onSeek: (Long) -> Unit,
                               live: Boolean, onLiveChange: (Boolean) -> Unit) {
-    Column(verticalArrangement=Arrangement.spacedBy(Space.m)) {
-        TabStrip(listOf("声音画像", "实时分析"), if (live) "实时分析" else "声音画像",
-            { onLiveChange(it == "实时分析") })
+    Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            listOf("声音画像" to false,"实时分析" to true).forEach { (label,enabled) ->
+                Box(Modifier.weight(1f).heightIn(min=48.dp)
+                    .background(if (live==enabled) InkAccent.copy(alpha=.08f) else Color.Transparent,CircleShape)
+                    .selectable(live==enabled,role=Role.Tab) { onLiveChange(enabled) },contentAlignment=Alignment.Center) {
+                    Text(label,color=if (live==enabled) InkAccent else InkMuted,fontSize=13.sp)
+                }
+            }
+        }
         if (live) {
             val flow=remember(repository) { repository.observe() }
             val frame by flow.collectAsStateWithLifecycle(RealtimeFrame())
@@ -75,7 +84,7 @@ internal fun RealtimeAnalysisContent(frame: RealtimeFrame, options: RealtimeOpti
     val match=if (desired==null || frame.integrated==null) 0 else if (abs(frame.integrated-desired)<=tolerance) 1 else -1
     val targetColor=when (match) { 1 -> MeterGood; -1 -> MeterBad; else -> InkAccent }
 
-    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(Space.s)) {
+    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("此刻的声音",color=InkAccent,fontSize=18.sp,fontWeight=FontWeight.Medium)
@@ -94,13 +103,13 @@ internal fun RealtimeAnalysisContent(frame: RealtimeFrame, options: RealtimeOpti
                 LoudnessReadout("Short Term","3 秒",if (frame.measuredMs<3000) "—" else number(frame.shortTerm),InkAccent,Modifier.fillMaxWidth(),true)
                 LoudnessReadout("Integrated","本次片段",if (frame.measuredMs<400) "—" else number(frame.integrated),targetColor,Modifier.fillMaxWidth(),true)
                 LoudnessReadout("Momentary","Max · 400 ms",if (frame.measuredMs<400) "—" else number(frame.momentaryMax),InkAccent,Modifier.fillMaxWidth(),true)
-            } else Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(Space.s)) {
+            } else Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                 LoudnessReadout("Short Term","3 秒",if (frame.measuredMs<3000) "—" else number(frame.shortTerm),InkAccent,Modifier.weight(1f))
                 LoudnessReadout("Integrated","本次片段",if (frame.measuredMs<400) "—" else number(frame.integrated),targetColor,Modifier.weight(1f))
                 LoudnessReadout("Momentary","Max · 400 ms",if (frame.measuredMs<400) "—" else number(frame.momentaryMax),InkAccent,Modifier.weight(1f))
             }
         }
-        Row(Modifier.fillMaxWidth().padding(vertical=Space.s),horizontalArrangement=Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalArrangement=Arrangement.SpaceBetween) {
             Text("LRA  ${if (frame.measuredMs<3000) "—" else frame.lra?.let(::number) ?: "—"} LU",color=InkMuted,fontSize=12.sp)
             Text("True Peak  ${number(frame.truePeak)} dBTP",color=when { peakLimit==null || frame.truePeak==null -> InkBlue
                 frame.truePeak>peakLimit -> MeterBad; else -> MeterGood },fontSize=12.sp)
@@ -139,7 +148,7 @@ internal fun RealtimeAnalysisContent(frame: RealtimeFrame, options: RealtimeOpti
         Text("相关 ${frame.correlation?.let { String.format(Locale.ROOT,"%+.2f",it) } ?: "—"} · ${when {
             frame.correlation==null -> "等待有效双声道信号"; frame.correlation<-.2 -> "反相成分较多，合成单声道可能抵消"
             frame.correlation>.95 -> "左右较相似，声像集中"; else -> "左右存在差异，声像有所展开" }}",color=InkMuted,fontSize=11.sp,lineHeight=18.sp)
-        Text("离开此页或应用进入后台即停止计算；下次进入重新累计。",color=InkMuted,fontSize=11.sp,lineHeight=18.sp,modifier=Modifier.padding(vertical=Space.m))
+        Text("离开此页或应用进入后台即停止计算；下次进入重新累计。",color=InkMuted,fontSize=11.sp,lineHeight=18.sp,modifier=Modifier.padding(vertical=12.dp))
     }
     if (settings) SpectrumSettings(options,onOptions) {settings=false}
     if (customDialog) AlertDialog(onDismissRequest={customDialog=false},title={Text("自定义参考")},text={Column {
@@ -151,7 +160,7 @@ internal fun RealtimeAnalysisContent(frame: RealtimeFrame, options: RealtimeOpti
         Slider(customPeak,{customPeak=(it*10).roundToInt()/10f},valueRange=-6f..0f)
     }},confirmButton={TextButton(onClick={customDialog=false}) {Text("完成")}})
     if (explain) AlertDialog(onDismissRequest={explain=false},title={Text("实时分析怎样测量")},text={
-        Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(Space.m)) {
+        Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Text("独立解码当前源文件，以 48 kHz 浮点双声道 PCM 分析，不录麦克风、不改变音量。读数跟随播放位置，通常有数百毫秒偏差；不代表系统混音、蓝牙编码或 DAC 之后的信号。")
             Text("LUFS：BS.1770 K 加权。M 为 400 ms，S 为 3 秒；I 使用 400 ms / 75% 重叠，−70 LUFS 绝对门限和 −10 LU 相对门限。Momentary 主数值为 Max，当前值另列。")
             Text("LRA：3 秒窗，10 Hz 更新，−70 LUFS / −20 LU 门限后取 95% 与 10% 分位差；短片段仅作观察。真峰值：4× FIR 插值至 192 kHz，累计最大 dBTP。")
@@ -163,7 +172,7 @@ internal fun RealtimeAnalysisContent(frame: RealtimeFrame, options: RealtimeOpti
     },confirmButton={TextButton(onClick={explain=false}) {Text("知道了")}})
     if (full!=null) Dialog(onDismissRequest={full=null},properties=DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=false)) {
         BackHandler {full=null}
-        Column(Modifier.fillMaxSize().background(AppBackground).safeDrawingPadding().padding(horizontal=Space.xl,vertical=Space.s)) {
+        Column(Modifier.fillMaxSize().background(GlassGround).safeDrawingPadding().padding(horizontal=20.dp,vertical=8.dp)) {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Text(full!!,Modifier.weight(1f),color=InkAccent,fontSize=20.sp)
                 if (full!="声场") IconButton(onClick={settings=true}) {Icon(Icons.Rounded.Tune,"全屏图表设置",tint=InkMuted)}
@@ -174,7 +183,7 @@ internal fun RealtimeAnalysisContent(frame: RealtimeFrame, options: RealtimeOpti
                 "频谱瀑布" -> { SourceSelector(options,onOptions); WaterfallChart(frame,camera,options,Modifier.weight(1f).fillMaxWidth()); CameraSelector(camera) {camera=it} }
                 else -> { SoundFieldChart(frame,fieldMode,Modifier.weight(1f).fillMaxWidth()); FieldSelector(fieldMode) {fieldMode=it} }
             }
-            Text(frame.status,color=InkMuted,fontSize=12.sp,modifier=Modifier.padding(vertical=Space.m))
+            Text(frame.status,color=InkMuted,fontSize=12.sp,modifier=Modifier.padding(vertical=12.dp))
         }
     }
 }
@@ -188,7 +197,7 @@ private fun LoudnessReadout(label: String, subtitle: String, value: String, colo
         }
         Text(value,color=color,fontSize=25.sp,fontFamily=FontFamily.Monospace,fontWeight=FontWeight.Medium)
         Text(" LUFS",color=InkMuted,fontSize=10.sp)
-    } else Column(modifier.padding(vertical=Space.s),verticalArrangement=Arrangement.spacedBy(Space.xs)) {
+    } else Column(modifier.padding(vertical=6.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
         Text(label,color=InkMuted,fontSize=11.sp,maxLines=1)
         Text(subtitle,color=InkMuted,fontSize=10.sp)
         Text(value,color=color,fontSize=25.sp,fontFamily=FontFamily.Monospace,fontWeight=FontWeight.Medium,maxLines=1)
@@ -198,10 +207,10 @@ private fun LoudnessReadout(label: String, subtitle: String, value: String, colo
 
 @Composable
 private fun MeterHeader(title: String, english: String, onSettings: (() -> Unit)?=null, onFull: (() -> Unit)?=null) {
-    HorizontalDivider(Modifier.padding(top=Space.l),color=InkMuted.copy(alpha=.16f))
+    HorizontalDivider(Modifier.padding(top=16.dp),color=InkMuted.copy(alpha=.16f))
     Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically) {
         Text(title,color=InkAccent,fontSize=15.sp,fontWeight=FontWeight.Medium)
-        Text(english,Modifier.weight(1f).padding(start=Space.m),color=InkMuted,fontSize=11.sp)
+        Text(english,Modifier.weight(1f).padding(start=10.dp),color=InkMuted,fontSize=11.sp)
         onSettings?.let { IconButton(onClick=it) {Icon(Icons.Rounded.Tune,"$title 设置",tint=InkMuted,modifier=Modifier.size(19.dp))} }
         onFull?.let { IconButton(onClick=it) {Icon(Icons.Rounded.OpenInFull,"放大$title",tint=InkMuted,modifier=Modifier.size(18.dp))} }
     }
@@ -347,13 +356,13 @@ private fun WaterfallChart(frame: RealtimeFrame, camera: String, options: Realti
         val left=8.dp.toPx(); val top=12.dp.toPx(); val w=size.width-55.dp.toPx(); val h=size.height-35.dp.toPx()
         val rows=frame.history
         if (camera=="二维") {
-            drawRect(AppSurface.copy(alpha=.35f),Offset(left,top),Size(w,h))
+            drawRect(GlassSurfaceColor.copy(alpha=.35f),Offset(left,top),Size(w,h))
             val cellW=w/(options.historySeconds*10); val cellH=h/64
             rows.forEachIndexed { time,bands ->
                 val x=left+w-(rows.size-time)*cellW
                 for (b in 0 until 64) {
                     val strength=((bands.getOrElse(b*2){-100f}+90)/84).coerceIn(0f,1f)
-                    if (strength>.02f) drawRect(lerp(AppSurface,lerp(InkBlue,InkAccent,strength),strength),
+                    if (strength>.02f) drawRect(lerp(GlassSurfaceColor,lerp(InkBlue,InkAccent,strength),strength),
                         Offset(x,top+h-(b+1)*cellH),Size(cellW+1,cellH+1))
                 }
             }

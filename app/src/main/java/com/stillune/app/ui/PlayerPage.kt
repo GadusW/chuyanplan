@@ -1,12 +1,16 @@
 package com.stillune.app.ui
 
 import android.graphics.Bitmap
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -36,6 +40,12 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 
 @Composable
+internal fun GlassSurface(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    Box(modifier.glassPanel(16.dp),
+        content = content)
+}
+
+@Composable
 internal fun PlayerPage(
     state: PlaybackState, model: LibraryViewModel, lyrics: Lyrics, lyricsVisible: Boolean,
     artwork: Bitmap?, fullScreen: Boolean, onBack: () -> Unit, onFullScreen: () -> Unit,
@@ -59,16 +69,13 @@ internal fun PlayerPage(
         val horizontal = 24.dp
         Column(Modifier.fillMaxSize().padding(bottom = bottomInset).then(if (fullScreen) Modifier.displayCutoutPadding() else Modifier)
             .padding(horizontal = horizontal, vertical = if (fullScreen) 20.dp else 8.dp)) {
-            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.Rounded.KeyboardArrowDown, "收起播放页", tint = InkMuted) }
-                if (state.track != null) Spacer(Modifier.width(Space.touch))
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val track = state.track.takeUnless { analysisMode }
-                    Text(track?.title ?: "播放", style = MaterialTheme.typography.titleLarge, color = InkAccent,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (track != null) Text(track.artist, style = MaterialTheme.typography.bodySmall, color = InkMuted,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Box(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)) { Icon(Icons.Rounded.KeyboardArrowDown, "收起播放页", tint = InkMuted) }
+                Column(Modifier.align(Alignment.Center).padding(horizontal = 96.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("栖声 · Stillune", fontSize = 13.sp, color = InkAccent, fontWeight = FontWeight.Medium)
+                    Text(state.track?.album ?: "本地聆听", color = InkMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically) {
                 if (state.track != null) IconButton(onClick = onKnowledge) {
                     Icon(Icons.AutoMirrored.Rounded.MenuBook, "聆听知识", tint = InkMuted)
                 }
@@ -76,15 +83,24 @@ internal fun PlayerPage(
                     Icon(if (fullScreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
                         if (fullScreen) "退出全屏" else "全屏播放", tint = InkMuted)
                 }
+                }
             }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween) {
-                TabStrip(listOf("播放模式", "音频分析"), if (analysisMode) "音频分析" else "播放模式",
-                    { model.setAnalysisMode(it == "音频分析") }, Modifier.weight(1f, fill = false))
-                TextButton(onClick = onImmersion) { Text("体感沉浸", maxLines = 1) }
+            Row(Modifier.align(Alignment.CenterHorizontally)) {
+                listOf("播放模式" to false, "音频分析" to true).forEach { (label, enabled) ->
+                    Column(Modifier.widthIn(min = 96.dp).heightIn(min = 48.dp)
+                        .selectable(analysisMode == enabled, role = Role.Tab) { model.setAnalysisMode(enabled) },
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(label, Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            color = if (analysisMode == enabled) InkAccent else InkMuted, fontSize = 13.sp)
+                        Box(Modifier.width(22.dp).height(2.dp).background(if (analysisMode == enabled) InkAccent else Color.Transparent, CircleShape))
+                    }
+                }
+                TextButton(onClick = onImmersion, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text("体感沉浸", fontSize = 13.sp, color = InkMuted)
+                }
             }
             if (landscape) {
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(Space.xxl)) {
+                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                     Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                         if (analysisMode) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                             if (!realtime) Box(Modifier.fillMaxWidth().height(if (lyricsVisible) 180.dp else 80.dp)) {
@@ -104,11 +120,11 @@ internal fun PlayerPage(
                 }
             } else {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = if (compact) 2.dp else 6.dp), contentAlignment = Alignment.Center) {
-                    if (analysisMode) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Space.l)) {
+                    if (analysisMode) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         if (lyricsVisible) Box(Modifier.fillMaxWidth().height(200.dp)) {
                             PlayerVisual(lyrics, true, artwork, state, model, onImportLyrics, Modifier.fillMaxSize())
                         } else if (!realtime) Row(Modifier.fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(Space.l)) {
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             Box(Modifier.size(64.dp)) { PlayerVisual(lyrics, false, artwork, state, model, onImportLyrics, Modifier.fillMaxSize()) }
                             Column {
                                 Text(state.track?.album ?: "本地音乐", color = InkMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -133,11 +149,11 @@ private fun RealtimeTransport(state: PlaybackState, model: LibraryViewModel, onI
                               onQueue: () -> Unit, onOutput: () -> Unit) {
     var menu by remember {mutableStateOf(false)}
     var drag by remember(state.track?.uri) {mutableStateOf<Float?>(null)}
-    Column(Modifier.fillMaxWidth().padding(top=Space.s)) {
+    Column(Modifier.fillMaxWidth().padding(top=8.dp)) {
         HorizontalDivider(color=InkMuted.copy(alpha=.15f))
-        Row(Modifier.fillMaxWidth().padding(top=Space.s),verticalAlignment=Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(top=8.dp),verticalAlignment=Alignment.CenterVertically) {
             Text(state.track?.title ?: "先选择一首音乐",Modifier.weight(1f),color=InkAccent,fontSize=13.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
-            Text("${playerTime(state.positionMs)} / ${playerTime(state.durationMs)}",color=InkMuted,fontSize=10.sp,modifier=Modifier.padding(start=Space.s))
+            Text("${playerTime(state.positionMs)} / ${playerTime(state.durationMs)}",color=InkMuted,fontSize=10.sp,modifier=Modifier.padding(start=8.dp))
         }
         PlaybackSeekBar(drag ?: state.positionMs.toFloat().coerceIn(0f, state.durationMs.coerceAtLeast(1).toFloat()),
             state.durationMs, "实时分析播放进度", { drag = it },
@@ -145,7 +161,7 @@ private fun RealtimeTransport(state: PlaybackState, model: LibraryViewModel, onI
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick=model::shuffle) {Icon(Icons.Rounded.Shuffle,"随机播放",tint=if (state.shuffle) InkAccent else InkMuted)}
             IconButton(onClick=model::previousTrack,enabled=state.previousIndex!=null) {Icon(Icons.Rounded.SkipPrevious,"上一首",tint=InkAccent)}
-            FilledIconButton(onClick=model::toggle,enabled=state.track!=null, shape=Corners.Control) {
+            FilledIconButton(onClick=model::toggle,enabled=state.track!=null, shape=SquircleShape(14.dp)) {
                 Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,if (state.playing) "暂停" else "播放")
             }
             IconButton(onClick=model::next,enabled=state.nextIndex!=null) {Icon(Icons.Rounded.SkipNext,"下一首",tint=InkAccent)}
@@ -174,10 +190,10 @@ private fun PlayerVisual(lyrics: Lyrics, visible: Boolean, artwork: Bitmap?, sta
 
 @Composable
 private fun TrackHeading(state: PlaybackState) {
-    Column(Modifier.fillMaxWidth().padding(top = Space.m)) {
+    Column(Modifier.fillMaxWidth().padding(top = 10.dp)) {
         Text(state.track?.title ?: "未播放", color = InkAccent, fontSize = 19.sp, fontWeight = FontWeight.Medium,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Row(Modifier.padding(top = Space.xs), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(state.track?.artist ?: "从乐库选择音乐", Modifier.weight(1f), color = InkMuted, fontSize = 12.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             state.track?.let { AudioFormatBadge(it.format) }
@@ -189,11 +205,9 @@ private fun TrackHeading(state: PlaybackState) {
 private fun TransportPanel(state: PlaybackState, model: LibraryViewModel, compact: Boolean, lyricsVisible: Boolean,
                            onImport: () -> Unit, onImportLyrics: () -> Unit, onQueue: () -> Unit, onOutput: () -> Unit,
                            onStep: (Int) -> Unit, dense: Boolean = false) {
-    ContentPanel(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(horizontal = Space.s)) {
-            PlayerControls(state, model, compact, onImport, onStep, inlineTime = dense)
-            PlayerActions(lyricsVisible, model::toggleLyrics, state, onImportLyrics, onQueue, onOutput, dense)
-        }
+    Column(Modifier.fillMaxWidth().glassPanel(22.dp, .84f).padding(horizontal = 10.dp)) {
+        PlayerControls(state, model, compact, onImport, onStep, inlineTime = dense)
+        PlayerActions(lyricsVisible, model::toggleLyrics, state, onImportLyrics, onQueue, onOutput, dense)
     }
 }
 
@@ -224,10 +238,11 @@ private fun PlayerControls(state: PlaybackState, model: LibraryViewModel, compac
                 Icon(Icons.Rounded.Shuffle, "随机播放", Modifier.size(21.dp), tint = if (state.shuffle) InkAccent else InkMuted)
             }
             IconButton(onClick = { onStep(-1) }, enabled = state.previousIndex != null) { Icon(Icons.Rounded.SkipPrevious, "上一首", Modifier.size(32.dp)) }
-            FilledIconButton(onClick = { if (state.track == null) onImport() else model.toggle() }, modifier = Modifier.size(if (compact) 52.dp else 60.dp),
-                shape = Corners.Panel) {
-                if (state.loading) CircularProgressIndicator(Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
-                else Icon(when { state.track == null -> Icons.Rounded.Add; state.playing -> Icons.Rounded.Pause; else -> Icons.Rounded.PlayArrow }, when { state.track == null -> "导入音乐"; state.playing -> "暂停"; else -> "播放" }, Modifier.size(32.dp))
+            FilledIconButton(onClick = { if (state.track == null) onImport() else model.toggle() }, modifier = Modifier.size(if (compact) 52.dp else 60.dp).glassPanel(20.dp, 1.5f),
+                shape = SquircleShape(20.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.Transparent, contentColor = InkAccent)) {
+                if (state.loading) CircularProgressIndicator(Modifier.size(26.dp), color = InkAccent, strokeWidth = 2.dp)
+                else Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放", Modifier.size(34.dp))
             }
             IconButton(onClick = { onStep(1) }, enabled = state.nextIndex != null) { Icon(Icons.Rounded.SkipNext, "下一首", Modifier.size(32.dp)) }
             IconButton(onClick = model::repeat, enabled = state.track != null) {
@@ -247,7 +262,7 @@ private fun PlayerActions(lyricsVisible: Boolean, toggleLyrics: () -> Unit, stat
             IconToggleButton(lyricsVisible, { toggleLyrics() }) {
                 Icon(Icons.Rounded.Lyrics, "显示歌词", tint = if (lyricsVisible) InkAccent else InkMuted)
             }
-            TextButton(onClick = onOutput, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = Space.xs)) {
+            TextButton(onClick = onOutput, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 2.dp)) {
                 Icon(Icons.Rounded.SpeakerGroup, null, Modifier.size(14.dp), tint = InkMuted)
                 Text("  ${state.output.substringBefore(" ·")}", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = InkMuted)
             }
@@ -272,18 +287,18 @@ internal fun LyricsPane(lyrics: Lyrics, positionMs: Long, hasTrack: Boolean, onS
     }
     val returnGesture = if (onReturnToCover != null) Modifier.clickable(onClickLabel = "返回封面", onClick = onReturnToCover) else Modifier
     if (lyrics.lines.isEmpty() && compact) Column(
-        modifier.then(returnGesture).verticalScroll(rememberScrollState()).padding(horizontal = Space.s)
+        modifier.then(returnGesture).verticalScroll(rememberScrollState()).padding(horizontal = 8.dp)
     ) {
         Text(lyrics.message ?: if (hasTrack) "暂无歌词" else "未播放", color = InkAccent, fontSize = 13.sp)
         if (hasTrack) TextButton(onClick = onImport) { Text("导入歌词", fontSize = 12.sp) }
-    } else if (lyrics.lines.isEmpty()) Column(modifier.then(returnGesture).padding(Space.l), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+    } else if (lyrics.lines.isEmpty()) Column(modifier.then(returnGesture).padding(16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Rounded.Lyrics, null, Modifier.size(32.dp), tint = InkBlue.copy(alpha = .65f))
         Spacer(Modifier.height(18.dp))
         Text(if (hasTrack) "暂无歌词" else "先选一首音乐", fontSize = 20.sp, color = InkAccent)
-        Text(lyrics.message ?: "导入本地 LRC / TXT 歌词\n已授权文件夹中的同名歌词会自动读取", Modifier.padding(top = Space.m),
+        Text(lyrics.message ?: "导入本地 LRC / TXT 歌词\n已授权文件夹中的同名歌词会自动读取", Modifier.padding(top = 12.dp),
             color = InkMuted, fontSize = 12.sp, lineHeight = 21.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        if (hasTrack) TextButton(onClick = onImport, modifier = Modifier.padding(top = Space.l)) { Text("选择歌词文件") }
-    } else LazyColumn(modifier.then(returnGesture).clip(Corners.Control)
+        if (hasTrack) TextButton(onClick = onImport, modifier = Modifier.padding(top = 14.dp)) { Text("选择歌词文件") }
+    } else LazyColumn(modifier.then(returnGesture).clip(SquircleShape(12.dp))
         .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
         .drawWithContent {
             drawContent()
@@ -294,8 +309,8 @@ internal fun LyricsPane(lyrics: Lyrics, positionMs: Long, hasTrack: Boolean, onS
         verticalArrangement = Arrangement.spacedBy(if (compact || cardBack) 8.dp else 22.dp)) {
         itemsIndexed(lyrics.lines, key = { index, _ -> index }) { index, line ->
             val active = !lyrics.synced || index == current
-            val color = if (active) InkAccent else InkMuted
-            Text(line.text, Modifier.fillMaxWidth().clip(Corners.Inner)
+            val color by animateColorAsState(if (active) InkAccent else InkMuted, tween(240), label = "lyric-highlight")
+            Text(line.text, Modifier.fillMaxWidth().clip(SquircleShape(8.dp))
                 .then(if (cardBack && onReturnToCover != null) Modifier.combinedClickable(
                     onClickLabel = "返回封面", onClick = onReturnToCover,
                     onLongClickLabel = "跳转到这句歌词", onLongClick = line.timeMs?.let { time -> { onSeek(time) } }
@@ -305,7 +320,7 @@ internal fun LyricsPane(lyrics: Lyrics, positionMs: Long, hasTrack: Boolean, onS
                         if (onReturnToCover != null) onReturnToCover() else line.timeMs?.let(onSeek)
                     }, onDoubleTap = { line.timeMs?.let(onSeek) })
                 })
-                .padding(horizontal = Space.m, vertical = Space.xs)
+                .padding(horizontal = 10.dp, vertical = 5.dp)
                 .semantics {
                     selected = lyrics.synced && index == current
                     onClick(label = if (onReturnToCover != null) "返回封面" else "跳转到这句歌词") {

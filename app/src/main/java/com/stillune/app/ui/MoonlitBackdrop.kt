@@ -23,16 +23,16 @@ internal fun MoonlitBackdrop(artwork: Bitmap?, modifier: Modifier = Modifier) {
     val blurred by produceState<Bitmap?>(null, artwork) {
         value = artwork?.let { withContext(Dispatchers.Default) { blurArtwork(it) } }
     }
-    Box(modifier.background(AppBackground)) {
+    Box(modifier.background(Brush.linearGradient(listOf(Color(0xFFFDFBFA), GlassGround, Color(0xFFDCEAF5))))) {
         blurred?.let {
-            Image(it.asImageBitmap(), null, Modifier.matchParentSize().alpha(.18f), contentScale = ContentScale.Crop)
+            Image(it.asImageBitmap(), null, Modifier.matchParentSize().alpha(.30f), contentScale = ContentScale.Crop)
         }
         Canvas(Modifier.matchParentSize()) {
             val highlight = Offset(size.width * .12f, size.height * .13f)
             val coolEdge = Offset(size.width, size.height * .68f)
             drawRect(Brush.radialGradient(listOf(Color.White.copy(alpha = .67f), Color.Transparent),
                 center = highlight, radius = size.height * .58f))
-            drawRect(Brush.radialGradient(listOf(SelectedSurface.copy(alpha = .48f), Color.Transparent),
+            drawRect(Brush.radialGradient(listOf(Color(0xFFD8EFFC).copy(alpha = .50f), Color.Transparent),
                 center = coolEdge, radius = size.height * .41f))
         }
     }

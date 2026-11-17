@@ -42,22 +42,22 @@ internal fun KnowledgeShelf(
         Box(Modifier.fillMaxSize()) {
             MoonlitBackdrop(null, Modifier.matchParentSize())
             Column(Modifier.safeDrawingPadding().widthIn(max = 720.dp).fillMaxWidth().align(Alignment.TopCenter)) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = Space.m), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "关闭知识书架", tint = InkMuted) }
                     Text("聆听知识", Modifier.weight(1f), color = InkAccent, fontSize = 18.sp)
                     IconButton(onClick = { importHelp = true }) { Icon(Icons.Rounded.FileDownload, "导入知识更新", tint = InkBlue) }
                 }
-                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(Space.page, Space.l, Space.page, Space.section),
-                    verticalArrangement = Arrangement.spacedBy(Space.l)) {
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp, 16.dp, 24.dp, 32.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     item {
                         Text("三分钟，听懂一点", color = InkAccent, fontSize = 27.sp, lineHeight = 38.sp)
                         Text(if (state.version == 0L) "内置内容 · ${state.articles.size} 篇"
                             else "知识包第 ${state.version} 版 · ${state.articles.size} 篇",
-                            Modifier.padding(top = Space.m), color = InkBlue, fontSize = 12.sp)
+                            Modifier.padding(top = 10.dp), color = InkBlue, fontSize = 12.sp)
                         if (state.ready && query.isBlank() && filter == "全部") {
                             val next = state.articles.firstOrNull { it.id !in state.read }
                             next?.let { article ->
-                                TextButton(onClick = { onRead(article.id) }, modifier = Modifier.padding(top = Space.s)) {
+                                TextButton(onClick = { onRead(article.id) }, modifier = Modifier.padding(top = 8.dp)) {
                                     Icon(Icons.Rounded.AutoStories, null, Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
                                     Text("读一篇未读 · ${article.title}", maxLines = 2)
@@ -72,7 +72,7 @@ internal fun KnowledgeShelf(
                             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) {
                                 Icon(Icons.Rounded.Close, "清除知识搜索")
                             } })
-                        Row(horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             listOf("全部", "未读", "收藏").forEach { name ->
                                 FilterChip(filter == name, { filter = name }, label = { Text(name) })
                             }
@@ -85,12 +85,12 @@ internal fun KnowledgeShelf(
                         TextButton(onClick = { query = ""; filter = "全部" }) { Text("查看全部知识") }
                     }
                     items(articles, key = { it.id }) { article ->
-                        Column(Modifier.fillMaxWidth().clickable { onRead(article.id) }.padding(vertical = Space.s)) {
+                        Column(Modifier.fillMaxWidth().clickable { onRead(article.id) }.padding(vertical = 8.dp)) {
                             Text(article.tags.joinToString(" · "), color = InkBlue, fontSize = 12.sp)
-                            Text(article.title, Modifier.padding(top = Space.s), color = InkAccent, fontSize = 19.sp, lineHeight = 29.sp)
+                            Text(article.title, Modifier.padding(top = 8.dp), color = InkAccent, fontSize = 19.sp, lineHeight = 29.sp)
                             Text("约 ${readingMinutes(article)} 分钟" + if (article.id in state.read) " · 已读" else "",
-                                Modifier.padding(top = Space.s), color = InkMuted, fontSize = 12.sp)
-                            HorizontalDivider(Modifier.padding(top = Space.xl), color = InkMuted.copy(alpha = .14f))
+                                Modifier.padding(top = 8.dp), color = InkMuted, fontSize = 12.sp)
+                            HorizontalDivider(Modifier.padding(top = 20.dp), color = InkMuted.copy(alpha = .14f))
                         }
                     }
                     item {
@@ -101,7 +101,7 @@ internal fun KnowledgeShelf(
                         }
                         Text("选择栖声提供的知识包，更新后即可离线阅读。", color = InkMuted, fontSize = 12.sp)
                         (importing.message ?: state.notice)?.let {
-                            Text(it, Modifier.padding(top = Space.m), color = InkBlue, fontSize = 13.sp)
+                            Text(it, Modifier.padding(top = 10.dp), color = InkBlue, fontSize = 13.sp)
                         }
                     }
                 }
@@ -110,7 +110,7 @@ internal fun KnowledgeShelf(
     }
     if (importHelp) AlertDialog(onDismissRequest = { importHelp = false },
         title = { Text("添加新的三分钟知识") },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(Space.m)) {
+        text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("内置文章可以直接阅读，不需要先导入。")
             Text("1. 将栖声提供的知识包 ZIP 保存到手机“下载”文件夹。\n2. 点击下方“选择 ZIP 文件”，找到并选中它。\n3. 等待校验完成，成功后显示新版内容与篇数。")
             Text("保留 ZIP 原样。PDF 教材、APK 安装包都不能在这里导入。更新失败时，已有知识会保留。", color = InkMuted)
@@ -133,7 +133,7 @@ internal fun KnowledgeReader(
         Box(Modifier.fillMaxSize()) {
             MoonlitBackdrop(null, Modifier.matchParentSize())
             Column(Modifier.safeDrawingPadding().widthIn(max = 720.dp).fillMaxWidth().align(Alignment.TopCenter)) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = Space.m), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "关闭知识阅读", tint = InkMuted) }
                     Text("三分钟，听懂一点", Modifier.weight(1f), color = InkMuted, fontSize = 14.sp)
                     IconButton(onClick = { largeText = !largeText; preferences.edit().putBoolean("large-text", largeText).apply() }) {
@@ -145,12 +145,12 @@ internal fun KnowledgeReader(
                     }
                 }
                 LazyColumn(Modifier.fillMaxSize().widthIn(max = 640.dp).align(Alignment.CenterHorizontally),
-                    state = list, contentPadding = PaddingValues(Space.page, Space.xl, Space.page, 40.dp),
-                    verticalArrangement = Arrangement.spacedBy(Space.page)) {
+                    state = list, contentPadding = PaddingValues(24.dp, 20.dp, 24.dp, 40.dp),
+                    verticalArrangement = Arrangement.spacedBy(22.dp)) {
                     item {
                         Text(article.tags.joinToString(" · "), color = InkBlue, fontSize = 12.sp)
-                        Text(article.title, Modifier.padding(top = Space.m), color = InkAccent, fontSize = 27.sp, lineHeight = 38.sp)
-                        Text("约 ${readingMinutes(article)} 分钟 · 静默阅读", Modifier.padding(top = Space.m), color = InkMuted, fontSize = 12.sp)
+                        Text(article.title, Modifier.padding(top = 12.dp), color = InkAccent, fontSize = 27.sp, lineHeight = 38.sp)
+                        Text("约 ${readingMinutes(article)} 分钟 · 静默阅读", Modifier.padding(top = 12.dp), color = InkMuted, fontSize = 12.sp)
                     }
                     items(article.paragraphs) { paragraph ->
                         Text(paragraph, color = MaterialTheme.colorScheme.onBackground, fontSize = if (largeText) 21.sp else 17.sp,
@@ -158,16 +158,16 @@ internal fun KnowledgeReader(
                     }
                     item {
                         HorizontalDivider(color = InkMuted.copy(alpha = .18f))
-                        Text(article.takeaway, Modifier.padding(top = Space.xl), color = InkAccent,
+                        Text(article.takeaway, Modifier.padding(top = 20.dp), color = InkAccent,
                             fontSize = 18.sp, lineHeight = 29.sp, fontWeight = FontWeight.Medium)
                     }
                     item {
                         Text("知识参考", color = InkMuted, fontSize = 12.sp)
                         article.citations.forEach {
                             Text("《${it.title}》 · ${it.pages}",
-                                Modifier.padding(top = Space.s), color = InkMuted, fontSize = 12.sp, lineHeight = 20.sp)
+                                Modifier.padding(top = 8.dp), color = InkMuted, fontSize = 12.sp, lineHeight = 20.sp)
                         }
-                        Text("依据基础概念独立编写", Modifier.padding(top = Space.m), color = InkMuted, fontSize = 12.sp)
+                        Text("依据基础概念独立编写", Modifier.padding(top = 12.dp), color = InkMuted, fontSize = 12.sp)
                     }
                     item { TextButton(onClick = onFinished) { Text("读完了，歇一会儿") } }
                 }

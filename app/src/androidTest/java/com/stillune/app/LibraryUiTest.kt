@@ -30,13 +30,13 @@ class LibraryUiTest {
         compose.onNodeWithContentDescription("导入音乐").performClick()
         // Modal sheets have a platform window transition in addition to Compose animation time.
         compose.waitUntil(5000) {
-            try { compose.onNodeWithText("扫描本机").assertIsDisplayed(); true } catch (_: AssertionError) { false }
+            try { compose.onNodeWithText("扫描手机音乐").assertIsDisplayed(); true } catch (_: AssertionError) { false }
         }
-        compose.onNodeWithText("扫描本机").assertIsDisplayed()
+        compose.onNodeWithText("扫描手机音乐").assertIsDisplayed()
         compose.onNodeWithText("选择音乐文件夹").assertIsDisplayed()
-        compose.onNodeWithText("选择音频文件").assertIsDisplayed()
+        compose.onNodeWithText("导入音频文件").assertIsDisplayed()
         compose.onNodeWithContentDescription("关闭导入").performClick()
-        compose.onNodeWithContentDescription("播放页").performClick()
+        compose.onNodeWithContentDescription("此刻").performClick()
         compose.onNodeWithContentDescription("播放队列").assertExists()
         compose.onNodeWithContentDescription("播放进度").assertExists()
         compose.onNodeWithText("音频分析").performClick()
