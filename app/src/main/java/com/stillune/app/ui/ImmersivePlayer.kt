@@ -175,9 +175,9 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                     scaleY = scaleX
                     cameraDistance = 24 * density
                     shadowElevation = 16.dp.toPx()
-                    shape = SquircleShape(12.dp)
+                    shape = Corners.Control
                     clip = true
-                }.background(GlassSurfaceColor)) {
+                }.background(AppSurface)) {
                 if (artwork != null) Image(artwork.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 else Image(painterResource(R.drawable.stillune_foreground), null,
                     Modifier.fillMaxSize().graphicsLayer(scaleX = 1.6f, scaleY = 1.6f))
@@ -189,7 +189,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         AnimatedVisibility(controls, Modifier.align(Alignment.BottomCenter), enter = fadeIn(), exit = fadeOut()) {
             Column(Modifier.fillMaxWidth().heightIn(max = controlMaxHeight).safeDrawingPadding().padding(20.dp)
-                .clip(SquircleShape(20.dp)).background(GlassGround.copy(alpha = .94f))
+                .clip(Corners.Panel).background(AppBackground.copy(alpha = .94f))
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -223,8 +223,8 @@ private fun ImmersionCanvas(style: ImmersionStyle, frame: State<SceneFrame>, dyn
     val path = remember { Path() }
     val points = remember { FloatArray(48 * 2) }
     val colors = remember(palette) {
-        listOf(lerp(palette.primary, Color(0xFF247E9B), .42f),
-            lerp(palette.secondary, Color(0xFF765A9D), .43f), Color(0xFFBD7086))
+        listOf(lerp(palette.primary, InkBlue, .42f),
+            lerp(palette.secondary, InkAccent, .43f), BrandPink)
     }
     Canvas(modifier) {
         if (reduced) return@Canvas
@@ -311,7 +311,7 @@ private fun ImmersionControls(state: PlaybackState, onToggle: () -> Unit, onPrev
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { onPrevious(); onActivity() }, enabled = state.track != null) { Icon(Icons.Rounded.SkipPrevious, "上一首") }
         FilledIconButton(onClick = { onToggle(); onActivity() }, enabled = state.track != null,
-            modifier = Modifier.size(56.dp), colors = IconButtonDefaults.filledIconButtonColors(containerColor = InkAccent, contentColor = GlassGround)) {
+            modifier = Modifier.size(56.dp), colors = IconButtonDefaults.filledIconButtonColors(containerColor = InkAccent, contentColor = AppBackground)) {
             Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放")
         }
         IconButton(onClick = { onNext(); onActivity() }, enabled = state.track != null) { Icon(Icons.Rounded.SkipNext, "下一首") }

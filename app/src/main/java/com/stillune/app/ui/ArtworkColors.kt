@@ -8,7 +8,7 @@ data class ArtworkColors(val primary: Color, val secondary: Color)
 
 /** Bounded 32x32 histogram; ignores transparent, near-black and near-white pixels. */
 internal fun artworkColors(bitmap: Bitmap?): ArtworkColors {
-    val fallback = ArtworkColors(Color(0xFF78C8FF), Color(0xFFC0A8F5))
+    val fallback = ArtworkColors(InkBlue, BrandPink)
     if (bitmap == null || bitmap.isRecycled) return fallback
     return runCatching {
         val bins = IntArray(4096)

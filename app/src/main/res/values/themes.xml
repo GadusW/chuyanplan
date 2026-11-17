@@ -2,9 +2,9 @@
     <style name="Theme.Stillune" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:statusBarColor">#EDF4F8</item>
-        <item name="android:navigationBarColor">#EDF4F8</item>
-        <item name="android:windowBackground">#EDF4F8</item>
+        <item name="android:statusBarColor">#F3F3F5</item>
+        <item name="android:navigationBarColor">#F3F3F5</item>
+        <item name="android:windowBackground">#F3F3F5</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
 </resources>

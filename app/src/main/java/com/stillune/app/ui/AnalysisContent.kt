@@ -30,15 +30,15 @@ import kotlin.math.*
 internal fun AnalysisContent(cache: AnalysisCache?, state: PlaybackState, onRequest: () -> Unit, onSeek: (Long) -> Unit,
                              modifier: Modifier = Modifier) {
     var explain by remember { mutableStateOf(false) }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Space.s)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("声音画像", fontSize = 17.sp, color = InkAccent, fontWeight = FontWeight.Medium)
             }
             IconButton(onClick = { explain = true }) { Icon(Icons.Rounded.Info, "分析结果说明", tint = InkMuted, modifier = Modifier.size(20.dp)) }
         }
-        if (state.track == null || cache?.state != "ready") GlassSurface(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (state.track == null || cache?.state != "ready") ContentPanel(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(Space.xl), verticalArrangement = Arrangement.spacedBy(Space.m)) {
                 Text(when { state.track == null -> "先选一首音乐"; cache?.state == "failed" -> "暂时无法分析这首音乐"
                     cache?.state == "analyzing" -> "正在描绘声音的纹理"; else -> "等待一个安静的时刻" }, color = InkAccent, fontSize = 15.sp)
                 Text(when { state.track == null -> "歌曲入库后，会在闲时建立声音画像。"
@@ -53,17 +53,17 @@ internal fun AnalysisContent(cache: AnalysisCache?, state: PlaybackState, onRequ
         } else {
             SpectrumSeekbar(cache, state.positionMs, onSeek)
             AnalysisSection {
-                Column(Modifier.padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.padding(vertical = Space.l), verticalArrangement = Arrangement.spacedBy(Space.m)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("动态起伏", color = InkMuted, fontSize = 12.sp)
                         Text("DR 片段估算", color = InkMuted, fontSize = 11.sp)
                     }
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(cache.drEstimate?.let { "%.1f".format(Locale.ROOT, it) } ?: "—", color = InkAccent, fontSize = 30.sp)
-                        Text("  dB", color = InkMuted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 5.dp))
+                        Text("  dB", color = InkMuted, fontSize = 11.sp, modifier = Modifier.padding(bottom = Space.xs))
                         Spacer(Modifier.weight(1f))
                         Text(when { cache.drEstimate == null -> "片段静音或过短"; cache.drEstimate < 8 -> "声音较紧凑"
-                            cache.drEstimate < 12 -> "起伏较均衡"; else -> "动态较充足" }, color = InkBlue, fontSize = 13.sp, modifier = Modifier.padding(bottom = 5.dp))
+                            cache.drEstimate < 12 -> "起伏较均衡"; else -> "动态较充足" }, color = InkBlue, fontSize = 13.sp, modifier = Modifier.padding(bottom = Space.xs))
                     }
                     Text("取约 1/3 处 ${cache.sampleDurationMs / 1000.0} 秒 · 非音质评分", color = InkMuted, fontSize = 11.sp)
                 }
@@ -86,18 +86,18 @@ internal fun SpectrumSeekbar(cache: AnalysisCache, positionMs: Long, onSeek: (Lo
         val colors = IntArray(AudioAccumulator.COLUMNS * AudioAccumulator.BANDS)
         for (x in 0 until AudioAccumulator.COLUMNS) for (band in 0 until AudioAccumulator.BANDS) {
             val value = (cache.spectrum.getOrElse(x*AudioAccumulator.BANDS+band) { 0 }.toInt() and 255)/255f
-            val color = lerp(Color(0xFFDCE8EE), lerp(InkBlue, InkAccent, value), value.pow(.7f))
+            val color = lerp(SubtleSurface, lerp(InkBlue, InkAccent, value), value.pow(.7f))
             colors[(AudioAccumulator.BANDS-1-band)*AudioAccumulator.COLUMNS+x] = color.toArgb()
         }
         Bitmap.createBitmap(colors, AudioAccumulator.COLUMNS, AudioAccumulator.BANDS, Bitmap.Config.ARGB_8888).asImageBitmap()
     }
     val fraction = (positionMs.toFloat()/cache.durationMs.coerceAtLeast(1)).coerceIn(0f, 1f)
-    GlassSurface(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    ContentPanel(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Space.m), verticalArrangement = Arrangement.spacedBy(Space.m)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("整曲频谱", color = InkAccent, fontSize = 13.sp)
             }
-            Box(Modifier.fillMaxWidth().height(88.dp).clip(SquircleShape(12.dp))
+            Box(Modifier.fillMaxWidth().height(88.dp).clip(Corners.Control)
                 .pointerInput(cache.durationMs) { detectTapGestures { onSeek((it.x/size.width).coerceIn(0f,1f).times(cache.durationMs).toLong()) } }
                 .semantics { contentDescription = "整曲频谱进度"; progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
                     setProgress { onSeek((it.coerceIn(0f,1f)*cache.durationMs).toLong()); true } }) {
@@ -123,9 +123,9 @@ private fun StereoField(cache: AnalysisCache) {
         buildList { while (data.remaining() >= 4) add(Offset(data.short/32767f, data.short/32767f)) }
     }
     AnalysisSection {
-        Column(Modifier.padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(vertical = Space.l), verticalArrangement = Arrangement.spacedBy(Space.m)) {
             Text("立体声声场", color = InkAccent, fontSize = 13.sp)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.l)) {
                 Canvas(Modifier.size(104.dp).semantics { contentDescription = "离线李萨如声场统计图" }) {
                     val center = Offset(size.width/2,size.height/2); val radius = size.minDimension*.46f
                     drawCircle(InkMuted.copy(alpha=.1f),radius,center,style=androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
@@ -133,7 +133,7 @@ private fun StereoField(cache: AnalysisCache) {
                     drawLine(InkMuted.copy(alpha=.15f), Offset(0f,center.y), Offset(size.width,center.y), 1f)
                     points.forEach { drawCircle(InkBlue.copy(alpha=.3f),1.4.dp.toPx(),Offset(center.x+it.x*radius,center.y-it.y*radius)) }
                 }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.s)) {
                     Text(when { cache.width == null -> "片段无有效信号"; cache.sourceChannels == 1 -> "单声道，声像居中"
                         cache.width < .25 -> "声像更集中"; cache.width < .65 -> "声像适度展开"; else -> "两侧分布较多" }, color = InkBlue, fontSize = 13.sp)
                     Text("展开程度  ${cache.width?.let { "${(it*100).roundToInt()}%" } ?: "—"}", color = InkMuted, fontSize = 11.sp)

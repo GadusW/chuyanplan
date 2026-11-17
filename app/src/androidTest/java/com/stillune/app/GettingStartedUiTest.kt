@@ -10,8 +10,8 @@ class GettingStartedUiTest {
 
     @Test fun guideLeadsToReadingSearchAndImportWithoutDeveloperSetup() {
         compose.onNodeWithContentDescription("使用指南").performScrollTo().performClick()
-        compose.onNodeWithText("从一首歌开始").assertIsDisplayed()
-        compose.onNodeWithText("先读一篇聆听知识").performScrollTo().performClick()
+        compose.onNodeWithText("使用指南").assertIsDisplayed()
+        compose.onNodeWithText("打开知识书架").performScrollTo().performClick()
         compose.waitUntil(5000) { compose.onAllNodesWithText("三分钟，听懂一点").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("搜索知识或主题").performScrollTo().performTextInput("找不到的主题")
         compose.onNodeWithText("查看全部知识").performScrollTo().performClick()

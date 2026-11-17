@@ -301,7 +301,7 @@ internal fun AlbumDeck(
                                 value = cardPhoto?.takeIf { it != coverPhoto }?.let { photos.load(it) }
                             }.value
                         }
-                        val cardShape = SquircleShape(12.dp)
+                        val cardShape = Corners.Control
                         val face = rememberGraphicsLayer()
                         Box(Modifier.size(side, stageHeight)
                             .zIndex(4f - abs(slot - focus))
@@ -330,7 +330,7 @@ internal fun AlbumDeck(
                                 }
                             }) {
                             Box(Modifier.size(side).shadow(9.dp, cardShape).clip(cardShape)
-                                .background(GlassSurfaceColor)
+                                .background(AppSurface)
                                 .then(if (showQueue) Modifier.drawWithContent {
                                     face.record { this@drawWithContent.drawContent() }
                                     drawLayer(face)
@@ -417,7 +417,7 @@ internal fun AlbumDeck(
 
 @Composable
 private fun MissingDeckCover(track: Track, description: String?) {
-    Column(Modifier.fillMaxSize().background(GlassSurfaceColor).padding(12.dp),
+    Column(Modifier.fillMaxSize().background(AppSurface).padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Image(painterResource(R.drawable.stillune_foreground), description,
             Modifier.fillMaxWidth(.68f).fillMaxHeight(.57f))
@@ -438,7 +438,7 @@ internal fun rememberTrackArtwork(
 @Composable
 internal fun AlbumArtwork(bitmap: Bitmap?, description: String?, modifier: Modifier = Modifier) {
     if (bitmap != null) Image(bitmap.asImageBitmap(), description, modifier, contentScale = ContentScale.Crop)
-    else Box(modifier.background(Brush.linearGradient(listOf(GlassSurfaceColor, GlassGround))), contentAlignment = Alignment.Center) {
+    else Box(modifier.background(Brush.linearGradient(listOf(AppSurface, AppBackground))), contentAlignment = Alignment.Center) {
         Image(painterResource(R.drawable.stillune_foreground), description, Modifier.fillMaxSize())
     }
 }
@@ -446,7 +446,7 @@ internal fun AlbumArtwork(bitmap: Bitmap?, description: String?, modifier: Modif
 @Composable
 private fun AlbumLyricsBack(lyrics: Lyrics, state: PlaybackState, compact: Boolean, onClose: () -> Unit,
                             onSeek: (Long) -> Unit, onImport: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White, Color(0xFFDDECF5))))
+    Column(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color.White, SelectedSurface)))
         .clickable(onClickLabel = "返回封面", onClick = onClose)
         .padding(if (compact) 6.dp else 14.dp)) {
         Column(Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp, bottom = 4.dp)) {

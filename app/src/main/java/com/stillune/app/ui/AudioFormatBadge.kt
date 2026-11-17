@@ -36,7 +36,7 @@ internal fun AudioFormatBadge(format: String, modifier: Modifier = Modifier, sho
         else -> Icons.Rounded.AudioFile
     }
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Box(Modifier.size(if (showLabel) 22.dp else 34.dp).clip(SquircleShape(7.dp))
+        Box(Modifier.size(if (showLabel) 22.dp else 34.dp).clip(Corners.Inner)
             .background(InkBlue.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
             Icon(icon, null, Modifier.size(if (showLabel) 14.dp else 20.dp), tint = InkBlue)
         }
