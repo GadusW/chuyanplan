@@ -1,7 +1,7 @@
 # 栖声 · Stillune
 
 <p align="center">
-  <img src="assets/branding/stillune-icon.png" width="240" alt="栖声 · Stillune 新图标：纯靛蓝背景，香槟金、淡紫至冰蓝的三道液态玻璃声波与中心圆环。">
+  <img src="assets/branding/stillune-icon.png" width="240" alt="栖声 · Stillune 图标：深蓝双弧、内嵌白色刻纹和粉色圆心。">
 </p>
 
 <p align="center">让声音停泊，让热爱长久。</p>
@@ -10,19 +10,24 @@
 
 栖声 · Stillune 是一个面向 **Android** 的本地音乐播放器项目，致力于将高品质播放、声音分析、从容的聆听体验与听力关怀融为一体。让珍藏的音乐长久相伴，也让双耳适时休憩。
 
-目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.23.5）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
+目前已建立 **Kotlin + Jetpack Compose 原生安卓原型（0.23.6）**，支持五维本地音乐库、全屏／歌词、后台播放、离线声音画像、可选实时分析、体感沉浸、历史恢复及护耳起步功能。最低 Android 8.0（API 26），compileSdk / targetSdk 为 36。护耳首版提供收听记录与行为提醒，尚不提供经过声学校准的入耳分贝或声学剂量。
 
 ## 下载安装
 
 开发者知识制作入口见 [零基础使用说明](docs/knowledge-workflow/使用说明.md)。可在电脑上选择文件导入、查看原件与整理笔记、用表单改稿、跨 agent 制作、审核并下载签名知识包。支持检测本机模型和后台生成任务。手机版从 0.13.0 起支持在知识书架导入签名知识包。
 
-当前提供 **0.23.5 开发预览版（调试签名）**：
+当前提供 **0.23.6 开发预览版（调试签名）**：
 
-- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.23.5/Stillune-0.23.5-arm64-debug.apk)：常见 64 位安卓手机优先选择。
-- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.23.5/Stillune-0.23.5-universal-debug.apk)：包含多种 CPU 架构，体积更大。
-- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.23.5)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
+- [ARM64 手机安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.23.6/Stillune-0.23.6-arm64-debug.apk)：常见 64 位安卓手机优先选择。
+- [通用安装包](https://github.com/GadusW/chuyanplan/releases/download/v0.23.6/Stillune-0.23.6-universal-debug.apk)：包含多种 CPU 架构，体积更大。
+- [版本说明与 SHA256 校验文件](https://github.com/GadusW/chuyanplan/releases/tag/v0.23.6)：页面底部 **Assets** 展开后可下载；`.sha256` 不是安装包。
 
 最低 Android 8.0。后续推送会同步对应版本的安装包至 [GitHub Releases](https://github.com/GadusW/chuyanplan/releases)。
+
+## 0.23.6 更新 · 扁平双弧图标
+
+- 深蓝双弧、白色唱片刻纹和泡泡糖粉圆心组成新的图标。桌面、主题、通知、默认封面与商店素材由同一 SVG 导出。
+- [构建与安装包验证](docs/validation/android-0.23.6.json)。
 
 ## 0.23.5 更新 · 修正照片翻页方向
 
@@ -264,11 +269,9 @@
 
 ## 图标设计
 
-0.17.0 正式图标采用纯靛蓝背景，香槟金经淡紫向冰蓝过渡。三道独立嵌套的液态玻璃弧线围绕圆环舒展，以清楚的间隔、透光和细薄折射边保留声波与唱片的识别。图案按视觉重量居中，配合界面的明亮玻璃表面。
+0.23.6 采用扁平双弧矢量图标。深蓝圆头双弧借鉴黑胶刻纹的环绕结构，白色短弧嵌入外弧，泡泡糖粉圆心提供点缀。桌面外形由 Android 启动器遮罩决定。
 
-正式品牌展示版采用四角对称的圆角正方形，外围透明，让轮廓与月光般的轻盈质感相呼应。它用于 README、图册等展示，不能直接代替 Android 自适应启动图标。
-
-图标文件：[圆角正式版](assets/branding/stillune-icon.png) · [未裁角方形源图](assets/branding/stillune-icon-source-square.png)。方形源图用于后续平台自适应图标制作。
+[SVG 矢量母版](assets/branding/stillune-icon.svg) · [圆角展示版](assets/branding/stillune-icon.png) · [未裁角方形图](assets/branding/stillune-icon-source-square.png) · [品牌来源与设计记录](assets/branding/README.md)
 
 ## Android 图标资源
 

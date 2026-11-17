@@ -1,2 +1,8 @@
-<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-    android:src="@drawable/stillune_foreground" android:gravity="fill" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:translateX="18" android:translateY="18" android:scaleX="0.0703125" android:scaleY="0.0703125">
+        <path android:fillColor="#122B62" android:fillType="nonZero" android:pathData="M540.880,171.799 A328,328 0 1 0 844.203,533.285 A48.000,48.000 0 0 0 748.729,523.251 A232,232 0 1 1 534.184,267.565 A48.000,48.000 0 0 0 540.880,171.799 Z" />
+        <path android:fillColor="#122B62" android:fillType="nonZero" android:pathData="M518.000,302.500 A196.5,196.5 0 1 0 709.464,543.203 A25.500,25.500 0 0 0 659.771,531.730 A145.5,145.5 0 1 1 518.000,353.500 A25.500,25.500 0 0 0 518.000,302.500 Z" />
+        <path android:fillColor="#FFFFFF" android:fillType="nonZero" android:pathData="M222.130,530.097 A297.5,297.5 0 0 0 604.981,783.501 A17.500,17.500 0 0 0 594.748,750.030 A262.5,262.5 0 0 1 256.938,526.439 A17.500,17.500 0 0 0 222.130,530.097 Z" />
+        <path android:fillColor="#F779B4" android:fillType="nonZero" android:pathData="M569,499 A51,51 0 1 0 467,499 A51,51 0 1 0 569,499 Z" />
+    </group>
+</vector>

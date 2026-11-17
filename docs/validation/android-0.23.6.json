@@ -1,0 +1,38 @@
+{
+  "version": "0.23.6",
+  "versionCode": 31,
+  "unitTests": 34,
+  "originalSigningCertificatePreserved": true,
+  "iconExport": "assets/android/export-report.json",
+  "artifacts": [
+    {
+      "name": "Stillune-0.23.6-arm64-debug.apk",
+      "bytes": 74683192,
+      "sha256": "fec65d96bf1809bd7921ade85126d63ffe417797964f85fd2577883d07fd3972",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.23.6-universal-debug.apk",
+      "bytes": 229590831,
+      "sha256": "7cc0581d672051d9293b15753492aaf08f167008327b17a874df7734fcf9680a",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "identicalDexAcrossAbis": true,
+  "device": "Android API 36 x86_64 emulator",
+  "deviceSmokeTest": {
+    "updatedFromVersion": "0.23.5",
+    "upgradeInstall": "passed",
+    "coldLaunch": "passed",
+    "launcherIcon": "verified in Pixel Launcher's circular app drawer"
+  }
+}

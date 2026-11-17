@@ -1,18 +1,15 @@
-# 图标来源与 0.18.0 校准
+# Stillune 品牌图标
 
-开发者经过本次聊天多轮审核，明确指示“把这个作为新的应用图标”。采用最后一版提亮后的液态玻璃声波图；不是此前偏暗版本。
+## 0.23.6 扁平双弧定稿
 
-- `stillune-icon-source-square.png`：确认图案经 0.18.0 位置与比例校准后的方形图，与桌面资源共用同一前景。图案源自 OpenAI 内置 imagegen，缩放与平移不重绘曲线。
-- `stillune-foreground-source.png`：同一图用内置 imagegen 去除背景后的透明适配稿。
-- `stillune-icon.png`：由现有导出工具从方形确认稿导出的圆角品牌展示图。
-- Android 全套资源、单色图与商店图由 `tools/export_android_icons.py` 导出；透明前景保留源画布位置，只清除 alpha ≤2 的编码尘点并按安全圆等比适配。
+开发者确认微调稿后授权矢量定稿并应用。以 ImageGen 双弧预览为构图参考，用同心圆弧与半圆端帽重建 SVG。外弧与内弧的中心线半径为 280 和 171，宽度为 96 和 51，单位为 1024 画布坐标。两组端点错开，白色内嵌刻纹沿外弧，泡泡糖粉圆点与双弧共用圆心。色值与来源见 [provenance.json](provenance.json)。
 
-最终确认稿的提示要点：保留三道独立嵌套弧线和圆环、光学居中、纯色 `#263451` 背景；提亮香槟金上部受光与冰蓝下部透光，加强液态折射，避免厚白包边和乳白塑料感。透明适配仅移除背景与负空间，不改变主体。
+- [stillune-icon.svg](stillune-icon.svg) 为矢量母版。
+- `stillune-icon-source-square.png` 和 `stillune-icon.png` 为方形和圆角导出稿。
+- `tools/export_android_icons.py` 生成 Android 图标、商店图、通知符号和静态裁切预览。
+- 公开检索发现 Pocket Casts 也是双层开口弧形。两者在端点、开口、粗细层次、刻纹与中心元素上有区别，尚未进行目标市场的完整在先权利检索。[Pocket Casts 官方图标](https://apps.apple.com/us/app/pocket-casts-podcast-player/id414834813)
+- 定稿参考少量形状、清晰边缘、小尺寸可辨与光学居中原则。[Apple App icons](https://developer.apple.com/design/human-interface-guidelines/app-icons) · [IBM App icons](https://www.ibm.com/design/language/iconography/app-icons/design/)
 
-原始参考为开发者提供的玻璃图标截图，仅作材质参考，不打包或发布参考截图。
+## 历史设计
 
-0.18.0 根据开发者手机上的圆形图标照片调整：拟合半径从 325 px 改为 300 px（主体缩小约 7.7%），在 1080 px 图层上右移 10 px、下移 16 px。方形品牌图、商店图、旧版五档密度和圆形回退全部从自适应图相同的 720 px 可见视口导出，避免不同入口的大小与位置不一致。单色图、通知符号及应用内默认封面同步校准。
-
-## 0.21.0 明亮玻璃底
-
-背景用雾白至冰蓝的环境光、斜向高光与声波软投影模拟玻璃片。Android 按设备遮罩裁切；前景和主题单色图保持原尺寸及透明度。所有彩色出口共用同一光学底层。
+0.17.0–0.23.5 的液态玻璃稿及原始位图可通过相应 Git 历史查阅。0.18.0 根据手机圆形图标照片校准前景位置，0.21.0 换成雾白至冰蓝背景。旧版生成和校准记录保存在 `provenance.json` 的历史字段。

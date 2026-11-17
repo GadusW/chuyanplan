@@ -1,21 +1,16 @@
 {
+  "source": "assets/branding/stillune-icon.svg",
   "layer_px": 1080,
   "layer_dp": 108,
+  "visible_viewport_dp": 72,
   "safe_circle_dp": 66,
   "alpha_bbox": [
-    293,
-    259,
-    830,
-    806
+    313,
+    300,
+    774,
+    762
   ],
-  "visible_radius_px": 307.6572768520192,
-  "fit_radius_px": 300,
-  "optical_offset_px": [
-    10,
-    16
-  ],
-  "play_bytes": 173025,
-  "xml_files": 8,
-  "android_build_verified": true,
-  "verified_version": "0.21.0"
+  "visible_radius_px": 240.38,
+  "play_bytes": 43799,
+  "xml_files": 8
 }
