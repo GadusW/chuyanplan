@@ -29,7 +29,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -86,9 +85,9 @@ internal enum class GlassMaterial(
     val fallback: Color,
     val shadowColor: Int,
 ) {
-    Surface(10.dp, .56f, .025f, .70f, Color(0x12FFFFFF), Color(0xCEF5FAFE), 0x245A6980),
-    Floating(16.dp, 1.05f, .055f, .81f, Color(0x57F6FBFF), Color(0xEDF5FAFE), 0x38526780),
-    Accent(12.dp, .80f, .08f, .78f, Color(0xC8174971), Color(0xFF235477), 0x3D335E82),
+    Surface(14.dp, .41f, .025f, .70f, Color(0x22FFFFFF), Color(0xCEF5FAFE), 0x205A6980),
+    Floating(20.dp, .76f, .055f, .81f, Color(0x57F6FBFF), Color(0xEDF5FAFE), 0x30526780),
+    Accent(14.dp, .71f, .08f, .78f, Color(0xC8174971), Color(0xFF235477), 0x34335E82),
 }
 
 private val GlassPressEasing = CubicBezierEasing(.23f, 1f, .32f, 1f)
@@ -120,12 +119,12 @@ internal fun Modifier.glassPanel(
             color = android.graphics.Color.TRANSPARENT
             setShadowLayer(7.dp.toPx(), 0f, shadowOffset, material.shadowColor)
         }
-        val fallbackRim = Brush.linearGradient(
-            0f to Color.White.copy(alpha = .95f),
-            .42f to Color.White.copy(alpha = .10f),
-            .70f to InkBlue.copy(alpha = .14f),
-            1f to Color.White.copy(alpha = .72f),
-            end = Offset(size.width * .55f, size.height),
+        val fallbackColor = material.fallback
+        val fallbackFace = Brush.verticalGradient(
+            0f to lerp(fallbackColor, Color.White.copy(alpha = fallbackColor.alpha), .12f),
+            .48f to fallbackColor,
+            1f to lerp(fallbackColor, InkBlue.copy(alpha = fallbackColor.alpha), .09f),
+            endY = size.height,
         )
         val curve = material.curve.toPx().coerceAtMost(size.minDimension * .32f)
         val blur = if (foregroundBackdrop != null) 3.5.dp.toPx() else 0f
@@ -143,8 +142,6 @@ internal fun Modifier.glassPanel(
             scale(scaleX, scaleY) {
                 if (Build.VERSION.SDK_INT >= 28) {
                     drawIntoCanvas { it.nativeCanvas.drawPath(nativeOutline, shadow) }
-                } else {
-                    translate(top = shadowOffset) { drawPath(face, InkBlue.copy(alpha = .10f)) }
                 }
                 clipPath(face) {
                     if (Build.VERSION.SDK_INT >= 33 && lens != null && optics != null &&
@@ -163,8 +160,7 @@ internal fun Modifier.glassPanel(
                         }
                         translate(-margin.toFloat(), -margin.toFloat()) { drawLayer(lens) }
                     } else {
-                        drawRect(material.fallback)
-                        drawPath(face, fallbackRim, style = Stroke(1.5.dp.toPx()))
+                        drawRect(fallbackFace)
                     }
                 }
                 this@onDrawWithContent.drawContent()
@@ -242,27 +238,26 @@ private const val GLASS_REFRACTION = """
         direction *= sign(local);
 
         // Magnify the center slightly and draw surrounding pixels into the curved face.
-        float slope = bend * (0.60 + 0.40 * bend) * (1.0 - pressure * 0.21);
+        float slope = bend * 0.86 * (1.0 - pressure * 0.21);
         float2 transmission = local * (1.0 - magnification) + direction * (curve * displacement * slope);
         // Map samples back to screen space while the face and its controls contract.
         float2 samplePoint = margin + center + transmission * squash;
         half3 transmitted = sceneAt(samplePoint);
         if (bend > 0.12) {
-            float2 split = direction * squash * (curve * 0.028 * bend * slope);
+            float dispersion = smoothstep(0.12, 0.85, bend);
+            float2 split = direction * squash * (curve * 0.018 * dispersion * slope);
             transmitted.r = sceneAt(samplePoint + split).r;
             transmitted.b = sceneAt(samplePoint - split).b;
         }
         half3 glass = mix(transmitted, tint.rgb, tint.a);
 
-        // Use the same curved normal for transmission and for the light reflected off the face.
+        // Shade the entire continuous face with the same normal that bends the backdrop.
         float3 normal = normalize(float3(direction * slope / squash, sqrt(max(1.0 - slope * slope, 0.0))));
-        float key = pow(max(dot(normal, float3(-0.40, -0.85, 0.34)), 0.0), 12.0);
-        float bounce = pow(max(dot(normal, float3(0.52, 0.78, 0.34)), 0.0), 14.0);
-        float rim = 1.0 - smoothstep(0.0, curve * 0.11, max(depth, 0.0));
-        float facing = dot(direction, float2(-0.62, -0.78));
-        float shade = rim * (0.11 + 0.20 * (1.0 - abs(facing))) + bend * (1.0 - bend) * 0.16;
-        glass *= half(1.0 - shade);
-        float light = reflection * (0.77 * key + 0.53 * bounce + rim * (0.22 + 0.18 * facing));
+        float key = pow(max(dot(normal, float3(-0.34, -0.69, 0.64)), 0.0), 5.0);
+        float bounce = pow(max(dot(normal, float3(0.45, 0.72, 0.53)), 0.0), 6.0);
+        float facing = dot(normal.xy, float2(-0.45, -0.89));
+        glass *= half(1.0 - max(-facing, 0.0) * 0.060);
+        float light = reflection * (0.29 * key + 0.14 * bounce);
         return half4(mix(glass, half3(0.99, 0.995, 1.0), half(light)), 1.0);
     }
 """
