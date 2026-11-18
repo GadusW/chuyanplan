@@ -1,8 +1,9 @@
 package com.stillune.app.ui
 
-import android.content.Intent
 import android.app.Activity
 import android.content.ContextWrapper
+import android.content.Intent
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
@@ -157,6 +158,9 @@ fun StilluneApp(
                 (fadeIn(tween(1)) togetherWith exit).using(null).apply { targetContentZIndex = 1f }
             }, label = "library-player") { page ->
                 val destination = page.destination
+                val listBackdrop = if (destination == 0 && playback.track != null && Build.VERSION.SDK_INT >= 33) {
+                    rememberGlassBackdrop()
+                } else null
                 val reveal by transition.animateFloat(transitionSpec = { tween(340, easing = FastOutSlowInEasing) }, label = "circular-reveal") {
                     if (it == EnterExitState.PreEnter && page.origin != null) 0f else 1f
                 }
@@ -175,7 +179,9 @@ fun StilluneApp(
                     bottomInset = if (fullScreen) 0.dp else padding.calculateBottomPadding())
                 else {
                     val bottom = padding.calculateBottomPadding() + if (playback.track != null) miniPlayerInset else 0.dp
-                    LazyColumn(state = libraryScroll, modifier = Modifier.fillMaxSize().progressiveLibraryBlur((bottom - if (playback.track != null) 6.dp else 10.dp).coerceAtLeast(0.dp)),
+                    val libraryViewport = Modifier.fillMaxSize()
+                    LazyColumn(state = libraryScroll, modifier = (listBackdrop?.capture(libraryViewport) ?: libraryViewport)
+                        .progressiveLibraryBlur((bottom - if (playback.track != null) 6.dp else 10.dp).coerceAtLeast(0.dp)),
                         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp, bottom = bottom + 20.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
@@ -266,7 +272,7 @@ fun StilluneApp(
                 }
                 if (destination != 1 && playback.track != null) {
                     Box(Modifier.align(Alignment.BottomCenter).padding(bottom = padding.calculateBottomPadding())) {
-                        MiniPlayer(playback, artwork, miniPlayerInset, onOpen = { playerOpen = true; healthOpen = false },
+                        MiniPlayer(playback, artwork, miniPlayerInset, listBackdrop, onOpen = { playerOpen = true; healthOpen = false },
                             onToggle = model::toggle, onNext = model::next)
                     }
                 }
@@ -435,8 +441,18 @@ private fun TrackRow(track: Track, selected: Boolean, playing: Boolean, loadArtw
 }
 
 @Composable
-private fun MiniPlayer(state: PlaybackState, artwork: android.graphics.Bitmap?, miniPlayerInset: androidx.compose.ui.unit.Dp, onOpen: () -> Unit, onToggle: () -> Unit, onNext: () -> Unit) {
-    Surface(onClick = onOpen, modifier = Modifier.height(miniPlayerInset).padding(horizontal = 16.dp, vertical = 6.dp).glassPanel(),
+private fun MiniPlayer(
+    state: PlaybackState, artwork: android.graphics.Bitmap?, miniPlayerInset: androidx.compose.ui.unit.Dp,
+    listBackdrop: GlassBackdrop?, onOpen: () -> Unit, onToggle: () -> Unit, onNext: () -> Unit,
+) {
+    val panelInteractions = remember { MutableInteractionSource() }
+    val playInteractions = remember { MutableInteractionSource() }
+    val panelPressed by panelInteractions.collectIsPressedAsState()
+    val playPressed by playInteractions.collectIsPressedAsState()
+    val pressure = animateGlassPressure(panelPressed || playPressed)
+    Surface(onClick = onOpen, modifier = Modifier.height(miniPlayerInset).padding(horizontal = 16.dp, vertical = 6.dp)
+        .glassPanel(material = GlassMaterial.Floating, foregroundBackdrop = listBackdrop, pressure = pressure),
+        interactionSource = panelInteractions,
         shape = SquircleShape(20.dp), color = Color.Transparent) {
         Column {
             Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -445,7 +461,7 @@ private fun MiniPlayer(state: PlaybackState, artwork: android.graphics.Bitmap?, 
                     Text(state.track?.title.orEmpty(), fontSize = 14.sp, lineHeight = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(state.track?.artist.orEmpty(), color = InkMuted, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                IconButton(onClick = onToggle) { Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放", tint = InkAccent) }
+                IconButton(onClick = onToggle, interactionSource = playInteractions) { Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放", tint = InkAccent) }
                 IconButton(onClick = onNext, enabled = state.nextIndex != null) { Icon(Icons.Rounded.SkipNext, "下一首", tint = InkMuted) }
             }
             LinearProgressIndicator(progress = { if (state.durationMs > 0) (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f },

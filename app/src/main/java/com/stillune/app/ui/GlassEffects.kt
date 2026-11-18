@@ -1,10 +1,21 @@
 package com.stillune.app.ui
 
+import android.animation.ValueAnimator
 import android.graphics.Paint as AndroidPaint
 import android.graphics.RuntimeShader
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.runtime.*
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
@@ -14,6 +25,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
@@ -31,176 +43,227 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlin.math.ceil
 import kotlin.math.hypot
 
-private class GlassBackdrop(val layer: GraphicsLayer) { var origin = Offset.Zero }
+internal class GlassBackdrop(val layer: GraphicsLayer) {
+    var origin by mutableStateOf(Offset.Zero)
+        private set
+
+    fun capture(modifier: Modifier): Modifier = modifier
+        .onGloballyPositioned { origin = it.positionInRoot() }
+        .drawWithContent {
+            layer.record { this@drawWithContent.drawContent() }
+            drawLayer(layer)
+        }
+}
+
+@Composable
+internal fun rememberGlassBackdrop(): GlassBackdrop {
+    val layer = rememberGraphicsLayer()
+    return remember(layer) { GlassBackdrop(layer) }
+}
 private val LocalGlassBackdrop = staticCompositionLocalOf<GlassBackdrop?> { null }
 
 /** Record only the environment, never controls or glass itself, so sampling cannot recurse. */
 @Composable
 internal fun GlassScene(artwork: android.graphics.Bitmap?, content: @Composable BoxScope.() -> Unit) {
-    val layer = rememberGraphicsLayer()
-    val backdrop = remember(layer) { GlassBackdrop(layer) }
+    val backdrop = rememberGlassBackdrop()
     CompositionLocalProvider(LocalGlassBackdrop provides backdrop) {
-        Box(Modifier.fillMaxSize().onGloballyPositioned { backdrop.origin = it.positionInRoot() }) {
-            MoonlitBackdrop(artwork, Modifier.matchParentSize().drawWithCache {
-                onDrawWithContent { layer.record { this@onDrawWithContent.drawContent() }; drawLayer(layer) }
-            })
+        Box(Modifier.fillMaxSize()) {
+            MoonlitBackdrop(artwork, backdrop.capture(Modifier.matchParentSize()))
             content()
         }
     }
 }
 
-private val IndigoGlass = Color(0xFF183CA3)
-private val SkyReflection = Color(0xFF7CEAFF)
-private val PearlReflection = Color(0xFFEFF8FF)
+internal enum class GlassMaterial(
+    val curve: Dp,
+    val displacement: Float,
+    val magnification: Float,
+    val reflection: Float,
+    val tint: Color,
+    val fallback: Color,
+    val shadowColor: Int,
+) {
+    Surface(10.dp, .56f, .025f, .70f, Color(0x12FFFFFF), Color(0xCEF5FAFE), 0x245A6980),
+    Floating(16.dp, 1.05f, .055f, .81f, Color(0x57F6FBFF), Color(0xEDF5FAFE), 0x38526780),
+    Accent(12.dp, .80f, .08f, .78f, Color(0xC8174971), Color(0xFF235477), 0x3D335E82),
+}
 
-/** Draw a curved, transmissive glass face behind ordinary Compose controls. */
-internal fun Modifier.glassPanel(radius: Dp = 20.dp, tinted: Boolean = false): Modifier = composed {
+private val GlassPressEasing = CubicBezierEasing(.23f, 1f, .32f, 1f)
+
+@Composable
+internal fun animateGlassPressure(pressed: Boolean): State<Float> = animateFloatAsState(
+    targetValue = if (pressed && ValueAnimator.areAnimatorsEnabled()) 1f else 0f,
+    animationSpec = tween(if (pressed) 100 else 150, easing = GlassPressEasing),
+    label = "glass-pressure",
+)
+
+/** The lens transforms its backing layers. Labels, icons and interaction feedback stay in Compose. */
+internal fun Modifier.glassPanel(
+    radius: Dp = 20.dp,
+    material: GlassMaterial = GlassMaterial.Surface,
+    foregroundBackdrop: GlassBackdrop? = null,
+    pressure: State<Float>? = null,
+): Modifier = composed {
     val backdrop = LocalGlassBackdrop.current
     val lens = if (Build.VERSION.SDK_INT >= 33 && backdrop != null) rememberGraphicsLayer() else null
     var origin by remember { mutableStateOf(Offset.Zero) }
     onGloballyPositioned { origin = it.positionInRoot() }.drawWithCache {
-        if (size.isEmpty()) return@drawWithCache onDrawBehind { }
+        if (size.isEmpty()) return@drawWithCache onDrawWithContent { drawContent() }
         val corner = (radius.toPx() * 1.35f).coerceAtMost(size.minDimension / 2f)
         val face = squirclePath(size, radius.toPx())
-        val edge = .7.dp.toPx().coerceAtMost(size.minDimension / 4f)
-        val innerFace = squirclePath(Size(size.width - edge * 2f, size.height - edge * 2f),
-            (radius.toPx() - edge).coerceAtLeast(0f)).apply { translate(Offset(edge, edge)) }
-        val faceColor = if (tinted) Brush.verticalGradient(
-            0f to Color(0xFF142970).copy(alpha = .93f),
-            .53f to IndigoGlass.copy(alpha = .90f),
-            1f to Color(0xFF04AAD7).copy(alpha = .80f),
-            endY = size.height,
-        ) else Brush.linearGradient(
-            0f to Color(0xFFEBEEFF).copy(alpha = .38f),
-            .42f to Color.White.copy(alpha = .12f),
-            .76f to PearlReflection.copy(alpha = .33f),
-            1f to Color(0xFFFFEEE3).copy(alpha = .39f),
-            end = Offset(size.width * .72f, size.height),
-        )
-        val innerLight = Brush.verticalGradient(
-            0f to Color(0xFF364876).copy(alpha = if (tinted) .48f else .13f),
-            .20f to Color.White.copy(alpha = if (tinted) .07f else .22f),
-            .58f to Color.Transparent,
-            .87f to Color.Transparent,
-            1f to (if (tinted) SkyReflection else PearlReflection).copy(alpha = .62f),
-            endY = size.height,
-        )
-        val specularRim = Brush.linearGradient(
-            0f to Color.White,
-            .24f to Color.White.copy(alpha = .64f),
-            .48f to Color(0xFF7A83A7).copy(alpha = if (tinted) .60f else .32f),
-            .74f to Color.White.copy(alpha = .13f),
-            1f to Color.White.copy(alpha = .91f),
-            end = Offset(size.width * .76f, size.height),
-        )
-        val shineX = minOf(6.dp.toPx(), size.width * .12f)
-        val shineY = 3.dp.toPx()
-        val shineHeight = minOf((if (tinted) 10.dp else 12.dp).toPx(), size.height * .24f)
-        val shineWidth = size.width * if (tinted) .72f else .63f
-        val gloss = Path().apply {
-            moveTo(shineX, shineY + shineHeight)
-            cubicTo(shineX, shineY + shineHeight * .57f, shineX + shineHeight * .8f, shineY,
-                shineX + shineHeight * 2f, shineY)
-            cubicTo(shineX + shineWidth * .40f, shineY, shineX + shineWidth * .85f, shineY,
-                shineX + shineWidth, shineY + shineHeight * .24f)
-            cubicTo(shineX + shineWidth * .88f, shineY + shineHeight * .62f,
-                shineX + shineWidth * .49f, shineY + shineHeight * .54f,
-                shineX + shineWidth * .24f, shineY + shineHeight * .58f)
-            cubicTo(shineX + shineWidth * .10f, shineY + shineHeight * .60f,
-                shineX + shineHeight * .58f, shineY + shineHeight * 1.14f,
-                shineX, shineY + shineHeight)
-            close()
-        }
-        val glossWhite = Brush.linearGradient(
-            0f to Color.White.copy(alpha = .98f),
-            .24f to Color.White.copy(alpha = .95f),
-            .58f to Color.White.copy(alpha = .51f),
-            1f to Color.Transparent,
-            start = Offset(shineX, shineY), end = Offset(shineX + shineWidth, shineY + shineHeight * 1.8f),
-        )
-        val broadReflection = Brush.radialGradient(
-            listOf(Color.White.copy(alpha = if (tinted) .29f else .46f), Color.Transparent),
-            center = Offset(shineX + shineWidth * .18f, -shineHeight * 1.9f),
-            radius = shineHeight * 6.2f,
-        )
+        val nativeOutline = face.asAndroidPath()
+        val shadowOffset = 2.dp.toPx()
         val shadow = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.TRANSPARENT
-            setShadowLayer((if (tinted) 9.dp else 11.dp).toPx(), 0f, 3.dp.toPx(),
-                if (tinted) 0x504360BC else 0x4A576785)
+            setShadowLayer(7.dp.toPx(), 0f, shadowOffset, material.shadowColor)
         }
-        val nativeOutline = face.asAndroidPath()
-        val bevelWidth = minOf(13.dp.toPx(), size.minDimension * .26f)
-        if (Build.VERSION.SDK_INT >= 33 && lens != null) {
-            lens.renderEffect = glassRefraction(size, corner, bevelWidth)
-        }
-        onDrawBehind {
-            if (Build.VERSION.SDK_INT >= 28) {
-                drawIntoCanvas { it.nativeCanvas.drawPath(nativeOutline, shadow) }
-            } else {
-                translate(top = 2.dp.toPx()) { drawPath(face, InkBlue.copy(alpha = .11f)) }
-            }
-            clipPath(face) {
-                backdrop?.let {
-                    val offset = it.origin - origin
-                    if (lens != null && drawContext.canvas.nativeCanvas.isHardwareAccelerated) {
-                        lens.record {
-                            drawRect(GlassGround)
-                            translate(offset.x, offset.y) { drawLayer(it.layer) }
+        val fallbackRim = Brush.linearGradient(
+            0f to Color.White.copy(alpha = .95f),
+            .42f to Color.White.copy(alpha = .10f),
+            .70f to InkBlue.copy(alpha = .14f),
+            1f to Color.White.copy(alpha = .72f),
+            end = Offset(size.width * .55f, size.height),
+        )
+        val curve = material.curve.toPx().coerceAtMost(size.minDimension * .32f)
+        val blur = if (foregroundBackdrop != null) 3.5.dp.toPx() else 0f
+        val margin = ceil(curve * (material.displacement + .03f) + blur * 2f + 2f).toInt()
+        val sampleSize = IntSize(ceil(size.width).toInt() + margin * 2, ceil(size.height).toInt() + margin * 2)
+        val sampleBounds = Size(sampleSize.width.toFloat(), sampleSize.height.toFloat())
+        val optics = if (Build.VERSION.SDK_INT >= 33 && lens != null) {
+            GlassRefraction(size, corner, curve, margin.toFloat(), blur, material)
+        } else null
+        var lastPressure = Float.NaN
+        onDrawWithContent {
+            val compression = pressure?.value ?: 0f
+            val scaleX = 1f - compression * .027f
+            val scaleY = 1f - compression * .050f
+            scale(scaleX, scaleY) {
+                if (Build.VERSION.SDK_INT >= 28) {
+                    drawIntoCanvas { it.nativeCanvas.drawPath(nativeOutline, shadow) }
+                } else {
+                    translate(top = shadowOffset) { drawPath(face, InkBlue.copy(alpha = .10f)) }
+                }
+                clipPath(face) {
+                    if (Build.VERSION.SDK_INT >= 33 && lens != null && optics != null &&
+                        drawContext.canvas.nativeCanvas.isHardwareAccelerated
+                    ) {
+                        if (lastPressure != compression) {
+                            lens.renderEffect = optics.effect(compression, scaleX, scaleY)
+                            lastPressure = compression
                         }
-                        drawLayer(lens)
+                        lens.record(size = sampleSize) {
+                            drawRect(GlassGround, size = sampleBounds)
+                            translate(margin.toFloat(), margin.toFloat()) {
+                                backdrop?.let { drawBackdrop(it, origin) }
+                                foregroundBackdrop?.let { drawBackdrop(it, origin) }
+                            }
+                        }
+                        translate(-margin.toFloat(), -margin.toFloat()) { drawLayer(lens) }
                     } else {
-                        scale(1.09f, 1.09f) {
-                            translate(offset.x, offset.y) { drawLayer(it.layer) }
-                        }
+                        drawRect(material.fallback)
+                        drawPath(face, fallbackRim, style = Stroke(1.5.dp.toPx()))
                     }
                 }
-                drawRect(faceColor, size = size)
-                drawRect(innerLight, size = size)
-                drawRect(broadReflection, size = size)
-                drawPath(face, Color(0xFF3D507C).copy(alpha = if (tinted) .72f else .38f), style = Stroke(1.4.dp.toPx()))
-                drawPath(innerFace, specularRim, style = Stroke(1.dp.toPx()))
-                drawPath(gloss, glossWhite)
+                this@onDrawWithContent.drawContent()
             }
         }
     }.clip(SquircleShape(radius))
 }
 
+private fun DrawScope.drawBackdrop(backdrop: GlassBackdrop, origin: Offset) {
+    val offset = backdrop.origin - origin
+    translate(offset.x, offset.y) { drawLayer(backdrop.layer) }
+}
+
 @RequiresApi(33)
-private fun glassRefraction(size: Size, corner: Float, bevelWidth: Float): RenderEffect {
-    val shader = RuntimeShader(GLASS_REFRACTION).apply {
+private class GlassRefraction(
+    size: Size, corner: Float, curve: Float, margin: Float, blur: Float, material: GlassMaterial,
+) {
+    private val shader = RuntimeShader(GLASS_REFRACTION).apply {
         setFloatUniform("panel", size.width, size.height)
         setFloatUniform("corner", corner)
-        setFloatUniform("bevelWidth", bevelWidth)
+        setFloatUniform("curve", curve)
+        setFloatUniform("margin", margin)
+        setFloatUniform("displacement", material.displacement)
+        setFloatUniform("magnification", material.magnification)
+        setFloatUniform("reflection", material.reflection)
+        setColorUniform("tint", material.tint.toArgb())
+        setColorUniform("ground", GlassGround.toArgb())
     }
-    return android.graphics.RenderEffect.createRuntimeShaderEffect(shader, "source").asComposeRenderEffect()
+    private val soften = if (blur > 0f) {
+        android.graphics.RenderEffect.createBlurEffect(blur, blur, android.graphics.Shader.TileMode.CLAMP)
+    } else null
+
+    fun effect(pressure: Float, scaleX: Float, scaleY: Float): RenderEffect {
+        shader.setFloatUniform("pressure", pressure)
+        shader.setFloatUniform("squash", scaleX, scaleY)
+        val lens = android.graphics.RenderEffect.createRuntimeShaderEffect(shader, "source")
+        return (soften?.let { android.graphics.RenderEffect.createChainEffect(lens, it) } ?: lens).asComposeRenderEffect()
+    }
 }
 
 private const val GLASS_REFRACTION = """
     uniform shader source;
     uniform float2 panel;
     uniform float corner;
-    uniform float bevelWidth;
+    uniform float curve;
+    uniform float margin;
+    uniform float displacement;
+    uniform float magnification;
+    uniform float reflection;
+    uniform float pressure;
+    uniform float2 squash;
+    layout(color) uniform half4 tint;
+    layout(color) uniform half4 ground;
+
+    half3 sceneAt(float2 point) {
+        half4 pixel = source.eval(point);
+        return pixel.rgb + (1.0 - pixel.a) * ground.rgb;
+    }
 
     half4 main(float2 point) {
-        float2 mid = panel * 0.5;
-        float2 local = point - mid;
-        float2 cornerOffset = abs(local) - (mid - corner);
-        float2 curve = max(cornerOffset, float2(0.0));
-        float depth = corner - pow(dot(curve * curve, curve), 1.0 / 3.0)
-            - min(max(cornerOffset.x, cornerOffset.y), 0.0);
-        float bevel = 1.0 - smoothstep(0.0, bevelWidth, depth);
-        float2 normal = min(cornerOffset.x, cornerOffset.y) > 0.0
-            ? normalize(curve * curve)
-            : (cornerOffset.x > cornerOffset.y ? float2(1, 0) : float2(0, 1));
-        normal *= sign(local);
-        float2 samplePoint = mid + local * 0.915 - normal * bevelWidth * 0.64 * bevel;
-        float2 split = normal * bevel * bevelWidth * 0.075;
-        half4 central = source.eval(samplePoint);
-        half4 refracted = half4(source.eval(samplePoint + split).r, central.g, source.eval(samplePoint - split).b, central.a);
-        float glint = smoothstep(0.51, 0.98, point.y / panel.y) * bevel * 0.24;
-        return mix(refracted, half4(0.74, 0.87, 0.99, 1.0), half(glint));
+        float2 center = panel * 0.5;
+        float2 local = point - margin - center;
+        if (abs(local.x) > center.x + 1.0 || abs(local.y) > center.y + 1.0) {
+            return half4(0.0);
+        }
+        float2 box = abs(local) - (center - corner);
+        float2 arc = max(box, float2(0.0));
+        // A superellipse closely follows the continuous Compose outline at the corners.
+        float depth = corner - pow(dot(arc * arc, arc), 1.0 / 3.0)
+            - min(max(box.x, box.y), 0.0);
+        float bend = 1.0 - smoothstep(0.0, curve, depth);
+        float2 direction = (arc.x > 0.0 || arc.y > 0.0)
+            ? normalize(arc * arc)
+            : (box.x > box.y ? float2(1.0, 0.0) : float2(0.0, 1.0));
+        direction *= sign(local);
+
+        // Magnify the center slightly and draw surrounding pixels into the curved face.
+        float slope = bend * (0.60 + 0.40 * bend) * (1.0 - pressure * 0.21);
+        float2 transmission = local * (1.0 - magnification) + direction * (curve * displacement * slope);
+        // Map samples back to screen space while the face and its controls contract.
+        float2 samplePoint = margin + center + transmission * squash;
+        half3 transmitted = sceneAt(samplePoint);
+        if (bend > 0.12) {
+            float2 split = direction * squash * (curve * 0.028 * bend * slope);
+            transmitted.r = sceneAt(samplePoint + split).r;
+            transmitted.b = sceneAt(samplePoint - split).b;
+        }
+        half3 glass = mix(transmitted, tint.rgb, tint.a);
+
+        // Use the same curved normal for transmission and for the light reflected off the face.
+        float3 normal = normalize(float3(direction * slope / squash, sqrt(max(1.0 - slope * slope, 0.0))));
+        float key = pow(max(dot(normal, float3(-0.40, -0.85, 0.34)), 0.0), 12.0);
+        float bounce = pow(max(dot(normal, float3(0.52, 0.78, 0.34)), 0.0), 14.0);
+        float rim = 1.0 - smoothstep(0.0, curve * 0.11, max(depth, 0.0));
+        float facing = dot(direction, float2(-0.62, -0.78));
+        float shade = rim * (0.11 + 0.20 * (1.0 - abs(facing))) + bend * (1.0 - bend) * 0.16;
+        glass *= half(1.0 - shade);
+        float light = reflection * (0.77 * key + 0.53 * bounce + rim * (0.22 + 0.18 * facing));
+        return half4(mix(glass, half3(0.99, 0.995, 1.0), half(light)), 1.0);
     }
 """
 

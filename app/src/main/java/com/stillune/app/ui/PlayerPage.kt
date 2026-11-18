@@ -6,6 +6,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -205,7 +207,7 @@ private fun TrackHeading(state: PlaybackState) {
 private fun TransportPanel(state: PlaybackState, model: LibraryViewModel, compact: Boolean, lyricsVisible: Boolean,
                            onImport: () -> Unit, onImportLyrics: () -> Unit, onQueue: () -> Unit, onOutput: () -> Unit,
                            onStep: (Int) -> Unit, dense: Boolean = false) {
-    Column(Modifier.fillMaxWidth().glassPanel(22.dp).padding(horizontal = 10.dp)) {
+    Column(Modifier.fillMaxWidth().glassPanel(22.dp, GlassMaterial.Floating).padding(horizontal = 10.dp)) {
         PlayerControls(state, model, compact, onImport, onStep, inlineTime = dense)
         PlayerActions(lyricsVisible, model::toggleLyrics, state, onImportLyrics, onQueue, onOutput, dense)
     }
@@ -220,6 +222,9 @@ private fun PlayerControls(state: PlaybackState, model: LibraryViewModel, compac
     val position = dragging?.toLong() ?: state.positionMs
     val elapsed = playerTime(position)
     val remaining = if (state.durationMs > 0) "−${playerTime((state.durationMs - position).coerceAtLeast(0))}" else "--:--"
+    val playInteractions = remember { MutableInteractionSource() }
+    val playPressed by playInteractions.collectIsPressedAsState()
+    val pressure = animateGlassPressure(playPressed)
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (inlineTime) Text(elapsed, color = InkMuted, fontSize = 11.sp)
@@ -238,8 +243,10 @@ private fun PlayerControls(state: PlaybackState, model: LibraryViewModel, compac
                 Icon(Icons.Rounded.Shuffle, "随机播放", Modifier.size(21.dp), tint = if (state.shuffle) InkAccent else InkMuted)
             }
             IconButton(onClick = { onStep(-1) }, enabled = state.previousIndex != null) { Icon(Icons.Rounded.SkipPrevious, "上一首", Modifier.size(32.dp)) }
-            FilledIconButton(onClick = { if (state.track == null) onImport() else model.toggle() }, modifier = Modifier.size(if (compact) 52.dp else 60.dp).glassPanel(20.dp, tinted = true),
+            FilledIconButton(onClick = { if (state.track == null) onImport() else model.toggle() },
+                modifier = Modifier.size(if (compact) 52.dp else 60.dp).glassPanel(20.dp, GlassMaterial.Accent, pressure = pressure),
                 shape = SquircleShape(20.dp),
+                interactionSource = playInteractions,
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.Transparent, contentColor = Color.White)) {
                 if (state.loading) CircularProgressIndicator(Modifier.size(26.dp), color = Color.White, strokeWidth = 2.dp)
                 else Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放", Modifier.size(34.dp))
