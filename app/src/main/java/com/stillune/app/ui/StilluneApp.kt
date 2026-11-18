@@ -9,14 +9,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -480,43 +476,6 @@ internal fun LibraryTabs(selected: String, onSelect: (String) -> Unit) {
                 Text(name, color = if (selected == name) InkAccent else InkMuted, fontSize = 14.sp,
                     fontWeight = if (selected == name) FontWeight.Medium else FontWeight.Normal)
             }
-        }
-    }
-}
-
-@Composable
-internal fun FloatingNavigation(playerOpen: Boolean, onLibrary: () -> Unit, onPlayer: () -> Unit,
-    healthOpen: Boolean = false, onHealth: () -> Unit = {}, onOrigin: (Offset) -> Unit = {}) {
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-        .selectableGroup().semantics { contentDescription = "悬浮导航" },
-        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        NavItem("乐库", Icons.Rounded.LibraryMusic, !playerOpen && !healthOpen, onOrigin, onLibrary)
-        NavItem("此刻", Icons.Rounded.NightsStay, playerOpen && !healthOpen, onOrigin, onPlayer)
-        NavItem("护耳", Icons.Rounded.Hearing, healthOpen, onOrigin, onHealth)
-    }
-}
-
-@Composable
-private fun NavItem(label: String, icon: ImageVector, selected: Boolean, onOrigin: (Offset) -> Unit, onClick: () -> Unit) {
-    val interactions = remember { MutableInteractionSource() }
-    val pressed by interactions.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) .90f else if (selected) 1.06f else 1f,
-        spring(dampingRatio = .8f, stiffness = 550f), label = "nav-press")
-    val fill by animateColorAsState(if (selected) Color.White.copy(alpha = .72f) else Color.Transparent, tween(180), label = "nav-selection")
-    val origin = remember { arrayOf(Offset.Zero) }
-    Row(Modifier.heightIn(min = 52.dp).widthIn(min = 52.dp).clip(SquircleShape(26.dp))
-        .background(fill)
-        .semantics { contentDescription = label }
-        .selectable(selected, interactionSource = interactions, indication = ripple(), role = Role.Tab,
-            onClick = { if (!selected) { onOrigin(origin[0]); onClick() } })
-        .padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center) {
-        Icon(icon, null, Modifier.size(22.dp).onGloballyPositioned {
-            origin[0] = it.localToRoot(Offset(it.size.width / 2f, it.size.height / 2f))
-        }.graphicsLayer { scaleX = scale; scaleY = scale }, tint = if (selected) InkAccent else InkMuted)
-        AnimatedVisibility(selected, enter = expandHorizontally(spring(dampingRatio = .78f, stiffness = 380f)) + fadeIn(),
-            exit = shrinkHorizontally(tween(110)) + fadeOut(tween(90))) {
-            Text(label, Modifier.padding(start = 8.dp), fontSize = 14.sp, maxLines = 1, softWrap = false, color = InkAccent)
         }
     }
 }

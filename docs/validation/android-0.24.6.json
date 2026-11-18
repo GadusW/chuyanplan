@@ -1,0 +1,49 @@
+{
+  "version": "0.24.6",
+  "versionCode": 38,
+  "unitTests": 34,
+  "androidInstrumentationTestsPassed": 45,
+  "originalSigningCertificatePreserved": true,
+  "identicalDexAcrossAbis": true,
+  "matchedPackagedIconResourcesPerApk": 21,
+  "artifacts": [
+    {
+      "name": "Stillune-0.24.6-arm64-debug.apk",
+      "bytes": 75254376,
+      "sha256": "461352fe12529c2191c4c18ddbce099991c7a2ddd369359e63c0ee9e4b76e6ba",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.24.6-universal-debug.apk",
+      "bytes": 230162015,
+      "sha256": "f431b1c58468c922c308c67bea8bdcdf27904e276f27a1cfe338c6b07f65b3d1",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "device": "Android API 36 x86_64 emulator",
+  "deviceSmokeTest": {
+    "updatedFromVersion": "0.24.5",
+    "upgradeInstall": "passed",
+    "screensReviewed": [
+      "library",
+      "now playing",
+      "hearing"
+    ],
+    "bottomNavigation": [
+      "cross-tab drag",
+      "tap",
+      "back",
+      "cancelled drag"
+    ],
+    "olderAndroidDeviceTested": false
+  }
+}
