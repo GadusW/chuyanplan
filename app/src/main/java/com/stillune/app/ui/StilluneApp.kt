@@ -447,7 +447,7 @@ private fun MiniPlayer(
     val playPressed by playInteractions.collectIsPressedAsState()
     val pressure = animateGlassPressure(panelPressed || playPressed)
     Surface(onClick = onOpen, modifier = Modifier.height(miniPlayerInset).padding(horizontal = 16.dp, vertical = 6.dp)
-        .glassPanel(material = GlassMaterial.Floating, foregroundBackdrop = listBackdrop, pressure = pressure),
+        .glassPanel(material = GlassMaterial.MiniPlayer, foregroundBackdrop = listBackdrop, pressure = pressure),
         interactionSource = panelInteractions,
         shape = SquircleShape(20.dp), color = Color.Transparent) {
         Column {

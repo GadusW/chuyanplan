@@ -1,0 +1,44 @@
+{
+  "version": "0.24.7",
+  "versionCode": 39,
+  "unitTests": 34,
+  "androidInstrumentationTestsPassed": 46,
+  "originalSigningCertificatePreserved": true,
+  "identicalDexAcrossAbis": true,
+  "matchedPackagedIconResourcesPerApk": 21,
+  "artifacts": [
+    {
+      "name": "Stillune-0.24.7-arm64-debug.apk",
+      "bytes": 75254376,
+      "sha256": "273f61fd94b61f68da1338245fde713d0bc2dafbe94468805596ab059d96baeb",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.24.7-universal-debug.apk",
+      "bytes": 230162015,
+      "sha256": "1b7a680811747170cf02529ae188fef52b7d221861bb506ca38bf121f6d2b05a",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "device": "Android API 36 x86_64 emulator",
+  "deviceSmokeTest": {
+    "updatedFromVersion": "0.24.6",
+    "upgradeInstall": "passed",
+    "screensReviewed": [
+      "mini player over artwork",
+      "scrolling content behind mini player",
+      "mini player press"
+    ],
+    "edgePixelRegression": "passed on top and bottom with a changing backdrop",
+    "testedOnReporterDevice": false
+  }
+}

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.ceil
+import kotlin.math.abs
 import kotlin.math.hypot
 
 internal class GlassBackdrop(val layer: GraphicsLayer) {
@@ -84,9 +85,11 @@ internal enum class GlassMaterial(
     val tint: Color,
     val fallback: Color,
     val shadowColor: Int,
+    val edgeBlend: Dp = 0.dp,
 ) {
     Surface(14.dp, .41f, .025f, .70f, Color(0x22FFFFFF), Color(0xCEF5FAFE), 0x205A6980),
     Floating(20.dp, .76f, .055f, .81f, Color(0x57F6FBFF), Color(0xEDF5FAFE), 0x30526780),
+    MiniPlayer(18.dp, -.46f, .035f, .49f, Color(0x47F6FBFF), Color(0xCAF5FAFE), 0x24526780, 7.dp),
     Accent(14.dp, .71f, .08f, .78f, Color(0xC8174971), Color(0xFF235477), 0x34335E82),
 }
 
@@ -108,6 +111,7 @@ internal fun Modifier.glassPanel(
 ): Modifier = composed {
     val backdrop = LocalGlassBackdrop.current
     val lens = if (Build.VERSION.SDK_INT >= 33 && backdrop != null) rememberGraphicsLayer() else null
+    val blurLayer = if (lens != null && foregroundBackdrop != null) rememberGraphicsLayer() else null
     var origin by remember { mutableStateOf(Offset.Zero) }
     onGloballyPositioned { origin = it.positionInRoot() }.drawWithCache {
         if (size.isEmpty()) return@drawWithCache onDrawWithContent { drawContent() }
@@ -127,12 +131,18 @@ internal fun Modifier.glassPanel(
             endY = size.height,
         )
         val curve = material.curve.toPx().coerceAtMost(size.minDimension * .32f)
-        val blur = if (foregroundBackdrop != null) 3.5.dp.toPx() else 0f
-        val margin = ceil(curve * (material.displacement + .03f) + blur * 2f + 2f).toInt()
+        val blur = if (blurLayer != null) 3.5.dp.toPx() else 0f
+        val margin = ceil(curve * (abs(material.displacement) + .03f) + blur * 3f + 2f).toInt()
         val sampleSize = IntSize(ceil(size.width).toInt() + margin * 2, ceil(size.height).toInt() + margin * 2)
         val sampleBounds = Size(sampleSize.width.toFloat(), sampleSize.height.toFloat())
+        // Keep the softened scene in the same padded coordinate space as the lens input.
+        // A blur's expanded bounds should not become the input bounds of the runtime shader.
+        blurLayer?.apply {
+            clip = true
+            renderEffect = BlurEffect(blur, blur, TileMode.Clamp)
+        }
         val optics = if (Build.VERSION.SDK_INT >= 33 && lens != null) {
-            GlassRefraction(size, corner, curve, margin.toFloat(), blur, material)
+            GlassRefraction(size, corner, curve, margin.toFloat(), material.edgeBlend.toPx(), material)
         } else null
         var lastPressure = Float.NaN
         onDrawWithContent {
@@ -151,13 +161,15 @@ internal fun Modifier.glassPanel(
                             lens.renderEffect = optics.effect(compression, scaleX, scaleY)
                             lastPressure = compression
                         }
-                        lens.record(size = sampleSize) {
+                        val scene = blurLayer ?: lens
+                        scene.record(size = sampleSize) {
                             drawRect(GlassGround, size = sampleBounds)
                             translate(margin.toFloat(), margin.toFloat()) {
                                 backdrop?.let { drawBackdrop(it, origin) }
                                 foregroundBackdrop?.let { drawBackdrop(it, origin) }
                             }
                         }
+                        if (blurLayer != null) lens.record(size = sampleSize) { drawLayer(blurLayer) }
                         translate(-margin.toFloat(), -margin.toFloat()) { drawLayer(lens) }
                     } else {
                         drawRect(fallbackFace)
@@ -176,7 +188,7 @@ private fun DrawScope.drawBackdrop(backdrop: GlassBackdrop, origin: Offset) {
 
 @RequiresApi(33)
 private class GlassRefraction(
-    size: Size, corner: Float, curve: Float, margin: Float, blur: Float, material: GlassMaterial,
+    size: Size, corner: Float, curve: Float, margin: Float, edgeBlend: Float, material: GlassMaterial,
 ) {
     private val shader = RuntimeShader(GLASS_REFRACTION).apply {
         setFloatUniform("panel", size.width, size.height)
@@ -186,18 +198,14 @@ private class GlassRefraction(
         setFloatUniform("displacement", material.displacement)
         setFloatUniform("magnification", material.magnification)
         setFloatUniform("reflection", material.reflection)
+        setFloatUniform("edgeBlend", edgeBlend)
         setColorUniform("tint", material.tint.toArgb())
         setColorUniform("ground", GlassGround.toArgb())
     }
-    private val soften = if (blur > 0f) {
-        android.graphics.RenderEffect.createBlurEffect(blur, blur, android.graphics.Shader.TileMode.CLAMP)
-    } else null
-
     fun effect(pressure: Float, scaleX: Float, scaleY: Float): RenderEffect {
         shader.setFloatUniform("pressure", pressure)
         shader.setFloatUniform("squash", scaleX, scaleY)
-        val lens = android.graphics.RenderEffect.createRuntimeShaderEffect(shader, "source")
-        return (soften?.let { android.graphics.RenderEffect.createChainEffect(lens, it) } ?: lens).asComposeRenderEffect()
+        return android.graphics.RenderEffect.createRuntimeShaderEffect(shader, "source").asComposeRenderEffect()
     }
 }
 
@@ -210,6 +218,7 @@ private const val GLASS_REFRACTION = """
     uniform float displacement;
     uniform float magnification;
     uniform float reflection;
+    uniform float edgeBlend;
     uniform float pressure;
     uniform float2 squash;
     layout(color) uniform half4 tint;
@@ -237,7 +246,7 @@ private const val GLASS_REFRACTION = """
             : (box.x > box.y ? float2(1.0, 0.0) : float2(0.0, 1.0));
         direction *= sign(local);
 
-        // Magnify the center slightly and draw surrounding pixels into the curved face.
+        // Negative displacement brings the sample inwards along the mini player's curve.
         float slope = bend * 0.86 * (1.0 - pressure * 0.21);
         float2 transmission = local * (1.0 - magnification) + direction * (curve * displacement * slope);
         // Map samples back to screen space while the face and its controls contract.
@@ -258,7 +267,9 @@ private const val GLASS_REFRACTION = """
         float facing = dot(normal.xy, float2(-0.45, -0.89));
         glass *= half(1.0 - max(-facing, 0.0) * 0.060);
         float light = reflection * (0.29 * key + 0.14 * bounce);
-        return half4(mix(glass, half3(0.99, 0.995, 1.0), half(light)), 1.0);
+        half3 face = mix(glass, half3(0.99, 0.995, 1.0), half(light));
+        half coverage = edgeBlend > 0.0 ? half(smoothstep(0.0, edgeBlend, depth)) : half(1.0);
+        return half4(face * coverage, coverage);
     }
 """
 
