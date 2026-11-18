@@ -360,8 +360,9 @@ fun StilluneApp(
 
 @Composable
 private fun LibraryHero(count: Int, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = SquircleShape(12.dp), color = Color.Transparent) {
-        Box(Modifier.fillMaxWidth().height(96.dp).glassPanel().padding(horizontal = 16.dp)) {
+    val radius = 12.dp
+    Surface(onClick = onClick, shape = SquircleShape(radius), color = Color.Transparent) {
+        Box(Modifier.fillMaxWidth().height(96.dp).glassPanel(radius).padding(horizontal = 16.dp)) {
             Image(painterResource(R.drawable.stillune_foreground), null,
                 Modifier.size(88.dp).align(Alignment.CenterEnd), alpha = .85f)
             Column(Modifier.align(Alignment.CenterStart).padding(end = 84.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

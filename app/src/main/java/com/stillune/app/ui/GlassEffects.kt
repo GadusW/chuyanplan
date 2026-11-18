@@ -1,6 +1,7 @@
 package com.stillune.app.ui
 
 import android.os.Build
+import android.graphics.RuntimeShader
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -9,20 +10,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
@@ -47,38 +49,127 @@ internal fun GlassScene(artwork: android.graphics.Bitmap?, content: @Composable 
     }
 }
 
-/** A lens samples the real environment with a small displacement, beneath fine reflected light. */
+/** Refract the recorded environment at the bevel, then draw the controls over clear glass. */
 internal fun Modifier.glassPanel(radius: Dp = 20.dp, strength: Float = 1f): Modifier =
     composed {
-    val backdrop = LocalGlassBackdrop.current
-    var origin by remember { mutableStateOf(Offset.Zero) }
-    clip(SquircleShape(radius))
-    .onGloballyPositioned { origin = it.positionInRoot() }
-    .drawWithCache {
-        val outline = squirclePath(size, radius.toPx())
-        val displacement = 2.dp.toPx()
-        val body = Brush.linearGradient(listOf(
-            Color.White.copy(alpha = (.50f * strength).coerceAtMost(.82f)), Color.White.copy(alpha = .20f * strength),
-            Color.White.copy(alpha = .36f * strength)), end = Offset(size.width, size.height))
-        val rim = Brush.linearGradient(0f to Color.White.copy(alpha = .96f),
-            .3f to Color.White.copy(alpha = .07f), .62f to Color.White.copy(alpha = .015f),
-            1f to InkBlue.copy(alpha = .26f * strength), end = Offset(size.width * .7f, size.height))
-        onDrawBehind {
-            backdrop?.let { scene ->
-                val local = origin - scene.origin
-                withTransform({
-                    scale(1.055f, 1.055f, pivot = center)
-                    translate(-local.x + displacement, -local.y - displacement)
-                }) { drawLayer(scene.layer) }
+        val backdrop = LocalGlassBackdrop.current
+        val lens = if (Build.VERSION.SDK_INT >= 33 && backdrop != null) rememberGraphicsLayer() else null
+        var origin by remember { mutableStateOf(Offset.Zero) }
+        clip(SquircleShape(radius))
+            .onGloballyPositioned { origin = it.positionInRoot() }
+            .drawWithCache {
+                if (size.isEmpty()) return@drawWithCache onDrawBehind { }
+                val corner = (radius.toPx() * 1.35f).coerceAtMost(size.minDimension / 2f)
+                val bevelWidth = (6.dp.toPx() * strength).coerceIn(3.dp.toPx(), 7.dp.toPx())
+                    .coerceAtMost(size.minDimension / 5f)
+                val refraction = bevelWidth * .62f
+                val outline = squirclePath(size, radius.toPx())
+                val innerEdge = insetGlassOutline(size, corner, bevelWidth)
+                val bevel = Path.combine(PathOperation.Difference, outline, innerEdge)
+                val white = Color.White
+                val body = Brush.verticalGradient(
+                    0f to white.copy(alpha = (.39f * strength).coerceAtMost(.57f)),
+                    .50f to white.copy(alpha = .25f * strength),
+                    1f to white.copy(alpha = .39f * strength),
+                    endY = size.height,
+                )
+                val bevelFace = Brush.verticalGradient(
+                    0f to InkBlue.copy(alpha = .22f),
+                    .15f to white.copy(alpha = .38f),
+                    .58f to InkBlue.copy(alpha = .06f),
+                    .90f to InkBlue.copy(alpha = .21f),
+                    1f to white.copy(alpha = .48f),
+                    endY = size.height,
+                )
+                val edgeColors = Brush.linearGradient(
+                    0f to white.copy(alpha = .10f),
+                    .28f to Color(0xFF8BAAEA).copy(alpha = .18f),
+                    .55f to Color(0xFFA89BD9).copy(alpha = .16f),
+                    .77f to white.copy(alpha = .06f),
+                    1f to Color(0xFFF1C88F).copy(alpha = .32f),
+                    end = Offset(size.width, size.height * 1.35f),
+                )
+                val specular = Brush.linearGradient(
+                    0f to white.copy(alpha = .98f),
+                    .25f to white.copy(alpha = .73f),
+                    .57f to white.copy(alpha = .17f),
+                    1f to white.copy(alpha = .92f),
+                    end = Offset(size.width * .45f, size.height),
+                )
+                val rimStroke = Stroke(1.dp.toPx())
+                if (Build.VERSION.SDK_INT >= 33 && lens != null) {
+                    lens.renderEffect = glassRefraction(size, corner, bevelWidth, refraction)
+                }
+                onDrawBehind {
+                    backdrop?.let { scene ->
+                        val source = scene.origin - origin
+                        if (lens != null && drawContext.canvas.nativeCanvas.isHardwareAccelerated) {
+                            lens.record {
+                                drawRect(GlassGround)
+                                translate(source.x, source.y) { drawLayer(scene.layer) }
+                            }
+                            drawLayer(lens)
+                        } else {
+                            translate(source.x, source.y) { drawLayer(scene.layer) }
+                            clipPath(bevel) {
+                                scale(1f + 2f * refraction / size.width, 1f + 2f * refraction / size.height) {
+                                    translate(source.x, source.y) { drawLayer(scene.layer) }
+                                }
+                            }
+                        }
+                    }
+                    drawPath(outline, body)
+                    drawPath(bevel, bevelFace)
+                    drawPath(bevel, edgeColors)
+                    drawPath(innerEdge, specular, style = rimStroke)
+                }
             }
-            drawPath(outline, body)
-            drawPath(outline, Brush.radialGradient(listOf(Color.White.copy(alpha = .09f), Color.Transparent),
-                center = Offset(size.width * .15f, -size.height * .6f), radius = size.width * .7f))
-            drawPath(outline, rim, style = androidx.compose.ui.graphics.drawscope.Stroke(1.4.dp.toPx()))
+    }
 
+private fun insetGlassOutline(size: Size, corner: Float, inset: Float): Path {
+    val innerSize = Size(size.width - 2f * inset, size.height - 2f * inset)
+    return squirclePath(innerSize, (corner - inset).coerceAtLeast(0f) / 1.35f).apply {
+        translate(Offset(inset, inset))
+    }
+}
+
+@RequiresApi(33)
+private fun glassRefraction(size: Size, corner: Float, bevel: Float, displacement: Float): RenderEffect {
+    val shader = RuntimeShader(GLASS_REFRACTION).apply {
+        setFloatUniform("bounds", size.width, size.height)
+        setFloatUniform("corner", corner)
+        setFloatUniform("bevel", bevel)
+        setFloatUniform("displacement", displacement)
+    }
+    return android.graphics.RenderEffect.createRuntimeShaderEffect(shader, "backdrop").asComposeRenderEffect()
+}
+
+private const val GLASS_REFRACTION = """
+    uniform shader backdrop;
+    uniform float2 bounds;
+    uniform float corner;
+    uniform float bevel;
+    uniform float displacement;
+
+    half4 main(float2 point) {
+        float2 centered = point - bounds * 0.5;
+        float2 nearCorner = abs(centered) - (bounds * 0.5 - corner);
+        float2 curved = max(nearCorner, float2(0.0));
+        // A cubic superellipse closely follows the panel's continuous corner.
+        float curvedDistance = pow(dot(curved * curved, curved), 1.0 / 3.0);
+        float depth = corner - curvedDistance - min(max(nearCorner.x, nearCorner.y), 0.0);
+        if (depth >= bevel) return backdrop.eval(point);
+
+        float2 normal = curved * curved;
+        if (min(nearCorner.x, nearCorner.y) <= 0.0) {
+            normal = nearCorner.x > nearCorner.y ? float2(1.0, 0.0) : float2(0.0, 1.0);
         }
+        normal = normalize(normal) * sign(centered);
+        float bend = 1.0 - smoothstep(0.0, bevel, depth);
+        float2 samplePoint = point - normal * displacement * bend;
+        return backdrop.eval(clamp(samplePoint, float2(0.5), bounds - float2(0.5)));
     }
-    }
+"""
 
 /** A destination needs opaque pixels inside the reveal, including between controls. */
 @Composable
