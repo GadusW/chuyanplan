@@ -197,7 +197,7 @@ fun StilluneApp(
                         if (tracks.isEmpty()) importOpen = true else { model.play(tracks.first()); playerOpen = true }
                     }) }
                     item {
-                        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().glassPanel(12.dp, .65f), singleLine = true,
+                        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().glassPanel(12.dp), singleLine = true,
                             placeholder = { Text("搜索歌曲、艺人或专辑", fontSize = 14.sp) },
                             leadingIcon = { Icon(Icons.Rounded.Search, "搜索") },
                             trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "清除搜索") } },
@@ -361,8 +361,9 @@ fun StilluneApp(
 @Composable
 private fun LibraryHero(count: Int, onClick: () -> Unit) {
     val radius = 12.dp
-    Surface(onClick = onClick, shape = SquircleShape(radius), color = Color.Transparent) {
-        Box(Modifier.fillMaxWidth().height(96.dp).glassPanel(radius).padding(horizontal = 16.dp)) {
+    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().height(96.dp).glassPanel(radius),
+        shape = SquircleShape(radius), color = Color.Transparent) {
+        Box(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             Image(painterResource(R.drawable.stillune_foreground), null,
                 Modifier.size(88.dp).align(Alignment.CenterEnd), alpha = .85f)
             Column(Modifier.align(Alignment.CenterStart).padding(end = 84.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -435,9 +436,9 @@ private fun TrackRow(track: Track, selected: Boolean, playing: Boolean, loadArtw
 
 @Composable
 private fun MiniPlayer(state: PlaybackState, artwork: android.graphics.Bitmap?, miniPlayerInset: androidx.compose.ui.unit.Dp, onOpen: () -> Unit, onToggle: () -> Unit, onNext: () -> Unit) {
-    Surface(onClick = onOpen, modifier = Modifier.height(miniPlayerInset).padding(horizontal = 16.dp, vertical = 6.dp),
+    Surface(onClick = onOpen, modifier = Modifier.height(miniPlayerInset).padding(horizontal = 16.dp, vertical = 6.dp).glassPanel(),
         shape = SquircleShape(20.dp), color = Color.Transparent) {
-        Column(Modifier.glassPanel()) {
+        Column {
             Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 AlbumArtwork(artwork, "当前歌曲专辑封面", Modifier.size(44.dp).clip(SquircleShape(8.dp)))
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
@@ -536,8 +537,10 @@ private fun ImportSheet(busy: Boolean, onDismiss: () -> Unit, onScan: (ScanOptio
 
 @Composable
 private fun ImportAction(icon: ImageVector, title: String, subtitle: String, enabled: Boolean, onClick: () -> Unit) {
-    Surface(onClick = onClick, enabled = enabled, color = Color.Transparent, shape = SquircleShape(18.dp)) {
-        Row(Modifier.fillMaxWidth().glassPanel(18.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    val radius = 18.dp
+    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().glassPanel(radius), enabled = enabled,
+        color = Color.Transparent, shape = SquircleShape(radius)) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = InkBlue, modifier = Modifier.size(26.dp))
             Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                 Text(title, fontSize = 15.sp); Spacer(Modifier.height(5.dp))

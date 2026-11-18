@@ -205,7 +205,7 @@ private fun TrackHeading(state: PlaybackState) {
 private fun TransportPanel(state: PlaybackState, model: LibraryViewModel, compact: Boolean, lyricsVisible: Boolean,
                            onImport: () -> Unit, onImportLyrics: () -> Unit, onQueue: () -> Unit, onOutput: () -> Unit,
                            onStep: (Int) -> Unit, dense: Boolean = false) {
-    Column(Modifier.fillMaxWidth().glassPanel(22.dp, .84f).padding(horizontal = 10.dp)) {
+    Column(Modifier.fillMaxWidth().glassPanel(22.dp).padding(horizontal = 10.dp)) {
         PlayerControls(state, model, compact, onImport, onStep, inlineTime = dense)
         PlayerActions(lyricsVisible, model::toggleLyrics, state, onImportLyrics, onQueue, onOutput, dense)
     }
@@ -238,10 +238,10 @@ private fun PlayerControls(state: PlaybackState, model: LibraryViewModel, compac
                 Icon(Icons.Rounded.Shuffle, "随机播放", Modifier.size(21.dp), tint = if (state.shuffle) InkAccent else InkMuted)
             }
             IconButton(onClick = { onStep(-1) }, enabled = state.previousIndex != null) { Icon(Icons.Rounded.SkipPrevious, "上一首", Modifier.size(32.dp)) }
-            FilledIconButton(onClick = { if (state.track == null) onImport() else model.toggle() }, modifier = Modifier.size(if (compact) 52.dp else 60.dp).glassPanel(20.dp, 1.5f),
+            FilledIconButton(onClick = { if (state.track == null) onImport() else model.toggle() }, modifier = Modifier.size(if (compact) 52.dp else 60.dp).glassPanel(20.dp, tinted = true),
                 shape = SquircleShape(20.dp),
-                colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.Transparent, contentColor = InkAccent)) {
-                if (state.loading) CircularProgressIndicator(Modifier.size(26.dp), color = InkAccent, strokeWidth = 2.dp)
+                colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.Transparent, contentColor = Color.White)) {
+                if (state.loading) CircularProgressIndicator(Modifier.size(26.dp), color = Color.White, strokeWidth = 2.dp)
                 else Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.playing) "暂停" else "播放", Modifier.size(34.dp))
             }
             IconButton(onClick = { onStep(1) }, enabled = state.nextIndex != null) { Icon(Icons.Rounded.SkipNext, "下一首", Modifier.size(32.dp)) }
