@@ -1,0 +1,49 @@
+{
+  "version": "0.24.10",
+  "versionCode": 42,
+  "unitTests": 37,
+  "androidInstrumentationTestsPassed": 8,
+  "originalSigningCertificatePreserved": true,
+  "identicalDexAcrossAbis": true,
+  "artifacts": [
+    {
+      "name": "Stillune-0.24.10-arm64-debug.apk",
+      "bytes": 75254376,
+      "sha256": "3e43bd0cf5eb99513629e5be6a33dbf89f61c97a30abda92867ed795edb1cd27",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.24.10-universal-debug.apk",
+      "bytes": 230162015,
+      "sha256": "ebd0fb7137a0353de3fb4849587662f86012e46b832b2bebabc0a8221c6d97e5",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "simulationChecks": [
+    "Wave propagation is consistent under simulated 60 and 120 Hz display clocks",
+    "Directional shakes launch short-lived spray and residual water settles",
+    "Quiet audio injects fine waves without spray"
+  ],
+  "device": "Android API 36 x86_64 emulator",
+  "deviceSmokeTest": {
+    "updatedFromVersion": "0.24.9",
+    "upgradeInstall": "passed",
+    "verified": [
+      "Audio attacks and silent hand motion deform the composition",
+      "Cover edge markers remain visible and light and dark backgrounds both show a wave rim",
+      "Reduced motion restores the static scene",
+      "Playback controls, effect switching, and tap to exit",
+      "Decoded playback produces measurable RMS in the app audio session"
+    ],
+    "testedOnReporterDevice": false
+  }
+}

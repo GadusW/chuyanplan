@@ -54,16 +54,13 @@ class ImmersionDynamicsTest {
     @Test fun attacksExplodeOutwardThenExpireAndPoolsStayBounded() {
         val scene = ImmersionDynamics()
         scene.advance(.016f, Tilt(), 0f, 1f)
-        assertEquals(1, scene.ripples.size)
         val mote = scene.motes.first()
         val radius = hypot(mote.x, mote.y)
         repeat(20) { scene.advance(.016f, Tilt(), 0f, 0f) }
         assertTrue(hypot(mote.x, mote.y) > radius + .04f)
         repeat(1000) { scene.advance(.016f, Tilt(), 0f, 1f) }
         assertEquals(176, scene.motes.size)
-        assertTrue(scene.ripples.size <= 8)
         repeat(240) { scene.advance(.016f, Tilt(), 0f, 0f) }
-        assertTrue(scene.ripples.isEmpty())
         assertTrue(scene.motes.all { it.age >= it.life })
         assertTrue(scene.pulse < .001f)
     }
@@ -77,14 +74,48 @@ class ImmersionDynamicsTest {
         assertTrue(moving.motes[0].x > still.motes[0].x + .05f)
     }
 
-    @Test fun shakeMovesTheRippleOriginWithoutProducingParticlesInRippleMode() {
-        val scene = ImmersionDynamics()
-        scene.advance(.016f, Tilt(x = .5f, y = -.4f, motion = .6f, shakeX = .5f, shakeY = -.3f),
-            0f, 0f, emitParticles = false)
-        val ripple = scene.ripples.single()
-        assertTrue(ripple.x > .1f)
-        assertEquals(.42f, ripple.strength, .0001f)
-        assertTrue(scene.motes.none { it.age < it.life })
+    @Test fun directionalShakesPushFromOppositeSidesAndSprayFallsBeforeTheWaterSettles() {
+        val left = WaterSurface().apply { resize(360, 760) }
+        val right = WaterSurface().apply { resize(360, 760) }
+        left.advance(.016f, Tilt(motion = .8f, available = true, shakeX = .8f), 0f, 0f)
+        right.advance(.016f, Tilt(motion = .8f, available = true, shakeX = -.8f), 0f, 0f)
+        val leftDrops = left.drops.filter { it.age < it.life }
+        val rightDrops = right.drops.filter { it.age < it.life }
+        assertTrue(leftDrops.isNotEmpty() && leftDrops.all { it.u < .4f && it.dx > 0f })
+        assertTrue(rightDrops.isNotEmpty() && rightDrops.all { it.u > .6f && it.dx < 0f })
+        assertTrue(left.foam > .5f && right.foam > .5f)
+        repeat(38) { left.advance(.016f, Tilt(), 0f, 0f) }
+        assertTrue(left.active && left.drops.none { it.age < it.life })
+        repeat(210) { left.advance(.016f, Tilt(), 0f, 0f) }
+        assertFalse(left.active)
+        assertEquals(0f, left.foam, 0f)
+    }
+
+    @Test fun waterPropagatesAtTheSameRateAcrossDisplayRefreshRates() {
+        fun slopesAtHalfSecond(refresh: Int): List<Float> {
+            val water = WaterSurface().apply { resize(360, 760) }
+            water.advance(0f, Tilt(), 0f, 1f)
+            repeat(refresh / 2) { water.advance(1f / refresh, Tilt(), 0f, 0f) }
+            val out = FloatArray(2)
+            return (0..8).flatMap { index ->
+                water.sampleSlopes(.1f * (index + 1), .39f, out)
+                out.toList()
+            }
+        }
+        val fast = slopesAtHalfSecond(120)
+        val slow = slopesAtHalfSecond(60)
+        assertTrue(fast.any { abs(it) > .015f })
+        fast.zip(slow).forEach { (a, b) -> assertEquals(a, b, .0001f) }
+    }
+
+    @Test fun quietPlaybackAddsFineRipplesWithoutInventingFoamOrDroplets() {
+        val water = WaterSurface().apply { resize(360, 760) }
+        repeat(85) { water.advance(.016f, Tilt(), 0f, 0f) }
+        assertFalse(water.active)
+        repeat(85) { water.advance(.016f, Tilt(), .54f, 0f) }
+        assertTrue(water.active)
+        assertEquals(0f, water.foam, 0f)
+        assertTrue(water.drops.none { it.age < it.life })
     }
 
     @Test fun responsiveTiltSuppressesJitterButTracksIntentionalMovement() {

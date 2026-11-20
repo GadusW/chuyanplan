@@ -12,39 +12,26 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import android.graphics.Shader
 import com.stillune.app.R
-import com.stillune.app.immersion.ImmersionDynamics
-import com.stillune.app.immersion.Tilt
+import com.stillune.app.immersion.WaterSurface
 import kotlin.math.abs
-import kotlin.math.exp
 import kotlin.math.roundToInt
 import kotlin.math.sin
-import kotlin.math.sqrt
 
 /** Folds the complete cover and its soft backdrop into one continuous surface for refraction. */
 internal class CoverRefraction(artwork: Bitmap, viewportWidth: Int, viewportHeight: Int) {
-    private class Wave {
-        var x = 0f
-        var y = 0f
-        var radius = 0f
-        var width = 0f
-        var amplitude = 0f
-        var lighting = 0f
-
-        fun set(x: Float, y: Float, radius: Float, width: Float, amplitude: Float, lighting: Float) {
-            this.x = x
-            this.y = y
-            this.radius = radius
-            this.width = width
-            this.amplitude = amplitude
-            this.lighting = lighting
-        }
-    }
-
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+    private val sprayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xffedf5f6.toInt() }
     private val bounds = RectF()
-    private val waves = Array(6) { Wave() }
     private val vertices = FloatArray(53 * 85 * 2)
     private val shading = IntArray(53 * 85)
+    private val displacement = FloatArray(53 * 85)
+    private val artworkWeight = FloatArray(53 * 85)
+    private val foamTexture = FloatArray(53 * 85)
+    private val slopes = FloatArray(2)
+    private var meshWidth = 0f
+    private var meshHeight = 0f
+    private var meshColumns = 0
+    private var meshRows = 0
     private val white = Bitmap.createBitmap(intArrayOf(Color.WHITE), 1, 1, Bitmap.Config.ARGB_8888)
     private val coverBounds = RectF()
     private val feather: Float
@@ -84,32 +71,12 @@ internal class CoverRefraction(artwork: Bitmap, viewportWidth: Int, viewportHeig
         canvas.restoreToCount(layer)
     }
 
-    fun draw(
-        canvas: Canvas, width: Float, height: Float, tilt: Tilt, level: Float,
-        ripples: List<ImmersionDynamics.Ripple>, fullDetail: Boolean
-    ) {
+    fun draw(canvas: Canvas, width: Float, height: Float, water: WaterSurface?, fullDetail: Boolean) {
         val unit = minOf(width, height)
         if (unit <= 0f) return
         bounds.set(0f, 0f, width, height)
 
-        var count = 0
-        val surface = level * .008f + tilt.motion * .011f
-        if (surface > .00025f) {
-            waves[count++].set(tilt.x * .19f, tilt.y * .16f, .24f + level * .05f, .20f, surface, surface * 2.4f)
-        }
-        val limit = if (fullDetail) 5 else 2
-        for (index in maxOf(0, ripples.size - limit) until ripples.size) {
-            val ripple = ripples[index]
-            val age = ripple.age
-            val fade = (1f - exp(-age * 17f)) * exp(-age * 1.9f) * (1f - age / ripple.life)
-            val amplitude = ripple.strength * fade * .067f
-            waves[count++].set(
-                ripple.x + tilt.x * age * .09f, ripple.y + tilt.y * age * .08f,
-                .065f + age * (.41f + ripple.strength * .17f),
-                .12f + age * .076f, amplitude, amplitude * 12f
-            )
-        }
-        if (count == 0) {
+        if (water == null || !water.active) {
             canvas.drawBitmap(texture, null, bounds, paint)
             return
         }
@@ -118,57 +85,78 @@ internal class CoverRefraction(artwork: Bitmap, viewportWidth: Int, viewportHeig
         val longCells = (maxOf(width, height) / unit * shortCells).roundToInt().coerceAtMost(if (fullDetail) 84 else 60)
         val columns = if (width > height) longCells else shortCells
         val rows = if (height > width) longCells else shortCells
-        val centerX = width * .5f
-        val centerY = height * .5f
-        val twist = tilt.x * .23f - tilt.y * .18f
-        val squeeze = 1f + tilt.y * .13f
+        if (width != meshWidth || height != meshHeight || columns != meshColumns || rows != meshRows) {
+            prepareMesh(width, height, columns, rows)
+        }
         var vertex = 0
         for (row in 0..rows) {
             val v = row.toFloat() / rows
             val py = height * v
-            val y = (py - centerY) / unit
-            val coverY = v * texture.height
-            val insideY = minOf(coverY - coverBounds.top, coverBounds.bottom - coverY)
-            val screenEdgeY = minOf(py, height - py)
             for (column in 0..columns) {
                 val u = column.toFloat() / columns
                 val px = width * u
-                val x = (px - centerX) / unit
-                var offsetX = 0f
-                var offsetY = 0f
-                var lightChange = 0f
-                for (index in 0 until count) {
-                    val wave = waves[index]
-                    val dx = x - wave.x
-                    val dy = (y - wave.y) * squeeze
-                    val outer = wave.radius + wave.width
-                    if (abs(dx) >= outer || abs(dy) >= outer) continue
-                    val distance = sqrt(dx * dx + dy * dy)
-                    val phase = (distance - wave.radius) / wave.width
-                    if (abs(phase) >= 1f || distance < .0001f) continue
-                    val envelope = 1f - phase * phase
-                    val crest = sin(phase * 4.7f) * envelope * envelope
-                    val displacement = crest * wave.amplitude / distance
-                    val curl = .30f * crest + twist
-                    offsetX += (dx - dy * curl) * displacement
-                    offsetY += (dy + dx * curl) * displacement
-                    val light = ((dx - dy) / distance * .22f + .68f).coerceIn(0f, 1f)
-                    lightChange += crest * wave.lighting * light
-                }
-                val coverX = u * texture.width
-                val inside = minOf(insideY, coverX - coverBounds.left, coverBounds.right - coverX)
-                val coverWeight = (inside / feather).coerceIn(0f, 1f)
-                val edge = (minOf(px, width - px, screenEdgeY) / (unit * .05f)).coerceIn(0f, 1f)
-                val displacement = unit * edge * (1f - .58f * coverWeight)
-                vertices[vertex * 2] = px + offsetX.coerceIn(-.04f, .04f) * displacement
-                vertices[vertex * 2 + 1] = py + offsetY.coerceIn(-.04f, .04f) * displacement
-                // Opposite slopes add a soft white rim or a neighboring dark trough.
-                val alpha = (abs(lightChange).coerceAtMost(.22f) * (1f - .28f * coverWeight) * 255f).roundToInt()
-                shading[vertex++] = (alpha shl 24) or (if (lightChange >= 0f) 0x00ffffff else 0)
+                water.sampleSlopes(u, v, slopes)
+                val dx = slopes[0]
+                val dy = slopes[1]
+                val weight = displacement[vertex]
+                vertices[vertex * 2] = px + (dx * .106f).coerceIn(-.052f, .052f) * weight
+                vertices[vertex * 2 + 1] = py + (dy * .106f).coerceIn(-.052f, .052f) * weight
+
+                val litSlope = dx * .40f - dy * .67f
+                val light = (litSlope * 2.13f).coerceIn(-.37f, .44f) * (1f - .25f * artworkWeight[vertex])
+                val foamLight = (litSlope * 1.72f).coerceAtMost(.38f)
+                val foam = if (water.foam > .005f && foamLight > .045f) {
+                    val steepness = dx * dx + dy * dy
+                    val crest = ((steepness - .014f) * 15f).coerceIn(0f, 1f)
+                    val breaks = (crest * .86f + foamTexture[vertex] * .54f - .48f).coerceIn(0f, 1f)
+                    breaks * water.foam * ((foamLight - .045f) * 7f).coerceIn(0f, 1f) * .48f
+                } else 0f
+                val tint = light + (1f - light) * foam
+                val alpha = (abs(tint) * 255f).roundToInt()
+                shading[vertex++] = (alpha shl 24) or (if (tint >= 0f) 0x00ffffff else 0)
             }
         }
         canvas.drawBitmapMesh(texture, columns, rows, vertices, 0, null, 0, paint)
         canvas.drawBitmapMesh(white, columns, rows, vertices, 0, shading, 0, paint)
+        for (drop in water.drops) {
+            if (drop.age >= drop.life) continue
+            val phase = drop.age / drop.life
+            val arc = 4f * phase * (1f - phase)
+            val x = drop.u * width + drop.dx * phase * unit
+            val y = drop.v * height + (drop.dy * phase - drop.lift * arc) * unit
+            val radius = drop.radius * unit * (1f - phase * .46f)
+            sprayPaint.alpha = (255f * .87f * (phase * 20f).coerceAtMost(1f) * (1f - phase)).roundToInt()
+            canvas.drawOval(x - radius, y - radius * 1.3f, x + radius, y + radius * 1.3f, sprayPaint)
+        }
+    }
+
+    private fun prepareMesh(width: Float, height: Float, columns: Int, rows: Int) {
+        meshWidth = width
+        meshHeight = height
+        meshColumns = columns
+        meshRows = rows
+        val unit = minOf(width, height)
+        var index = 0
+        for (row in 0..rows) for (column in 0..columns) {
+            val u = column.toFloat() / columns
+            val v = row.toFloat() / rows
+            val px = u * width
+            val py = v * height
+            val coverX = u * texture.width
+            val coverY = v * texture.height
+            val inside = minOf(coverX - coverBounds.left, coverBounds.right - coverX,
+                coverY - coverBounds.top, coverBounds.bottom - coverY)
+            val cover = (inside / feather).coerceIn(0f, 1f)
+            val edge = (minOf(px, width - px, py, height - py) / (unit * .056f)).coerceIn(0f, 1f)
+            artworkWeight[index] = cover
+            displacement[index] = unit * edge * (1f - .5f * cover)
+            // Two stable scales break the foam up without changing the propagation of the waves.
+            val x = px / unit * 216f
+            val y = py / unit * 216f
+            val grain = sin(x * .67f + sin(y * .34f) * 1.7f) * sin(y * .71f - x * .19f)
+            val breaks = sin(x * .26f - y * .20f) * sin(y * .27f + x * .17f)
+            foamTexture[index++] = (breaks * .62f + grain * .29f + .49f).coerceIn(0f, 1f)
+        }
     }
 }
 

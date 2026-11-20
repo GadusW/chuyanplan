@@ -92,7 +92,11 @@ class ImmersionUiTest {
     @Test fun rippleRimsBrightenDarkBackdropsAndShadeLightBackdrops() {
         val width = 360
         val height = 760
-        val ripple = ImmersionDynamics.Ripple(0f, 0f, 1f, age = .62f)
+        val water = WaterSurface().apply {
+            resize(width, height)
+            advance(.016f, Tilt(), 0f, 1f)
+            repeat(42) { advance(.016f, Tilt(), 0f, 0f) }
+        }
         for (value in listOf(32, 222)) {
             val artwork = Bitmap.createBitmap(64, 40, Bitmap.Config.ARGB_8888).apply {
                 eraseColor(Color.rgb(value, value, value))
@@ -100,8 +104,8 @@ class ImmersionUiTest {
             val surface = CoverRefraction(artwork, width, height)
             val still = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val moving = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            surface.draw(Canvas(still), width.toFloat(), height.toFloat(), Tilt(), 0f, emptyList(), true)
-            surface.draw(Canvas(moving), width.toFloat(), height.toFloat(), Tilt(), 0f, listOf(ripple), true)
+            surface.draw(Canvas(still), width.toFloat(), height.toFloat(), null, true)
+            surface.draw(Canvas(moving), width.toFloat(), height.toFloat(), water, true)
             var brightest = 0
             var darkest = 0
             // Sample only the soft background above the fitted cover.

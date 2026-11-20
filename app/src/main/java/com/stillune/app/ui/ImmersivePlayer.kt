@@ -76,7 +76,8 @@ internal fun ImmersivePlayer(state: PlaybackState, artwork: Bitmap?, style: Imme
 }
 
 private data class SceneFrame(val energy: Float = 0f,
-    val pulse: Float = 0f, val tilt: Tilt = Tilt(), val fullDetail: Boolean = true)
+    val pulse: Float = 0f, val tilt: Tilt = Tilt(), val fullDetail: Boolean = true,
+    val waterRevision: Long = 0L)
 
 @Composable
 internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: ImmersionStyle,
@@ -91,12 +92,18 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
     val currentEnergy by rememberUpdatedState(energy)
     val currentPlaying by rememberUpdatedState(state.playing)
     val currentTilt by rememberUpdatedState(tilt)
-    val dynamics = remember(style, state.track?.uri, reducedMotion) { ImmersionDynamics() }
-    val frame = remember(dynamics) { mutableStateOf(SceneFrame()) }
+    val particles = remember(style, state.track?.uri, reducedMotion) {
+        if (style == ImmersionStyle.PARTICLES && !reducedMotion) ImmersionDynamics() else null
+    }
+    val water = remember(style, state.track?.uri, reducedMotion) {
+        if (style == ImmersionStyle.RIPPLES && !reducedMotion) WaterSurface() else null
+    }
+    val frame = remember(style, state.track?.uri, reducedMotion) { mutableStateOf(SceneFrame()) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(lifecycle, reducedMotion, dynamics) {
+    LaunchedEffect(lifecycle, frame) {
         if (reducedMotion) { frame.value = SceneFrame(); return@LaunchedEffect }
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            water?.reset()
             var previous = 0L
             var beatId = (energyState?.value ?: currentEnergy).beatId
             var smooth = Tilt()
@@ -122,17 +129,16 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                     level += (1f - exp(-dt / if (desired > level) .025f else .14f)) * (desired - level)
                     val impulse = if (currentPlaying && fresh && audio.beatId != beatId) audio.onset else 0f
                     beatId = audio.beatId
-                    if (style != ImmersionStyle.PARALLAX) {
-                        dynamics.advance(dt, smooth, level, impulse, emitParticles = style == ImmersionStyle.PARTICLES)
-                    }
-                    frame.value = SceneFrame(level, dynamics.pulse, smooth, fullDetail)
+                    particles?.advance(dt, smooth, level, impulse)
+                    water?.advance(dt, smooth, level, impulse)
+                    frame.value = SceneFrame(level, particles?.pulse ?: 0f, smooth, fullDetail, water?.revision ?: 0L)
                 }
                 // Active motion is display-synchronised, without an extra 24 ms throttle.
                 val latestTilt = tiltState?.value ?: currentTilt
                 if (!currentPlaying && latestTilt.motion < .005f &&
                     abs(latestTilt.x - frame.value.tilt.x) + abs(latestTilt.y - frame.value.tilt.y) < .001f &&
-                    frame.value.energy < .001f && dynamics.ripples.isEmpty() &&
-                    dynamics.motes.none { it.age < it.life }) delay(80)
+                    frame.value.energy < .001f && water?.active != true &&
+                    particles?.motes?.any { it.age < it.life } != true) delay(80)
             }
         }
     }
@@ -157,6 +163,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
             else minOf(maxWidth * .52f, maxHeight * .36f, 270.dp), tween(if (reducedMotion) 0 else 280), label = "immersive-cover-size")
         val controlMaxHeight = (maxHeight - 24.dp).coerceAtLeast(160.dp)
         val viewport = IntSize(constraints.maxWidth, constraints.maxHeight)
+        SideEffect { water?.resize(viewport.width, viewport.height) }
         Box(Modifier.matchParentSize().pointerInput(Unit) {
             detectTapGestures(onTap = {
                 if (taps.tap(SystemClock.uptimeMillis())) exit()
@@ -164,11 +171,11 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
             })
         }) {
             if (style == ImmersionStyle.RIPPLES) {
-                RippleBackdrop(artwork, viewport, frame, dynamics, Modifier.matchParentSize())
+                RippleBackdrop(artwork, viewport, frame, water, Modifier.matchParentSize())
             } else {
-                if (style == ImmersionStyle.PARTICLES) {
+                if (particles != null) {
                     val palette = remember(artwork) { artworkColors(artwork) }
-                    ParticleCanvas(frame, dynamics, reducedMotion, palette, Modifier.fillMaxSize())
+                    ParticleCanvas(frame, particles, palette, Modifier.fillMaxSize())
                 }
                 Box(Modifier.align(Alignment.Center).offset(y = (-24).dp).size(side)
                     .graphicsLayer {
@@ -233,7 +240,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
 }
 
 @Composable
-private fun RippleBackdrop(artwork: Bitmap?, viewport: IntSize, frame: State<SceneFrame>, dynamics: ImmersionDynamics, modifier: Modifier) {
+private fun RippleBackdrop(artwork: Bitmap?, viewport: IntSize, frame: State<SceneFrame>, water: WaterSurface?, modifier: Modifier) {
     val resources = LocalContext.current.resources
     val surface by produceState<CoverRefraction?>(null, artwork, viewport, resources) {
         if (viewport.width > 0 && viewport.height > 0) {
@@ -245,19 +252,18 @@ private fun RippleBackdrop(artwork: Bitmap?, viewport: IntSize, frame: State<Sce
     Canvas(modifier.background(GlassGround)) {
         val ready = surface ?: return@Canvas
         val f = frame.value
-        ready.draw(drawContext.canvas.nativeCanvas, size.width, size.height, f.tilt, f.energy, dynamics.ripples, f.fullDetail)
+        ready.draw(drawContext.canvas.nativeCanvas, size.width, size.height, water, f.fullDetail)
     }
 }
 
 @Composable
 private fun ParticleCanvas(frame: State<SceneFrame>, dynamics: ImmersionDynamics,
-    reduced: Boolean, palette: ArtworkColors, modifier: Modifier) {
+    palette: ArtworkColors, modifier: Modifier) {
     val colors = remember(palette) {
         listOf(lerp(palette.primary, Color(0xFF247E9B), .42f),
             lerp(palette.secondary, Color(0xFF765A9D), .43f), Color(0xFFBD7086))
     }
     Canvas(modifier) {
-        if (reduced) return@Canvas
         val f = frame.value // Only redraw/layer updates: no per-frame layout or recomposition.
         val unit = size.minDimension
         val center = Offset(size.width * .5f, size.height * .46f)

@@ -5,7 +5,7 @@
 ## 三种效果
 
 - **封面视差**：相对进入时的持握方向，封面产生有限的平移和轻微三维转动。
-- **节奏波纹**：当前专辑封面按原比例完整展示，边缘融入同色柔焦背景。真实播放波形的 RMS 让画面轻微起伏，重音形成清楚的亮边和邻近暗边。涟漪跨过整幅画面，经过封面主体时折射减弱。倾斜和摇晃改变波源与传播方向，摇晃也可独立激起较轻的涟漪。
+- **节奏波纹**：当前专辑封面按原比例完整展示，边缘融入同色柔焦背景。真实播放波形的 RMS 激起细波，重音激起较宽的涟漪，摇晃沿手部运动方向推起波。波纹相遇时局部加强或抵消，强波带起断续白沫和短暂的水滴。涟漪跨过整幅画面，经过封面主体时折射减弱。
 - **节奏粒子**：保留封面视差，音频与手部运动驱动粒子、短拖尾与发光。固定容量为 176 粒子，不随音量无限增加；重音驱动向外喷散，倾斜与摇晃驱动流向和涡流。
 
 0.7.0 中封面视差占屏比例增大，倾斜平移约 38／32 dp，叠加有衰减的摇晃冲量。新增线性加速度监听；缺失时用加速度减去低通重力估算，避免横向摇晃但角度变化很小就没有反馈。波纹中心偏移、扩散速度、线宽和粒子拖尾均对运动强度作出响应。
@@ -40,13 +40,13 @@ Android 的 Visualizer 接口要求 RECORD_AUDIO 运行时权限，系统可能�
 
 ### 水波与粒子的运动
 
-- 水波：封面与背景在换曲或画面尺寸改变时合成一次。位图网格逐帧位移合成后的画面，波峰一侧变亮，邻侧变暗。最多保留 8 组，绘制最近 5 组。绘制间隔持续偏大时降低网格密度，绘制最近 2 组涟漪，帧间隔恢复后再提高细节。屏幕边缘逐步减小位移，避免露底。
+- 水波：用低分辨率二维高度场按固定时间步推进水面，边缘逐步吸收余波。位图网格沿水面斜率折射封面与背景，迎光面变亮，邻侧变暗。断续白沫附在较陡的波峰，水滴最多占 28 个固定槽，单次跃起在半秒内结束。绘制间隔持续偏大时降低渲染网格密度，水面仍按固定时间步推进。
 - 粒子：重音一次喷散 24–56 个，粒子池固定为 176。初速度、寿命和大小有有限变化，速度方向决定短拖尾，随后阻尼减速并消散。倾斜产生横向／纵向水流，摇晃注入定向冲量与涡流；细微飞沫负责连接重音之间的空隙。
 - 强拍增强局部波峰与喷散。没有音频时，手部运动仍可产生扰动。
 
 传感器、Visualizer 和绘制协程均随可见界面生命周期停止，退出后注销／释放。封面视差不监听音频，但使用帧时钟平滑运动；暂停静止且余波消退后降低刷新。系统「移除动画」开启时呈现静态封面，停用传感器与实时音频监听。效果强度、真实刷新率和长期耗电仍需手机验收。
 
-传感器／音频状态在帧循环和控制层内按需读取，连续动画状态在 Canvas／graphicsLayer 中读取。波纹布局与折射分别参考 [OuterTune 的模糊和渐变背景](https://github.com/OuterTune/OuterTune/releases/tag/v0.9.3)、[pmndrs Shock Wave](https://pmndrs.github.io/examples/examples/shockwave) 和 [WebGL Water](https://madebyevan.com/webgl-water/) 的演示效果。波形采集与绘制参考 [Android Visualizer](https://developer.android.com/reference/android/media/audiofx/Visualizer) 和 [Compose 绘制阶段优化](https://developer.android.com/develop/ui/compose/performance/phases)。
+传感器／音频状态在帧循环和控制层内按需读取，连续动画状态在 Canvas／graphicsLayer 中读取。水面传播和边缘衰减参考 [WebGL Water](https://github.com/evanw/webgl-water) 和 [Ink Water](https://github.com/lekandigital/ink-water)。封面布局参考 [OuterTune 的模糊和渐变背景](https://github.com/OuterTune/OuterTune/releases/tag/v0.9.3)。波形采集与绘制参考 [Android Visualizer](https://developer.android.com/reference/android/media/audiofx/Visualizer) 和 [Compose 绘制阶段优化](https://developer.android.com/develop/ui/compose/performance/phases)。
 
 ## 0.7.0 切换与退出稳定性
 

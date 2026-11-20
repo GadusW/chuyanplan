@@ -13,8 +13,8 @@ android {
         applicationId = "com.stillune.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 41
-        versionName = "0.24.9"
+        versionCode = 42
+        versionName = "0.24.10"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         providers.gradleProperty("stillune.abi").orNull?.let { ndk { abiFilters += it } }
     }

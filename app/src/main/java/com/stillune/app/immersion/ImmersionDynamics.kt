@@ -3,16 +3,13 @@ package com.stillune.app.immersion
 import kotlin.math.*
 import kotlin.random.Random
 
-/** Bounded, time-based simulation. Coordinates are in units of the shortest screen side. */
+/** Bounded particle simulation. Coordinates are in units of the shortest screen side. */
 class ImmersionDynamics {
-    data class Ripple(val x: Float, val y: Float, val strength: Float,
-        var age: Float = 0f, val life: Float = 2.4f)
     class Mote {
         var x = 0f; var y = 0f; var oldX = 0f; var oldY = 0f
         var vx = 0f; var vy = 0f; var age = 0f; var life = 0f
         var size = 0f; var color = 0
     }
-    val ripples = ArrayList<Ripple>(8)
     val motes = Array(176) { Mote() }
     private val random = Random(481)
     private var cursor = 0
@@ -23,7 +20,7 @@ class ImmersionDynamics {
     var pulse = 0f
         private set
 
-    fun advance(seconds: Float, tilt: Tilt, level: Float, impulse: Float, emitParticles: Boolean = true) {
+    fun advance(seconds: Float, tilt: Tilt, level: Float, impulse: Float) {
         val dt = seconds.coerceIn(0f, .05f)
         elapsed += dt
         pulse *= exp(-dt / .19f)
@@ -33,18 +30,8 @@ class ImmersionDynamics {
         if (kick > 0f) {
             if (shakeHit) lastShake = elapsed
             pulse = maxOf(pulse, kick)
-            if (ripples.size == 8) ripples.removeAt(0)
-            ripples.add(Ripple(tilt.x * .12f + tilt.shakeX * .12f,
-                tilt.y * .10f - tilt.shakeY * .12f, kick))
-            if (emitParticles) burst(24 + (kick * 32).toInt(), kick, tilt)
+            burst(24 + (kick * 32).toInt(), kick, tilt)
         }
-        val iterator = ripples.iterator()
-        while (iterator.hasNext()) {
-            val ripple = iterator.next()
-            ripple.age += dt
-            if (ripple.age >= ripple.life) iterator.remove()
-        }
-        if (!emitParticles) return
         // Fine spray moves with the music/hand; only detected attacks create big bursts.
         dust += dt * (level * 12f + tilt.motion * 16f)
         if (dust >= 1f) { burst(dust.toInt().coerceAtMost(3), .12f, tilt); dust %= 1f }
