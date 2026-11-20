@@ -1,6 +1,7 @@
 package com.stillune.app
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -15,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.toPixelMap
 import org.junit.Assert.assertTrue
+import kotlin.math.roundToInt
 
 class ImmersionUiTest {
     @get:Rule val compose = createComposeRule()
@@ -31,6 +33,11 @@ class ImmersionUiTest {
         for (choice in listOf(ImmersionStyle.RIPPLES, ImmersionStyle.PARTICLES)) {
             compose.runOnIdle { style = choice; audio = AudioEnergy(available = true) }
             compose.mainClock.advanceTimeBy(100)
+            if (choice == ImmersionStyle.RIPPLES) compose.waitUntil(timeoutMillis = 5_000) {
+                val preview = compose.onRoot().captureToImage().toPixelMap()
+                val center = preview[preview.width / 2, (preview.height * .46f).toInt()]
+                center.red > .94f || center.blue > .94f
+            }
             val quiet = compose.onRoot().captureToImage().toPixelMap()
             compose.runOnIdle { audio = AudioEnergy(.5f, true, level = 1f, onset = 1f, beatId = 1L) }
             compose.mainClock.advanceTimeBy(350)
@@ -44,9 +51,9 @@ class ImmersionUiTest {
         }
     }
 
-    @Test fun silentRippleSceneUsesFullScreenArtworkAndCalmsWhenMotionIsReduced() {
+    @Test fun silentRippleSceneFitsArtworkAndCalmsWhenMotionIsReduced() {
         compose.mainClock.autoAdvance = false
-        val artwork = stripedArtwork()
+        val artwork = stripedArtwork(markEdges = true)
         var tilt by mutableStateOf(Tilt(available = true))
         var reduced by mutableStateOf(false)
         compose.setContent { StilluneTheme {
@@ -56,10 +63,18 @@ class ImmersionUiTest {
         } }
         compose.mainClock.advanceTimeBy(120)
         val root = compose.onRoot()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            val preview = root.captureToImage().toPixelMap()
+            val side = minOf(preview.width * .86f, preview.height * .69f)
+            val row = (preview.height * .46f).toInt()
+            val left = preview[(preview.width * .5f - side * .42f).roundToInt(), row]
+            val right = preview[(preview.width * .5f + side * .42f).roundToInt(), row]
+            left.green > .96f && left.red < .04f && right.red > .96f && right.green > .96f
+        }
         val still = root.captureToImage().toPixelMap()
-        // The cover fills the screen even at the top, outside the former centre card.
+        // Saturated edge markers prove both sides of the cover are visible. Above it, only the wash remains.
         val top = still[still.width / 2, 8]
-        assertTrue(top.red > .9f || top.blue > .9f)
+        assertTrue(top.red in 0.15f..0.8f && top.blue in 0.15f..0.8f)
         compose.runOnIdle { tilt = Tilt(.55f, -.45f, .9f, true, .5f, -.4f) }
         compose.mainClock.advanceTimeBy(280)
         val moving = root.captureToImage().toPixelMap()
@@ -74,10 +89,47 @@ class ImmersionUiTest {
         }
     }
 
-    private fun stripedArtwork(): Bitmap {
+    @Test fun rippleRimsBrightenDarkBackdropsAndShadeLightBackdrops() {
+        val width = 360
+        val height = 760
+        val ripple = ImmersionDynamics.Ripple(0f, 0f, 1f, age = .62f)
+        for (value in listOf(32, 222)) {
+            val artwork = Bitmap.createBitmap(64, 40, Bitmap.Config.ARGB_8888).apply {
+                eraseColor(Color.rgb(value, value, value))
+            }
+            val surface = CoverRefraction(artwork, width, height)
+            val still = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val moving = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            surface.draw(Canvas(still), width.toFloat(), height.toFloat(), Tilt(), 0f, emptyList(), true)
+            surface.draw(Canvas(moving), width.toFloat(), height.toFloat(), Tilt(), 0f, listOf(ripple), true)
+            var brightest = 0
+            var darkest = 0
+            // Sample only the soft background above the fitted cover.
+            for (y in 130..238 step 2) for (x in 40..320 step 2) {
+                val delta = Color.red(moving.getPixel(x, y)) - Color.red(still.getPixel(x, y))
+                brightest = maxOf(brightest, delta)
+                darkest = minOf(darkest, delta)
+            }
+            if (value < 100) {
+                assertTrue("Dark artwork must show a bright rim: $brightest", brightest >= 10)
+                assertTrue("Dark artwork must still have a neighboring trough: $darkest", darkest <= -2)
+            } else {
+                assertTrue("Light artwork must show a dark trough: $darkest", darkest <= -10)
+                assertTrue("Light artwork must still catch a bright rim: $brightest", brightest >= 2)
+            }
+        }
+    }
+
+    private fun stripedArtwork(markEdges: Boolean = false): Bitmap {
         val side = 256
         val pixels = IntArray(side * side) { index ->
-            if ((index % side) / 9 % 2 == 0) Color.RED else Color.BLUE
+            val column = index % side
+            when {
+                markEdges && column < 24 -> Color.GREEN
+                markEdges && column >= side - 24 -> Color.YELLOW
+                column / 9 % 2 == 0 -> Color.RED
+                else -> Color.BLUE
+            }
         }
         return Bitmap.createBitmap(pixels, side, side, Bitmap.Config.ARGB_8888)
     }

@@ -35,6 +35,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.*
@@ -155,6 +156,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
             minOf(maxWidth * .86f, maxHeight * .61f, 430.dp)
             else minOf(maxWidth * .52f, maxHeight * .36f, 270.dp), tween(if (reducedMotion) 0 else 280), label = "immersive-cover-size")
         val controlMaxHeight = (maxHeight - 24.dp).coerceAtLeast(160.dp)
+        val viewport = IntSize(constraints.maxWidth, constraints.maxHeight)
         Box(Modifier.matchParentSize().pointerInput(Unit) {
             detectTapGestures(onTap = {
                 if (taps.tap(SystemClock.uptimeMillis())) exit()
@@ -162,7 +164,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
             })
         }) {
             if (style == ImmersionStyle.RIPPLES) {
-                RippleBackdrop(artwork, frame, dynamics, Modifier.matchParentSize())
+                RippleBackdrop(artwork, viewport, frame, dynamics, Modifier.matchParentSize())
             } else {
                 if (style == ImmersionStyle.PARTICLES) {
                     val palette = remember(artwork) { artworkColors(artwork) }
@@ -189,14 +191,14 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
             }
         }
         if (!controls && style == ImmersionStyle.RIPPLES) {
-            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(190.dp)
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(minOf(190.dp, maxHeight * .22f))
                 .background(Brush.verticalGradient(
                     0f to Color.Transparent, .45f to Color.Black.copy(alpha = .63f),
                     1f to Color.Black.copy(alpha = .76f)
                 )))
         }
         if (!controls) Text(state.track?.title ?: "让声音停泊", Modifier.align(Alignment.BottomCenter)
-            .safeDrawingPadding().padding(horizontal = 28.dp, vertical = 36.dp),
+            .safeDrawingPadding().padding(horizontal = 28.dp, vertical = if (style == ImmersionStyle.RIPPLES && maxHeight < 520.dp) 14.dp else 36.dp),
             color = if (style == ImmersionStyle.RIPPLES) Color.White else InkAccent,
             fontSize = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -231,12 +233,19 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
 }
 
 @Composable
-private fun RippleBackdrop(artwork: Bitmap?, frame: State<SceneFrame>, dynamics: ImmersionDynamics, modifier: Modifier) {
+private fun RippleBackdrop(artwork: Bitmap?, viewport: IntSize, frame: State<SceneFrame>, dynamics: ImmersionDynamics, modifier: Modifier) {
     val resources = LocalContext.current.resources
-    val surface = remember(artwork, resources) { CoverRefraction(artwork ?: defaultRippleArtwork(resources)) }
+    val surface by produceState<CoverRefraction?>(null, artwork, viewport, resources) {
+        if (viewport.width > 0 && viewport.height > 0) {
+            value = withContext(Dispatchers.Default) {
+                CoverRefraction(artwork ?: defaultRippleArtwork(resources), viewport.width, viewport.height)
+            }
+        }
+    }
     Canvas(modifier.background(GlassGround)) {
+        val ready = surface ?: return@Canvas
         val f = frame.value
-        surface.draw(drawContext.canvas.nativeCanvas, size.width, size.height, f.tilt, f.energy, dynamics.ripples, f.fullDetail)
+        ready.draw(drawContext.canvas.nativeCanvas, size.width, size.height, f.tilt, f.energy, dynamics.ripples, f.fullDetail)
     }
 }
 

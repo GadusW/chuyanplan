@@ -1,0 +1,45 @@
+{
+  "version": "0.24.9",
+  "versionCode": 41,
+  "unitTests": 35,
+  "androidInstrumentationTestsPassed": 8,
+  "originalSigningCertificatePreserved": true,
+  "identicalDexAcrossAbis": true,
+  "artifacts": [
+    {
+      "name": "Stillune-0.24.9-arm64-debug.apk",
+      "bytes": 75254376,
+      "sha256": "d38fbfa32e6bba3eb9723ba827f105633b03b32678e8b52d144ef7d997c68364",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.24.9-universal-debug.apk",
+      "bytes": 230162015,
+      "sha256": "c32a4bbc888ad7f1ff4ddda48cf53949c0104eef3ec9d8f90ee94bef126e1528",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "device": "Android API 36 x86_64 emulator",
+  "deviceSmokeTest": {
+    "updatedFromVersion": "0.24.8",
+    "upgradeInstall": "passed",
+    "verified": [
+      "Cover edge markers remain visible against the soft background",
+      "Light and dark flat artwork both show ripple contrast",
+      "Audio attacks and silent hand motion deform the composition",
+      "Reduced motion restores the static scene",
+      "Playback controls, effect switching, and tap to exit",
+      "Decoded playback produces measurable RMS in the app audio session"
+    ],
+    "testedOnReporterDevice": false
+  }
+}

@@ -39,7 +39,7 @@ internal fun MoonlitBackdrop(artwork: Bitmap?, modifier: Modifier = Modifier) {
 }
 
 /** Blur a bounded image off the UI thread, including on Android versions without RenderEffect. */
-private fun blurArtwork(source: Bitmap): Bitmap {
+internal fun blurArtwork(source: Bitmap): Bitmap {
     val side = 24
     val sample = Bitmap.createScaledBitmap(source, side, side, true)
     val pixels = IntArray(side * side)
