@@ -68,16 +68,23 @@ class ImmersionDynamicsTest {
         assertTrue(scene.pulse < .001f)
     }
 
-    @Test fun handCurrentBendsWavesAndSteersParticlesWithFrameRateIndependentDecay() {
+    @Test fun handCurrentSteersParticlesWithFrameRateIndependentDecay() {
         val still = ImmersionDynamics(); val moving = ImmersionDynamics()
         still.advance(.01f, Tilt(), 0f, 1f); moving.advance(.01f, Tilt(), 0f, 1f)
         repeat(60) { still.advance(1f / 60, Tilt(), 0f, 0f) }
         repeat(120) { moving.advance(1f / 120, Tilt(x = .8f), 0f, 0f) }
         assertEquals(still.pulse, moving.pulse, .001f)
         assertTrue(moving.motes[0].x > still.motes[0].x + .05f)
-        val points = (0..40).map { ImmersionDynamics.contour(it * .157f, .6f, 1.3f, 1f, Tilt(.7f, .4f, .5f)) }
-        assertTrue(points.max() - points.min() > .12f)
-        assertTrue(points.all { it.isFinite() && abs(it) < .35f })
+    }
+
+    @Test fun shakeMovesTheRippleOriginWithoutProducingParticlesInRippleMode() {
+        val scene = ImmersionDynamics()
+        scene.advance(.016f, Tilt(x = .5f, y = -.4f, motion = .6f, shakeX = .5f, shakeY = -.3f),
+            0f, 0f, emitParticles = false)
+        val ripple = scene.ripples.single()
+        assertTrue(ripple.x > .1f)
+        assertEquals(.42f, ripple.strength, .0001f)
+        assertTrue(scene.motes.none { it.age < it.life })
     }
 
     @Test fun responsiveTiltSuppressesJitterButTracksIntentionalMovement() {

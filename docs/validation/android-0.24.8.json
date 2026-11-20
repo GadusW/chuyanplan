@@ -1,0 +1,45 @@
+{
+  "version": "0.24.8",
+  "versionCode": 40,
+  "unitTests": 35,
+  "androidInstrumentationTestsPassed": 7,
+  "originalSigningCertificatePreserved": true,
+  "identicalDexAcrossAbis": true,
+  "artifacts": [
+    {
+      "name": "Stillune-0.24.8-arm64-debug.apk",
+      "bytes": 75254376,
+      "sha256": "0ce4425e2b1e419b927693524c5e09c45189ea2d6d1eb40671e8786fe7983b15",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.24.8-universal-debug.apk",
+      "bytes": 230162015,
+      "sha256": "24476e01cab0c458baeb085dfbcffe3c418f22be04ebf6afc96cc18fed3c637d",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "device": "Android API 36 x86_64 emulator",
+  "deviceSmokeTest": {
+    "updatedFromVersion": "0.24.7",
+    "upgradeInstall": "passed",
+    "verified": [
+      "Full-screen artwork renders outside the former cover card",
+      "Audio attacks deform the cover and animate the particle field",
+      "Hand movement deforms the cover in silence",
+      "Reduced motion restores the static cover",
+      "Playback controls, effect switching, and tap to exit",
+      "Decoded playback produces measurable RMS in the app audio session"
+    ],
+    "testedOnReporterDevice": false
+  }
+}

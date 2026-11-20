@@ -1,5 +1,7 @@
 package com.stillune.app
 
+import android.graphics.Bitmap
+import android.graphics.Color
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.stillune.app.data.Track
@@ -20,8 +22,9 @@ class ImmersionUiTest {
         compose.mainClock.autoAdvance = false
         var style by mutableStateOf(ImmersionStyle.RIPPLES)
         var audio by mutableStateOf(AudioEnergy(available = true))
+        val artwork = stripedArtwork()
         compose.setContent { StilluneTheme {
-            ImmersiveScene(PlaybackState(playing = true), null, style, Tilt(), audio,
+            ImmersiveScene(PlaybackState(playing = true), artwork, style, Tilt(), audio,
                 audioAllowed = true, onStyle = {}, onToggle = {}, onPrevious = {},
                 onNext = {}, onSeek = {}, onExit = {})
         } }
@@ -39,6 +42,44 @@ class ImmersionUiTest {
             }
             assertTrue("$choice must visibly react to the audio attack", changes > 20)
         }
+    }
+
+    @Test fun silentRippleSceneUsesFullScreenArtworkAndCalmsWhenMotionIsReduced() {
+        compose.mainClock.autoAdvance = false
+        val artwork = stripedArtwork()
+        var tilt by mutableStateOf(Tilt(available = true))
+        var reduced by mutableStateOf(false)
+        compose.setContent { StilluneTheme {
+            ImmersiveScene(PlaybackState(), artwork, ImmersionStyle.RIPPLES, tilt, AudioEnergy(),
+                reducedMotion = reduced, onStyle = {}, onToggle = {}, onPrevious = {},
+                onNext = {}, onSeek = {}, onExit = {})
+        } }
+        compose.mainClock.advanceTimeBy(120)
+        val root = compose.onRoot()
+        val still = root.captureToImage().toPixelMap()
+        // The cover fills the screen even at the top, outside the former centre card.
+        val top = still[still.width / 2, 8]
+        assertTrue(top.red > .9f || top.blue > .9f)
+        compose.runOnIdle { tilt = Tilt(.55f, -.45f, .9f, true, .5f, -.4f) }
+        compose.mainClock.advanceTimeBy(280)
+        val moving = root.captureToImage().toPixelMap()
+        assertTrue((30 until still.width - 30 step 10).any { x ->
+            kotlin.math.abs(moving[x, still.height / 2].red - still[x, still.height / 2].red) > .15f
+        })
+        compose.runOnIdle { reduced = true }
+        compose.mainClock.advanceTimeBy(160)
+        val calm = root.captureToImage().toPixelMap()
+        for (x in 30 until still.width - 30 step 10) {
+            assertEquals(still[x, still.height / 2], calm[x, still.height / 2])
+        }
+    }
+
+    private fun stripedArtwork(): Bitmap {
+        val side = 256
+        val pixels = IntArray(side * side) { index ->
+            if ((index % side) / 9 % 2 == 0) Color.RED else Color.BLUE
+        }
+        return Bitmap.createBitmap(pixels, side, side, Bitmap.Config.ARGB_8888)
     }
     @Test fun controlsStartHiddenWakeOnTapHideAfterTenSecondsAndTripleTapExits() {
         var exits = 0

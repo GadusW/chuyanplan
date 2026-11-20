@@ -5,7 +5,7 @@ import kotlin.random.Random
 
 /** Bounded, time-based simulation. Coordinates are in units of the shortest screen side. */
 class ImmersionDynamics {
-    data class Ripple(val x: Float, val y: Float, val strength: Float, val seed: Float,
+    data class Ripple(val x: Float, val y: Float, val strength: Float,
         var age: Float = 0f, val life: Float = 2.4f)
     class Mote {
         var x = 0f; var y = 0f; var oldX = 0f; var oldY = 0f
@@ -23,7 +23,7 @@ class ImmersionDynamics {
     var pulse = 0f
         private set
 
-    fun advance(seconds: Float, tilt: Tilt, level: Float, impulse: Float) {
+    fun advance(seconds: Float, tilt: Tilt, level: Float, impulse: Float, emitParticles: Boolean = true) {
         val dt = seconds.coerceIn(0f, .05f)
         elapsed += dt
         pulse *= exp(-dt / .19f)
@@ -35,8 +35,8 @@ class ImmersionDynamics {
             pulse = maxOf(pulse, kick)
             if (ripples.size == 8) ripples.removeAt(0)
             ripples.add(Ripple(tilt.x * .12f + tilt.shakeX * .12f,
-                tilt.y * .10f - tilt.shakeY * .12f, kick, random.nextFloat() * 6.28f))
-            burst(24 + (kick * 32).toInt(), kick, tilt)
+                tilt.y * .10f - tilt.shakeY * .12f, kick))
+            if (emitParticles) burst(24 + (kick * 32).toInt(), kick, tilt)
         }
         val iterator = ripples.iterator()
         while (iterator.hasNext()) {
@@ -44,6 +44,7 @@ class ImmersionDynamics {
             ripple.age += dt
             if (ripple.age >= ripple.life) iterator.remove()
         }
+        if (!emitParticles) return
         // Fine spray moves with the music/hand; only detected attacks create big bursts.
         dust += dt * (level * 12f + tilt.motion * 16f)
         if (dust >= 1f) { burst(dust.toInt().coerceAtMost(3), .12f, tilt); dust %= 1f }
@@ -79,15 +80,4 @@ class ImmersionDynamics {
         }
     }
 
-    companion object {
-        /** Interfering low-frequency waves, bent by the hand's current (not noisy polygons). */
-        fun contour(angle: Float, age: Float, seed: Float, strength: Float, tilt: Tilt): Float {
-            val water = sin(angle * 3f + age * 2.7f + seed) * .048f +
-                sin(angle * 5f - age * 1.8f + seed * .7f) * .023f +
-                sin(angle * 2f - age * 2.2f) * .035f
-            val current = (cos(angle) * tilt.x + sin(angle) * tilt.y) * .10f +
-                sin(angle * 4f + seed + age * 3f) * tilt.motion * .055f
-            return (water * (.4f + strength) + current) * (1f - exp(-age * 7f))
-        }
-    }
 }
