@@ -11,7 +11,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /** A shared height field with a fixed simulation step and a damped border. Owned by the frame clock. */
-internal class WaterSurface {
+internal class WaterSurface(val wake: CurlWake? = null) {
     class Drop {
         var u = 0f
         var v = 0f
@@ -47,6 +47,7 @@ internal class WaterSurface {
 
     fun resize(width: Int, height: Int) {
         if (width <= 0 || height <= 0) return
+        wake?.resize(width, height)
         val scale = minOf(68f / minOf(width, height), 160f / maxOf(width, height))
         val newColumns = (width * scale).roundToInt().coerceAtLeast(6)
         val newRows = (height * scale).roundToInt().coerceAtLeast(6)
@@ -69,6 +70,7 @@ internal class WaterSurface {
     }
 
     fun reset() {
+        wake?.reset()
         if (active) {
             heights.fill(0f)
             velocities.fill(0f)
@@ -91,6 +93,7 @@ internal class WaterSurface {
     fun advance(seconds: Float, tilt: Tilt, energy: Float, impulse: Float) {
         if (columns == 0) return
         val dt = seconds.coerceIn(0f, .05f)
+        val wakeChanged = wake?.advance(dt, tilt, impulse) == true
         val motion = if (tilt.available) tilt.motion else 0f
         shakeCooldown -= dt
         val crossed = previousMotion <= .24f || motion - previousMotion > dt * 1.8f
@@ -135,7 +138,10 @@ internal class WaterSurface {
             }
         } else fineEnergy = 0f
 
-        if (!active) return
+        if (!active) {
+            if (wakeChanged) revision++
+            return
+        }
         if (remaining <= dt) {
             // The absorbing border and velocity damping have removed the visible wave by now.
             heights.fill(0f)

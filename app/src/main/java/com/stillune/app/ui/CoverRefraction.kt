@@ -34,6 +34,7 @@ internal class CoverRefraction(artwork: Bitmap, viewportWidth: Int, viewportHeig
     private var meshRows = 0
     private val white = Bitmap.createBitmap(intArrayOf(Color.WHITE), 1, 1, Bitmap.Config.ARGB_8888)
     private val coverBounds = RectF()
+    val normalizedCover: RectF
     private val feather: Float
     private val texture: Bitmap
 
@@ -54,6 +55,8 @@ internal class CoverRefraction(artwork: Bitmap, viewportWidth: Int, viewportHeig
         val centerX = width * .5f
         val centerY = height * .46f
         coverBounds.set(centerX - halfWidth, centerY - halfHeight, centerX + halfWidth, centerY + halfHeight)
+        normalizedCover = RectF(coverBounds.left / width, coverBounds.top / height,
+            coverBounds.right / width, coverBounds.bottom / height)
         feather = minOf(coverBounds.width(), coverBounds.height()) * .055f
 
         val layer = canvas.saveLayer(coverBounds, null)
@@ -118,6 +121,10 @@ internal class CoverRefraction(artwork: Bitmap, viewportWidth: Int, viewportHeig
         }
         canvas.drawBitmapMesh(texture, columns, rows, vertices, 0, null, 0, paint)
         canvas.drawBitmapMesh(white, columns, rows, vertices, 0, shading, 0, paint)
+    }
+
+    fun drawSpray(canvas: Canvas, width: Float, height: Float, water: WaterSurface) {
+        val unit = minOf(width, height)
         for (drop in water.drops) {
             if (drop.age >= drop.life) continue
             val phase = drop.age / drop.life

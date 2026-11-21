@@ -4,6 +4,7 @@ import android.Manifest
 import android.animation.ValueAnimator
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -96,7 +97,9 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
         if (style == ImmersionStyle.PARTICLES && !reducedMotion) ImmersionDynamics() else null
     }
     val water = remember(style, state.track?.uri, reducedMotion) {
-        if (style == ImmersionStyle.RIPPLES && !reducedMotion) WaterSurface() else null
+        if (style == ImmersionStyle.RIPPLES && !reducedMotion) {
+            WaterSurface(if (Build.VERSION.SDK_INT >= 33) CurlWake() else null)
+        } else null
     }
     val frame = remember(style, state.track?.uri, reducedMotion) { mutableStateOf(SceneFrame()) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -137,7 +140,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                 val latestTilt = tiltState?.value ?: currentTilt
                 if (!currentPlaying && latestTilt.motion < .005f &&
                     abs(latestTilt.x - frame.value.tilt.x) + abs(latestTilt.y - frame.value.tilt.y) < .001f &&
-                    frame.value.energy < .001f && water?.active != true &&
+                    frame.value.energy < .001f && water?.active != true && water?.wake?.active != true &&
                     particles?.motes?.any { it.age < it.life } != true) delay(80)
             }
         }
@@ -242,6 +245,8 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
 @Composable
 private fun RippleBackdrop(artwork: Bitmap?, viewport: IntSize, frame: State<SceneFrame>, water: WaterSurface?, modifier: Modifier) {
     val resources = LocalContext.current.resources
+    val wake = water?.wake
+    val curl = remember(wake) { if (wake != null && Build.VERSION.SDK_INT >= 33) CurlRefraction() else null }
     val surface by produceState<CoverRefraction?>(null, artwork, viewport, resources) {
         if (viewport.width > 0 && viewport.height > 0) {
             value = withContext(Dispatchers.Default) {
@@ -249,10 +254,24 @@ private fun RippleBackdrop(artwork: Bitmap?, viewport: IntSize, frame: State<Sce
             }
         }
     }
-    Canvas(modifier.background(GlassGround)) {
-        val ready = surface ?: return@Canvas
-        val f = frame.value
-        ready.draw(drawContext.canvas.nativeCanvas, size.width, size.height, water, f.fullDetail)
+    val refraction = if (Build.VERSION.SDK_INT >= 33 && curl != null && wake != null) {
+        Modifier.graphicsLayer {
+            val revision = frame.value.waterRevision
+            val cover = surface?.normalizedCover
+            renderEffect = if (wake.active && cover != null && size.width > 0f && size.height > 0f) {
+                curl.effect(wake, revision, size.width, size.height, cover)
+            } else null
+        }
+    } else Modifier
+    Box(modifier.background(GlassGround)) {
+        Canvas(Modifier.matchParentSize().then(refraction)) {
+            val ready = surface ?: return@Canvas
+            ready.draw(drawContext.canvas.nativeCanvas, size.width, size.height, water, frame.value.fullDetail)
+        }
+        if (water != null) Canvas(Modifier.matchParentSize()) {
+            frame.value // Water and spray are advanced together by the frame clock.
+            surface?.drawSpray(drawContext.canvas.nativeCanvas, size.width, size.height, water)
+        }
     }
 }
 

@@ -1,0 +1,48 @@
+{
+  "version": "0.24.11",
+  "versionCode": 43,
+  "unitTests": 39,
+  "androidInstrumentationTestsPassed": 9,
+  "originalSigningCertificatePreserved": true,
+  "identicalDexAcrossAbis": true,
+  "artifacts": [
+    {
+      "name": "Stillune-0.24.11-arm64-debug.apk",
+      "bytes": 75270760,
+      "sha256": "266496179c4e828fa9461b9e60968acc9c17a604f82e4e68d5f6279b100d5853",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.24.11-universal-debug.apk",
+      "bytes": 230178399,
+      "sha256": "908900353f3fe6aea6524d39860131a2558ec2b3736a19e878fe9bb9f38a3acc",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "simulationChecks": [
+    "Continuous motion leaves a densely spaced wake that fades after stopping",
+    "A strong beat adds a localized cover-protection override"
+  ],
+  "device": "Android API 36 x86_64 emulator",
+  "deviceSmokeTest": {
+    "updatedFromVersion": "0.24.10",
+    "upgradeInstall": "passed",
+    "verified": [
+      "The GPU pass resamples cover pixels, updates while fading, and clears at rest",
+      "Audio attacks and silent hand motion deform the composition",
+      "Reduced motion restores the static scene",
+      "Playback controls, effect switching, and tap to exit",
+      "Decoded playback produces measurable RMS in the app audio session"
+    ],
+    "testedOnReporterDevice": false
+  }
+}

@@ -3,6 +3,15 @@ package com.stillune.app
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.RectF
+import androidx.compose.foundation.Canvas as ComposeCanvas
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.test.filters.SdkSuppress
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.stillune.app.data.Track
@@ -20,6 +29,53 @@ import kotlin.math.roundToInt
 
 class ImmersionUiTest {
     @get:Rule val compose = createComposeRule()
+
+    @SdkSuppress(minSdkVersion = 33)
+    @Test fun curlShaderResamplesTheCoverAndClearsWhenTheWakeExpires() {
+        val wake = CurlWake().apply { resize(360, 720) }
+        val curl = CurlRefraction()
+        val cover = RectF(.08f, .25f, .92f, .75f)
+        var revision by mutableLongStateOf(0L)
+        compose.setContent {
+            ComposeCanvas(Modifier.fillMaxSize().graphicsLayer {
+                val current = revision
+                renderEffect = if (wake.active) curl.effect(wake, current, size.width, size.height, cover) else null
+            }) {
+                val cell = size.width / 16f
+                for (x in 0..15) drawRect(
+                    color = if (x % 2 == 0) ComposeColor.Blue else ComposeColor.White,
+                    topLeft = Offset(x * cell, 0f), size = Size(cell, size.height)
+                )
+            }
+        }
+        val root = compose.onRoot()
+        val calm = root.captureToImage().toPixelMap()
+        compose.runOnIdle { wake.advance(.016f, Tilt(), 1f); revision++ }
+        val curled = root.captureToImage().toPixelMap()
+        var changed = 0
+        for (y in calm.height * 2 / 5 until calm.height * 3 / 5 step 6) {
+            for (x in calm.width / 4 until calm.width * 3 / 4 step 6) {
+                if (kotlin.math.abs(calm[x, y].red - curled[x, y].red) > .4f) changed++
+            }
+        }
+        assertTrue("The GPU pass must fold texture inside the cover: $changed changed samples", changed > 20)
+        compose.runOnIdle {
+            repeat(29) { wake.advance(.016f, Tilt(), 0f) }
+            revision++
+        }
+        val fading = root.captureToImage().toPixelMap()
+        assertTrue((calm.width / 4 until calm.width * 3 / 4 step 7).any { x ->
+            fading[x, calm.height / 2] != curled[x, calm.height / 2]
+        })
+        compose.runOnIdle {
+            repeat(47) { wake.advance(.016f, Tilt(), 0f) }
+            revision++
+        }
+        val settled = root.captureToImage().toPixelMap()
+        for (x in calm.width / 4 until calm.width * 3 / 4 step 11) {
+            assertEquals(calm[x, calm.height / 2], settled[x, settled.height / 2])
+        }
+    }
     @Test fun realAttackEventChangesTheRenderedRippleAndParticleFields() {
         compose.mainClock.autoAdvance = false
         var style by mutableStateOf(ImmersionStyle.RIPPLES)
