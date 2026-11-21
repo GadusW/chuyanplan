@@ -8,7 +8,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitHorizontalDragOrCancellation
-import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
@@ -61,11 +59,11 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,12 +76,12 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sign
 import kotlin.math.sin
+import kotlin.random.Random
 
 private val destinations = listOf("乐库", "此刻", "护耳")
 private const val lastDestination = 2
 private val railInset = 5.dp
 private val railHeight = 62.dp
-private val iconSize = 23.dp
 
 @Composable
 internal fun FloatingNavigation(
@@ -126,23 +124,34 @@ internal fun FloatingNavigation(
         Box(Modifier.fillMaxSize()
             .onGloballyPositioned { origin = it.positionInRoot() }
             .selectableGroup().semantics { contentDescription = "悬浮导航" }
-            .drawNavigation(slider, selected, rtl) { pressure.value }
+            .drawNavigation(slider, rtl) { pressure.value }
             .pointerInput(slider, rtl, cellWidth) {
                 val step = cellWidth.toPx()
                 val direction = if (rtl) -1f else 1f
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     slider.pressed = true
+                    slider.beginDrag()
                     var dragging = false
                     try {
                         if (step <= 0f) return@awaitEachGesture
                         val velocity = VelocityTracker().apply { addPosition(down.uptimeMillis, down.position) }
-                        val start = awaitHorizontalTouchSlopOrCancellation(down.id) { change, overSlop ->
-                            change.consume()
-                            dragging = true
-                            slider.beginDrag()
-                            slider.dragBy(overSlop * direction / step)
-                        } ?: return@awaitEachGesture
+                        val threshold = 4.dp.toPx()
+                        var start = down
+                        while (!dragging) {
+                            val event = awaitPointerEvent()
+                            start = event.changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
+                            if (!start.pressed || start.isConsumed) return@awaitEachGesture
+                            val distance = start.position - down.position
+                            if (abs(distance.y) >= threshold && abs(distance.y) > abs(distance.x)) {
+                                return@awaitEachGesture
+                            }
+                            if (abs(distance.x) >= threshold) {
+                                dragging = true
+                                start.consume()
+                                slider.dragBy(distance.x * direction / step)
+                            }
+                        }
                         velocity.addPosition(start.uptimeMillis, start.position)
                         var lastMove = start.uptimeMillis
                         var end = awaitHorizontalDragOrCancellation(start.id)
@@ -158,7 +167,7 @@ internal fun FloatingNavigation(
                             (velocity.calculateVelocity().x * direction / step).coerceIn(-5f, 5f)
                         } else 0f
                         val previous = currentSelection
-                        val destination = (slider.position + speed * .058f).roundToInt().coerceIn(0, lastDestination)
+                        val destination = (slider.position + speed * .06f).roundToInt().coerceIn(0, lastDestination)
                         slider.settle(destination, speed) {
                             if (currentSelection == previous && destination != previous) {
                                 openPage(destination, origin + Offset(
@@ -170,7 +179,7 @@ internal fun FloatingNavigation(
                         dragging = false
                     } finally {
                         slider.pressed = false
-                        if (dragging && slider.target == null) slider.settle(currentSelection)
+                        if (slider.target == null) slider.settle(currentSelection)
                     }
                 }
             }) {
@@ -179,27 +188,22 @@ internal fun FloatingNavigation(
                     Box(Modifier.weight(1f).fillMaxHeight().clip(SquircleShape(23.dp))
                         .semantics { contentDescription = name }
                         .selectable(selected == index, role = Role.Tab, interactionSource = null, indication = ripple()) {
-                            slider.settle(index)
-                            if (index != selected) {
+                            val destination = if (index == selected) (selected + 1) % destinations.size else index
+                            slider.settle(destination)
+                            if (destination != selected) {
                                 val tapCenter = with(density) {
-                                    Offset(cellCenter(index.toFloat(), railWidth.toPx(), railInset.toPx(), rtl), railHeight.toPx() / 2)
+                                    Offset(cellCenter(destination.toFloat(), railWidth.toPx(), railInset.toPx(), rtl), railHeight.toPx() / 2)
                                 }
-                                openPage(index, origin + tapCenter)
+                                openPage(destination, origin + tapCenter)
                             }
                         }) {
-                        if (selected == index) {
-                            Text(name, Modifier.align(Alignment.CenterStart)
-                                .offset {
-                                    val start = (slider.position - index + .5f) * cellWidth.toPx() - 1.dp.toPx()
-                                    IntOffset(start.roundToInt(), 0)
-                                }
-                                .graphicsLayer {
-                                    alpha = labelVisibility(slider.position, index)
-                                    scaleX = 1f - pressure.value * .027f
-                                    scaleY = 1f - pressure.value * .050f
-                                }, color = InkAccent, fontSize = labelSize, fontWeight = FontWeight.SemiBold,
-                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
-                        }
+                        Text(name, Modifier.align(Alignment.Center)
+                            .graphicsLayer {
+                                alpha = smooth(abs(index - slider.position) / .55f)
+                            }
+                            .then(if (selected == index) Modifier.clearAndSetSemantics {} else Modifier),
+                            color = InkAccent, fontSize = labelSize, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -242,7 +246,7 @@ private class NavigationSlider(private val scope: CoroutineScope, selected: Int)
         val velocity = (speed * sign(distance)).coerceIn(0f, abs(distance) * 22f) * sign(distance)
         settling = scope.launch {
             AnimationState(initialValue = position, initialVelocity = velocity)
-                .animateTo(end, spring(dampingRatio = 1f, stiffness = 529f, visibilityThreshold = .007f)) {
+                .animateTo(end, spring(dampingRatio = 1f, stiffness = 100f, visibilityThreshold = .007f)) {
                     position = value
                 }
             position = end
@@ -262,13 +266,11 @@ private fun smooth(amount: Float): Float {
     return t * t * (3f - 2f * t)
 }
 
-private fun labelVisibility(position: Float, selected: Int) = 1f - smooth(abs(position - selected) / .26f)
-
 private val blueLight = Color(0xFF71A8E6)
 private val whiteLight = Color(0xFFF5F4EE)
 private val goldLight = Color(0xFFEEB16A)
 
-private fun Modifier.drawNavigation(slider: NavigationSlider, selected: Int, rtl: Boolean, pressure: () -> Float) = drawWithCache {
+private fun Modifier.drawNavigation(slider: NavigationSlider, rtl: Boolean, pressure: () -> Float) = drawWithCache {
     val inset = railInset.toPx()
     val width = (size.width - inset * 2) / destinations.size
     val height = size.height - inset * 2
@@ -287,7 +289,7 @@ private fun Modifier.drawNavigation(slider: NavigationSlider, selected: Int, rtl
         .85f to Color.Transparent, 1f to Color(0x80FFFFFF), endY = size.height)
     val face = Brush.linearGradient(0f to Color(0xE4FFFFFF), .3f to Color(0x9AF4FBFF),
         .73f to Color(0x84DFEEF8), 1f to Color(0xD6FAFDFF), end = Offset(width * .58f, height))
-    val dotPitch = iconSize.toPx() / 15f
+    val dotPitch = height * .6f / (14f * 5.6f + 4.3f) * 5.6f
     val outline = .85.dp.toPx()
 
     onDrawWithContent {
@@ -306,11 +308,7 @@ private fun Modifier.drawNavigation(slider: NavigationSlider, selected: Int, rtl
             drawRect(Brush.radialGradient(listOf(tint.copy(alpha = .42f), Color.Transparent),
                 center = Offset(left + glint.x, inset + glint.y), radius = width * .84f))
         }
-        destinations.indices.forEach { index ->
-            val alpha = smooth((abs(index - position) - .33f) / .43f)
-            if (alpha > 0f) drawNavigationGlyph(index, Offset(cellCenter(index.toFloat(), size.width, inset, rtl), size.height / 2), dotPitch,
-                InkMuted.copy(alpha = alpha))
-        }
+
 
         translate(left, inset) {
             val press = pressure()
@@ -325,8 +323,7 @@ private fun Modifier.drawNavigation(slider: NavigationSlider, selected: Int, rtl
                         center = glint, radius = width * .66f)
                     drawPath(contour, edge, style = Stroke(outline * 2))
                 }
-                val contentShift = 18.dp.toPx() * labelVisibility(position, selected) * if (rtl) 1f else -1f
-                drawMorphingGlyph(progress, Offset(width / 2 + contentShift, height / 2), dotPitch, ValueAnimator.areAnimatorsEnabled())
+                drawMorphingGlyph(progress, Offset(width / 2, height / 2), dotPitch, ValueAnimator.areAnimatorsEnabled())
             }
         }
         drawContent()
@@ -381,6 +378,7 @@ private data class ParticleEnd(val position: Offset, val alpha: Float)
 private data class Particle(val from: ParticleEnd, val to: ParticleEnd, val delay: Float, val spin: Float, val drift: Offset)
 
 private val morphs = glyphs.zipWithNext { from, to ->
+    val random = Random(from.size * 193 + to.size * 37)
     val count = maxOf(from.size, to.size)
     fun endpoint(glyph: List<Offset>, index: Int): ParticleEnd {
         val point = index * glyph.size / count
@@ -388,27 +386,28 @@ private val morphs = glyphs.zipWithNext { from, to ->
         return ParticleEnd(glyph[point], if (repeated) 0f else 1f)
     }
     List(count) { index ->
-        Particle(endpoint(from, index), endpoint(to, index), (index * 53 % 29) / 120f, .42f + (index * 71 % 31) / 63f,
-            Offset((index * 47 % 23 - 11) * .075f, (index * 67 % 17 - 8) * .095f))
+        Particle(endpoint(from, index), endpoint(to, index), random.nextFloat() * .25f,
+            1.1f * (.6f + random.nextFloat() * .8f),
+            Offset((random.nextFloat() * 2f - 1f) * 2.2f, (random.nextFloat() * 2f - 1f) * 2.2f))
     }
 }
 
 private fun DrawScope.drawNavigationGlyph(index: Int, center: Offset, pitch: Float, color: Color) {
-    glyphs[index].forEach { point -> dot(center + point * pitch, .76f * pitch, color) }
+    glyphs[index].forEach { point -> dot(center + point * pitch, (4.3f / 5.6f) * pitch, color) }
 }
 
 private fun DrawScope.drawMorphingGlyph(position: Float, center: Offset, pitch: Float, animate: Boolean) {
     val nearest = position.roundToInt()
-    if (position == nearest.toFloat() || !animate) {
+    if (position == nearest.toFloat()) {
         drawNavigationGlyph(nearest, center, pitch, InkAccent)
         return
     }
     val index = position.toInt()
     val progress = position - index
-    val wave = sin(Math.PI.toFloat() * progress)
-    val diameter = .76f * pitch * (1f - .15f * wave)
+    val wave = if (animate) sin(Math.PI.toFloat() * progress) else 0f
+    val diameter = (4.3f / 5.6f) * pitch * (1f - .15f * wave)
     morphs[index].forEach { particle ->
-        val t = smooth((progress - particle.delay) / (1f - particle.delay))
+        val t = if (animate) smooth((progress - particle.delay) / (1f - particle.delay)) else progress
         val from = particle.from.position
         val offset = from + (particle.to.position - from) * t
         val angle = wave * particle.spin
@@ -419,6 +418,5 @@ private fun DrawScope.drawMorphingGlyph(position: Float, center: Offset, pitch: 
 }
 
 private fun DrawScope.dot(center: Offset, diameter: Float, color: Color) {
-    drawRoundRect(color, topLeft = center - Offset(diameter / 2, diameter / 2), size = Size(diameter, diameter),
-        cornerRadius = CornerRadius(diameter * .19f))
+    drawRect(color, topLeft = center - Offset(diameter / 2, diameter / 2), size = Size(diameter, diameter))
 }

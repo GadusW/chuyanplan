@@ -1,0 +1,49 @@
+{
+  "version": "0.24.13",
+  "versionCode": 45,
+  "unitTests": 39,
+  "artifacts": [
+    {
+      "name": "Stillune-0.24.13-arm64-debug.apk",
+      "bytes": 75289935,
+      "sha256": "e16050fdf8e771fa76afd3265e7f9d52d34030c48a889ed660ef10da64141da4",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.24.13-universal-debug.apk",
+      "bytes": 230197574,
+      "sha256": "0517332b41368821a3c936bf3d30913200b86187ddedc9270b7c55c0e506b459",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "originalSigningCertificatePreserved": true,
+  "identicalDexAcrossAbis": true,
+  "androidInstrumentationTestsPassed": 3,
+  "device": "Android API 36 x86_64 emulator",
+  "instrumentationClasses": [
+    "com.stillune.app.NavigationUiTest"
+  ],
+  "verified": [
+    "Unselected navigation tabs show names, selected tab shows a centered 15x15 square-dot glyph",
+    "Tapping and dragging across two tabs select the correct destination",
+    "Page selection commits after release, cancelling a drag retains the previous page",
+    "A 3px move on the selected tab cycles to the next mode",
+    "Navigation slot positions remain stable",
+    "Existing track, face, highlights and shadows match the previous source",
+    "Universal APK upgrade installation and application cold launch succeeded"
+  ],
+  "limitations": [
+    "Additional HearingUiTest and LibraryUiTest checks were interrupted by the Windows Android emulator process crashing with 0xc0000005.",
+    "The emulator also disconnected during screenshot capture in an isolated data environment after successful cold launch.",
+    "Physical-device acceptance remains pending."
+  ]
+}

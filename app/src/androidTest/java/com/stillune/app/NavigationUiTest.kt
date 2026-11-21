@@ -23,8 +23,8 @@ class NavigationUiTest {
                 }
             }
         }
-        compose.onNodeWithText("乐库").assertExists()
-        compose.onNodeWithText("此刻").assertDoesNotExist()
+        compose.onNodeWithText("乐库").assertDoesNotExist()
+        compose.onNodeWithText("此刻").assertExists()
         val slotWidth = compose.onNodeWithContentDescription("此刻").fetchSemanticsNode().boundsInRoot.width
         listOf("专辑", "艺术家", "文件夹").forEach { label ->
             compose.onNodeWithText(label).performClick().assertIsSelected()
@@ -37,8 +37,8 @@ class NavigationUiTest {
         compose.mainClock.advanceTimeBy(150)
         compose.onNodeWithContentDescription("此刻").performTouchInput { up() }
         compose.onNodeWithContentDescription("此刻").assertIsSelected()
-        compose.onNodeWithText("此刻").assertExists()
-        compose.onNodeWithText("乐库").assertDoesNotExist()
+        compose.onNodeWithText("此刻").assertDoesNotExist()
+        compose.onNodeWithText("乐库").assertExists()
         assertEquals("Slide anchors keep their positions", slotWidth,
             compose.onNodeWithContentDescription("此刻").fetchSemanticsNode().boundsInRoot.width, 1f)
         compose.onNodeWithContentDescription("乐库").performClick().assertIsSelected()
@@ -80,4 +80,27 @@ class NavigationUiTest {
         compose.onNodeWithContentDescription("护耳").assertIsSelected()
         compose.runOnIdle { assertEquals(listOf(2), visits) }
     }
+    @Test fun pressingTheCurrentModeCyclesAndASmallMoveStillCountsAsAClick() {
+        val visits = mutableListOf<Int>()
+        compose.setContent {
+            var page by remember { mutableIntStateOf(0) }
+            fun open(index: Int) { page = index; visits.add(index) }
+            StilluneTheme {
+                FloatingNavigation(page == 1, { open(0) }, { open(1) }, page == 2, { open(2) })
+            }
+        }
+        compose.onNodeWithContentDescription("乐库").performTouchInput {
+            down(center)
+            moveBy(androidx.compose.ui.geometry.Offset(3f, 0f), 80L)
+            up()
+        }
+        compose.onNodeWithContentDescription("此刻").assertIsSelected()
+        compose.onNodeWithText("此刻").assertDoesNotExist()
+        compose.onNodeWithText("乐库").assertExists()
+        compose.onNodeWithText("护耳").assertExists()
+        compose.onNodeWithContentDescription("此刻").performClick().assertIsNotSelected()
+        compose.onNodeWithContentDescription("护耳").assertIsSelected()
+        compose.runOnIdle { assertEquals(listOf(1, 2), visits) }
+    }
+
 }
