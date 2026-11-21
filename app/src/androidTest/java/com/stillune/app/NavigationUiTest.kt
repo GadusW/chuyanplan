@@ -3,6 +3,12 @@ package com.stillune.app
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertTrue
+import java.io.File
+import kotlin.math.abs
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.stillune.app.ui.*
 import org.junit.Assert.assertEquals
@@ -101,6 +107,39 @@ class NavigationUiTest {
         compose.onNodeWithContentDescription("此刻").performClick().assertIsNotSelected()
         compose.onNodeWithContentDescription("护耳").assertIsSelected()
         compose.runOnIdle { assertEquals(listOf(1, 2), visits) }
+    }
+
+    @Test fun theButtonFaceStaysNeutralAcrossBlueAndGoldEdgeLights() {
+        compose.setContent {
+            var page by remember { mutableIntStateOf(0) }
+            StilluneTheme {
+                FloatingNavigation(page == 1, { page = 0 }, { page = 1 }, page == 2, { page = 2 })
+            }
+        }
+        val rail = compose.onNodeWithContentDescription("悬浮导航")
+        val root = rail.fetchSemanticsNode().boundsInRoot
+        fun faceSample(name: String): androidx.compose.ui.graphics.Color {
+            val bounds = compose.onNodeWithContentDescription(name).fetchSemanticsNode().boundsInRoot
+            val image = rail.captureToImage()
+            val x = (bounds.left - root.left + bounds.width * .22f).toInt()
+            val y = (bounds.center.y - root.top).toInt()
+            return image.toPixelMap()[x, y]
+        }
+        val blue = faceSample("乐库")
+        compose.onNodeWithContentDescription("护耳")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
+            .assertIsSelected()
+        compose.mainClock.advanceTimeBy(1500)
+        compose.waitForIdle()
+        val gold = faceSample("护耳")
+        assertTrue("Button face should stay neutral as the rim light changes: blue=$blue gold=$gold",
+            abs(blue.red - blue.blue) < .025f && abs(blue.green - blue.blue) < .025f &&
+                abs(gold.red - gold.blue) < .025f && abs(gold.green - gold.blue) < .025f &&
+                minOf(blue.red, blue.green, blue.blue, gold.red, gold.green, gold.blue) > .9f)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        File(context.cacheDir, "navigation-light-02414.png").outputStream().use {
+            rail.captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
     }
 
 }

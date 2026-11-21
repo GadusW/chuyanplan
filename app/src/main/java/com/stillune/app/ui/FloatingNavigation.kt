@@ -2,6 +2,8 @@ package com.stillune.app.ui
 
 import android.animation.ValueAnimator
 import android.graphics.PathMeasure
+import android.graphics.Paint as AndroidPaint
+import android.os.Build
 import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.animateTo
 import androidx.compose.animation.core.spring
@@ -46,10 +48,12 @@ import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -282,15 +286,24 @@ private fun Modifier.drawNavigation(slider: NavigationSlider, rtl: Boolean, pres
     val knobBounds = Size(width, height)
     val contour = roundedContour(knobBounds, corner)
     val orbit = PathMeasure(contour.asAndroidPath(), true)
-    val light = FloatArray(2)
-    val railTone = Brush.verticalGradient(0f to Color(0x41658DA3), .32f to Color(0x36798FA3),
-        .77f to Color(0x75BAD2E1), 1f to Color(0x9CEDF6FC), endY = size.height)
-    val railDepth = Brush.verticalGradient(0f to Color(0x28315875), .17f to Color.Transparent,
-        .85f to Color.Transparent, 1f to Color(0x80FFFFFF), endY = size.height)
-    val face = Brush.linearGradient(0f to Color(0xE4FFFFFF), .3f to Color(0x9AF4FBFF),
-        .73f to Color(0x84DFEEF8), 1f to Color(0xD6FAFDFF), end = Offset(width * .58f, height))
+    val rimSegments = List(96) { index ->
+        Path().apply {
+            orbit.getSegment(orbit.length * index / 96, orbit.length * (index + 1) / 96, asAndroidPath(), true)
+        }
+    }
+    val shadow = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.TRANSPARENT
+        setShadowLayer(5.dp.toPx(), 0f, 2.dp.toPx(), 0x0C29445A)
+    }
+    val railDepth = Brush.verticalGradient(
+        0f to Color(0x0D29445A), .14f to Color.Transparent,
+        .86f to Color.Transparent, 1f to Color(0x60FFFFFF), endY = size.height)
+    val face = Brush.linearGradient(
+        listOf(Color(0xFFFCFDFE), Color(0xFFF7FAFC)), end = Offset(width * .58f, height))
     val dotPitch = height * .6f / (14f * 5.6f + 4.3f) * 5.6f
-    val outline = .85.dp.toPx()
+    val surfaceOutline = Stroke(.6.dp.toPx())
+    val lightCore = Stroke(.9.dp.toPx())
+    val lightSpill = Stroke(3.2.dp.toPx())
 
     onDrawWithContent {
         val position = slider.position
@@ -298,30 +311,34 @@ private fun Modifier.drawNavigation(slider: NavigationSlider, rtl: Boolean, pres
         val center = cellCenter(position, size.width, inset, rtl)
         val left = center - width / 2f
         val tint = if (progress <= 1f) lerp(blueLight, whiteLight, progress) else lerp(whiteLight, goldLight, progress - 1f)
-        orbit.getPosTan(orbit.length * ((.625f + smooth(progress / 2f) * .505f) % 1f), light, null)
-        val glint = Offset(light[0], light[1])
+        val lightPosition = (.625f + smooth(progress / 2f) * .505f) % 1f
 
-        drawRoundRect(Color(0x12375E72), topLeft = Offset(0f, 1.dp.toPx()), cornerRadius = CornerRadius(trackRadius))
         clipPath(track) {
-            drawRect(railTone)
+            drawRect(Color(0xABE9F1F6))
             drawRect(railDepth)
-            drawRect(Brush.radialGradient(listOf(tint.copy(alpha = .42f), Color.Transparent),
-                center = Offset(left + glint.x, inset + glint.y), radius = width * .84f))
         }
 
 
         translate(left, inset) {
             val press = pressure()
             scale(1f - .027f * press, 1f - .05f * press, pivot = Offset(width / 2, height / 2)) {
-                drawRoundRect(Color(0x22325475), topLeft = Offset(0f, 2.dp.toPx()), size = knobBounds, cornerRadius = CornerRadius(corner))
+                if (Build.VERSION.SDK_INT >= 28) {
+                    drawIntoCanvas { it.nativeCanvas.drawPath(contour.asAndroidPath(), shadow) }
+                }
                 clipPath(contour) {
                     drawRect(face, size = knobBounds)
-                    drawRect(Brush.radialGradient(listOf(tint.copy(alpha = .36f), Color.Transparent),
-                        center = glint, radius = width * .72f), size = knobBounds)
-                    val edge = Brush.radialGradient(0f to Color.White.copy(alpha = .93f),
-                        .33f to lerp(Color.White, tint, .35f).copy(alpha = .55f), .85f to Color.Transparent,
-                        center = glint, radius = width * .66f)
-                    drawPath(contour, edge, style = Stroke(outline * 2))
+                    drawPath(contour, Color.White.copy(alpha = .62f), style = surfaceOutline)
+                }
+                // A short, feathered section follows the perimeter. The face stays neutral.
+                rimSegments.forEachIndexed { index, segment ->
+                    val distance = abs((index + .5f) / rimSegments.size - lightPosition)
+                    val wrappedDistance = minOf(distance, 1f - distance)
+                    val falloff = (1f - wrappedDistance / .08f).coerceIn(0f, 1f)
+                    if (falloff > 0f) {
+                        val strength = falloff * falloff
+                        drawPath(segment, tint.copy(alpha = .09f * strength), style = lightSpill)
+                        drawPath(segment, tint.copy(alpha = .64f * strength), style = lightCore)
+                    }
                 }
                 drawMorphingGlyph(progress, Offset(width / 2, height / 2), dotPitch, ValueAnimator.areAnimatorsEnabled())
             }

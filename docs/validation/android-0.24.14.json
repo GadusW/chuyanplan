@@ -1,0 +1,47 @@
+{
+  "version": "0.24.14",
+  "versionCode": 46,
+  "unitTests": 39,
+  "artifacts": [
+    {
+      "name": "Stillune-0.24.14-arm64-debug.apk",
+      "bytes": 75289931,
+      "sha256": "03cc052e607a7e430c1c9bf53708d668c4fa8dc6479eadc0579004fd32ccacef",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.24.14-universal-debug.apk",
+      "bytes": 230197570,
+      "sha256": "7679c93ae1cec107106f2744d2d18b392a4c4c049123e9fb22fbfe825df60b83",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "originalSigningCertificatePreserved": true,
+  "identicalDexAcrossAbis": true,
+  "androidInstrumentationTestsPassed": 4,
+  "device": "Android API 36 x86_64 emulator",
+  "instrumentationClasses": [
+    "com.stillune.app.NavigationUiTest"
+  ],
+  "verified": [
+    "The navigation rail uses an even, pale neutral fill with a weak inner-depth gradient",
+    "The button face uses stable milky-white colors with a low-opacity soft shadow",
+    "Blue, white and amber light is confined to a short feathered portion of the button perimeter",
+    "Color samples inside the button remain neutral in the blue and gold selections",
+    "Native Android rendering inspected in an isolated Compose fixture without touch-ripple overlay",
+    "Tab labels, square-dot morph, drag cancellation and small-motion click regression tests passed"
+  ],
+  "limitations": [
+    "Physical-device appearance remains to be checked.",
+    "Android 8.x uses the neutral face and rim lighting; the soft native shadow is drawn on API 28 and newer."
+  ]
+}
