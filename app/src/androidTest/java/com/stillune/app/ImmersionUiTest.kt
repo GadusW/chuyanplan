@@ -4,6 +4,12 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.RectF
+import android.opengl.GLSurfaceView
+import android.os.Handler
+import android.os.Looper
+import android.view.PixelCopy
+import android.view.View
+import android.view.ViewGroup
 import androidx.compose.foundation.Canvas as ComposeCanvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
@@ -11,6 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
 import androidx.test.filters.SdkSuppress
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -25,6 +32,8 @@ import androidx.compose.runtime.*
 import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.toPixelMap
 import org.junit.Assert.assertTrue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
 class ImmersionUiTest {
@@ -76,35 +85,110 @@ class ImmersionUiTest {
             assertEquals(calm[x, calm.height / 2], settled[x, settled.height / 2])
         }
     }
-    @Test fun realAttackEventChangesTheRenderedRippleAndParticleFields() {
+    @Test fun realAttackEventChangesTheRenderedRippleField() {
         compose.mainClock.autoAdvance = false
-        var style by mutableStateOf(ImmersionStyle.RIPPLES)
         var audio by mutableStateOf(AudioEnergy(available = true))
         val artwork = stripedArtwork()
         compose.setContent { StilluneTheme {
-            ImmersiveScene(PlaybackState(playing = true), artwork, style, Tilt(), audio,
+            ImmersiveScene(PlaybackState(playing = true), artwork, ImmersionStyle.RIPPLES, Tilt(), audio,
                 audioAllowed = true, onStyle = {}, onToggle = {}, onPrevious = {},
                 onNext = {}, onSeek = {}, onExit = {})
         } }
-        for (choice in listOf(ImmersionStyle.RIPPLES, ImmersionStyle.PARTICLES)) {
-            compose.runOnIdle { style = choice; audio = AudioEnergy(available = true) }
-            compose.mainClock.advanceTimeBy(100)
-            if (choice == ImmersionStyle.RIPPLES) compose.waitUntil(timeoutMillis = 5_000) {
-                val preview = compose.onRoot().captureToImage().toPixelMap()
-                val center = preview[preview.width / 2, (preview.height * .46f).toInt()]
-                center.red > .94f || center.blue > .94f
-            }
-            val quiet = compose.onRoot().captureToImage().toPixelMap()
-            compose.runOnIdle { audio = AudioEnergy(.5f, true, level = 1f, onset = 1f, beatId = 1L) }
-            compose.mainClock.advanceTimeBy(350)
-            val attack = compose.onRoot().captureToImage().toPixelMap()
-            var changes = 0
-            for (y in 0 until quiet.height step 12) for (x in 0 until quiet.width step 12) {
-                val a = quiet[x, y]; val b = attack[x, y]
-                if (kotlin.math.abs(a.red - b.red) + kotlin.math.abs(a.green - b.green) + kotlin.math.abs(a.blue - b.blue) > .08f) changes++
-            }
-            assertTrue("$choice must visibly react to the audio attack", changes > 20)
+        compose.mainClock.advanceTimeBy(100)
+        compose.waitUntil(timeoutMillis = 5_000) {
+            val preview = compose.onRoot().captureToImage().toPixelMap()
+            val center = preview[preview.width / 2, (preview.height * .46f).toInt()]
+            center.red > .94f || center.blue > .94f
         }
+        val quiet = compose.onRoot().captureToImage().toPixelMap()
+        compose.runOnIdle { audio = AudioEnergy(.5f, true, level = 1f, onset = 1f, beatId = 1L) }
+        compose.mainClock.advanceTimeBy(350)
+        val attack = compose.onRoot().captureToImage().toPixelMap()
+        var changes = 0
+        for (y in 0 until quiet.height step 12) for (x in 0 until quiet.width step 12) {
+            val a = quiet[x, y]; val b = attack[x, y]
+            if (kotlin.math.abs(a.red - b.red) + kotlin.math.abs(a.green - b.green) + kotlin.math.abs(a.blue - b.blue) > .08f) changes++
+        }
+        assertTrue("Ripples must visibly react to the audio attack", changes > 20)
+    }
+
+    @Test fun mosaicGpuRespondsToMusicAndSilentHandMotionAndRespectsReducedMotion() {
+        compose.mainClock.autoAdvance = false
+        var root: View? = null
+        var audio by mutableStateOf(AudioEnergy(available = true))
+        var tilt by mutableStateOf(Tilt(available = true))
+        var playing by mutableStateOf(true)
+        var reduced by mutableStateOf(false)
+        val artwork = stripedArtwork(markEdges = true)
+        compose.setContent { StilluneTheme {
+            val view = LocalView.current
+            SideEffect { root = view.rootView }
+            ImmersiveScene(PlaybackState(playing = playing), artwork, ImmersionStyle.HOLO_MOSAIC,
+                tilt, audio, reducedMotion = reduced, audioAllowed = true,
+                onStyle = {}, onToggle = {}, onPrevious = {}, onNext = {}, onSeek = {}, onExit = {})
+        } }
+        compose.mainClock.advanceTimeBy(2400)
+        val surface = compose.runOnIdle { checkNotNull(findSurface(root)) }
+        fun capture(): Bitmap? {
+            val width = surface.width.coerceAtLeast(1)
+            val height = surface.height.coerceAtLeast(1)
+            val image = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val latch = CountDownLatch(1)
+            var result = PixelCopy.ERROR_UNKNOWN
+            try {
+                PixelCopy.request(surface, image, { result = it; latch.countDown() }, Handler(Looper.getMainLooper()))
+            } catch (_: IllegalArgumentException) { return null }
+            return if (latch.await(2, TimeUnit.SECONDS) && result == PixelCopy.SUCCESS) image else null
+        }
+        fun differences(a: Bitmap, b: Bitmap): Int {
+            var changed = 0
+            for (y in 0 until a.height step 15) for (x in 0 until a.width step 15) {
+                val p = a.getPixel(x, y)
+                val q = b.getPixel(x, y)
+                if (kotlin.math.abs(Color.red(p) - Color.red(q)) + kotlin.math.abs(Color.blue(p) - Color.blue(q)) > 38) changed++
+            }
+            return changed
+        }
+        var reference: Bitmap? = null
+        compose.waitUntil(8_000) {
+            // Artwork is prepared off-thread and AndroidView needs a frame to receive it.
+            compose.mainClock.advanceTimeByFrame()
+            capture()?.let { image ->
+                val hasCover = (image.height * 2 / 5 until image.height / 2 step 13).any { y ->
+                    (image.width / 4 until image.width * 3 / 4 step 7).any { x ->
+                        val pixel = image.getPixel(x, y)
+                        maxOf(Color.red(pixel), Color.blue(pixel)) - Color.green(pixel) > 85
+                    }
+                }
+                if (hasCover) {
+                    reference = image
+                }
+            }
+            reference != null
+        }
+        val quiet = checkNotNull(reference)
+        compose.runOnIdle { audio = AudioEnergy(.5f, true, level = 1f, onset = 1f, beatId = 1L) }
+        compose.mainClock.advanceTimeBy(340)
+        compose.waitUntil(8_000) { capture()?.let { differences(quiet, it) > 35 } == true }
+        compose.runOnIdle { audio = AudioEnergy(); playing = false; reduced = true }
+        compose.mainClock.advanceTimeBy(160)
+        compose.waitUntil(8_000) { capture()?.let { differences(quiet, it) < 5 } == true }
+        compose.runOnIdle { reduced = false }
+        compose.mainClock.advanceTimeBy(2400)
+        compose.runOnIdle { tilt = Tilt(.52f, -.36f, .85f, true, .55f, -.4f) }
+        compose.mainClock.advanceTimeBy(430)
+        compose.waitUntil(8_000) { capture()?.let { differences(quiet, it) > 35 } == true }
+        compose.onNodeWithContentDescription("体感沉浸画面").performTouchInput { click(center) }
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithContentDescription("退出体感沉浸").assertIsDisplayed()
+    }
+
+    private fun findSurface(view: View?): GLSurfaceView? {
+        if (view is GLSurfaceView) return view
+        if (view is ViewGroup) for (index in 0 until view.childCount) {
+            findSurface(view.getChildAt(index))?.let { return it }
+        }
+        return null
     }
 
     @Test fun silentRippleSceneFitsArtworkAndCalmsWhenMotionIsReduced() {
@@ -231,7 +315,7 @@ class ImmersionUiTest {
         compose.onNodeWithContentDescription("体感沉浸画面").performTouchInput { click(center) }
         compose.mainClock.advanceTimeBy(350)
         repeat(8) {
-            listOf("节奏波纹","节奏粒子","封面视差").forEach { label ->
+            listOf("节奏波纹","全息马赛克","封面视差").forEach { label ->
                 compose.onNodeWithText(label).performClick()
                 compose.mainClock.advanceTimeBy(120)
             }

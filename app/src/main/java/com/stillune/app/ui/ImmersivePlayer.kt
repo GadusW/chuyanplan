@@ -27,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -77,8 +76,8 @@ internal fun ImmersivePlayer(state: PlaybackState, artwork: Bitmap?, style: Imme
 }
 
 private data class SceneFrame(val energy: Float = 0f,
-    val pulse: Float = 0f, val tilt: Tilt = Tilt(), val fullDetail: Boolean = true,
-    val waterRevision: Long = 0L)
+    val tilt: Tilt = Tilt(), val fullDetail: Boolean = true,
+    val waterRevision: Long = 0L, val mosaic: MosaicFrame = MosaicFrame())
 
 @Composable
 internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: ImmersionStyle,
@@ -93,8 +92,8 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
     val currentEnergy by rememberUpdatedState(energy)
     val currentPlaying by rememberUpdatedState(state.playing)
     val currentTilt by rememberUpdatedState(tilt)
-    val particles = remember(style, state.track?.uri, reducedMotion) {
-        if (style == ImmersionStyle.PARTICLES && !reducedMotion) ImmersionDynamics() else null
+    val mosaic = remember(style, state.track?.uri, reducedMotion) {
+        if (style == ImmersionStyle.HOLO_MOSAIC && !reducedMotion) HoloMosaicMotion() else null
     }
     val water = remember(style, state.track?.uri, reducedMotion) {
         if (style == ImmersionStyle.RIPPLES && !reducedMotion) {
@@ -132,16 +131,16 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                     level += (1f - exp(-dt / if (desired > level) .025f else .14f)) * (desired - level)
                     val impulse = if (currentPlaying && fresh && audio.beatId != beatId) audio.onset else 0f
                     beatId = audio.beatId
-                    particles?.advance(dt, smooth, level, impulse)
                     water?.advance(dt, smooth, level, impulse)
-                    frame.value = SceneFrame(level, particles?.pulse ?: 0f, smooth, fullDetail, water?.revision ?: 0L)
+                    frame.value = SceneFrame(level, smooth, fullDetail, water?.revision ?: 0L,
+                        mosaic?.advance(dt, smooth, level, impulse) ?: MosaicFrame())
                 }
                 // Active motion is display-synchronised, without an extra 24 ms throttle.
                 val latestTilt = tiltState?.value ?: currentTilt
                 if (!currentPlaying && latestTilt.motion < .005f &&
                     abs(latestTilt.x - frame.value.tilt.x) + abs(latestTilt.y - frame.value.tilt.y) < .001f &&
                     frame.value.energy < .001f && water?.active != true && water?.wake?.active != true &&
-                    particles?.motes?.any { it.age < it.life } != true) delay(80)
+                    mosaic?.active != true) delay(80)
             }
         }
     }
@@ -160,7 +159,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
         .semantics { contentDescription = "体感沉浸画面"; customActions = listOf(
             CustomAccessibilityAction("显示播放控制") { controls = true; activity(); true },
             CustomAccessibilityAction("退出体感沉浸") { exit(); true }) }) {
-        if (style != ImmersionStyle.RIPPLES) MoonlitBackdrop(artwork, Modifier.matchParentSize())
+        if (style == ImmersionStyle.PARALLAX) MoonlitBackdrop(artwork, Modifier.matchParentSize())
         val side by animateDpAsState(if (style == ImmersionStyle.PARALLAX)
             minOf(maxWidth * .86f, maxHeight * .61f, 430.dp)
             else minOf(maxWidth * .52f, maxHeight * .36f, 270.dp), tween(if (reducedMotion) 0 else 280), label = "immersive-cover-size")
@@ -175,11 +174,9 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
         }) {
             if (style == ImmersionStyle.RIPPLES) {
                 RippleBackdrop(artwork, viewport, frame, water, Modifier.matchParentSize())
+            } else if (style == ImmersionStyle.HOLO_MOSAIC) {
+                HoloMosaicBackdrop(artwork, viewport, { frame.value.mosaic }, Modifier.matchParentSize())
             } else {
-                if (particles != null) {
-                    val palette = remember(artwork) { artworkColors(artwork) }
-                    ParticleCanvas(frame, particles, palette, Modifier.fillMaxSize())
-                }
                 Box(Modifier.align(Alignment.Center).offset(y = (-24).dp).size(side)
                     .graphicsLayer {
                         val movement = frame.value.tilt
@@ -187,7 +184,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                         translationY = (movement.y * 32f + movement.shakeY * 22f).dp.toPx()
                         rotationY = movement.x * 16f + movement.shakeX * 4f
                         rotationX = -movement.y * 13f - movement.shakeY * 4f
-                        scaleX = 1f + movement.motion * .035f + frame.value.pulse * .018f
+                        scaleX = 1f + movement.motion * .035f
                         scaleY = scaleX
                         cameraDistance = 24 * density
                         shadowElevation = 16.dp.toPx()
@@ -200,7 +197,7 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                 }
             }
         }
-        if (!controls && style == ImmersionStyle.RIPPLES) {
+        if (!controls && style != ImmersionStyle.PARALLAX) {
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(minOf(190.dp, maxHeight * .22f))
                 .background(Brush.verticalGradient(
                     0f to Color.Transparent, .45f to Color.Black.copy(alpha = .63f),
@@ -208,8 +205,8 @@ internal fun ImmersiveScene(state: PlaybackState, artwork: Bitmap?, style: Immer
                 )))
         }
         if (!controls) Text(state.track?.title ?: "让声音停泊", Modifier.align(Alignment.BottomCenter)
-            .safeDrawingPadding().padding(horizontal = 28.dp, vertical = if (style == ImmersionStyle.RIPPLES && maxHeight < 520.dp) 14.dp else 36.dp),
-            color = if (style == ImmersionStyle.RIPPLES) Color.White else InkAccent,
+            .safeDrawingPadding().padding(horizontal = 28.dp, vertical = if (style != ImmersionStyle.PARALLAX && maxHeight < 520.dp) 14.dp else 36.dp),
+            color = if (style == ImmersionStyle.PARALLAX) InkAccent else Color.White,
             fontSize = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         AnimatedVisibility(controls, Modifier.align(Alignment.BottomCenter), enter = fadeIn(), exit = fadeOut()) {
@@ -271,34 +268,6 @@ private fun RippleBackdrop(artwork: Bitmap?, viewport: IntSize, frame: State<Sce
         if (water != null) Canvas(Modifier.matchParentSize()) {
             frame.value // Water and spray are advanced together by the frame clock.
             surface?.drawSpray(drawContext.canvas.nativeCanvas, size.width, size.height, water)
-        }
-    }
-}
-
-@Composable
-private fun ParticleCanvas(frame: State<SceneFrame>, dynamics: ImmersionDynamics,
-    palette: ArtworkColors, modifier: Modifier) {
-    val colors = remember(palette) {
-        listOf(lerp(palette.primary, Color(0xFF247E9B), .42f),
-            lerp(palette.secondary, Color(0xFF765A9D), .43f), Color(0xFFBD7086))
-    }
-    Canvas(modifier) {
-        val f = frame.value // Only redraw/layer updates: no per-frame layout or recomposition.
-        val unit = size.minDimension
-        val center = Offset(size.width * .5f, size.height * .46f)
-        for (index in dynamics.motes.indices step if (f.fullDetail) 1 else 2) {
-            val mote = dynamics.motes[index]
-            if (mote.age >= mote.life) continue
-            val progress = mote.age / mote.life
-            val opacity = ((1f - progress).pow(1.5f) * (1f - exp(-mote.age * 40f))).coerceIn(0f, 1f)
-            val ink = colors[if (index % 5 == 0) 2 else mote.color % 2]
-            val position = center + Offset(mote.x * unit, mote.y * unit)
-            // Velocity-aligned streaks stretch on attacks, curl in the hand's current.
-            val tail = position - Offset(mote.vx * unit, mote.vy * unit) * (.025f + f.pulse * .055f)
-            drawLine(ink.copy(alpha = opacity * .52f), tail, position,
-                (mote.size * .65f).dp.toPx(), cap = StrokeCap.Round)
-            if (f.fullDetail) drawCircle(ink.copy(alpha = opacity * .1f), (mote.size * 3.2f).dp.toPx(), position)
-            drawCircle(lerp(ink, InkAccent, .28f).copy(alpha = opacity), mote.size.dp.toPx(), position)
         }
     }
 }

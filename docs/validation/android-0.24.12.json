@@ -1,0 +1,44 @@
+{
+  "version": "0.24.12",
+  "versionCode": 44,
+  "unitTests": 39,
+  "androidInstrumentationTestsPassed": 10,
+  "originalSigningCertificatePreserved": true,
+  "identicalDexAcrossAbis": true,
+  "artifacts": [
+    {
+      "name": "Stillune-0.24.12-arm64-debug.apk",
+      "bytes": 75289931,
+      "sha256": "2cbbd7f66c47abed3c5813a879e169c8042a4014aac101bcb6b5293dd495f2f0",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.24.12-universal-debug.apk",
+      "bytes": 230915982,
+      "sha256": "7c77c62c8c7f420156006bb67e2773b30c3589d55c62669c9691e2363795f594",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "device": "Android API 36 x86_64 emulator",
+  "deviceSmokeTest": {
+    "upgradeInstall": "passed",
+    "verified": [
+      "OpenGL ES 3 renders the complete cover into the chrome mosaic, including artwork edges",
+      "Real onset input visibly changes the mosaic and silent motion independently steers and flips tiles",
+      "Reduced motion restores the static mosaic",
+      "Tapping the mosaic opens playback controls and effect switching and exit remain stable",
+      "Real AudioTrack PCM produces measurable RMS and multiple onsets",
+      "Five local formats scan, import, decode, seek and play in the background"
+    ],
+    "testedOnPhysicalDevice": false
+  }
+}

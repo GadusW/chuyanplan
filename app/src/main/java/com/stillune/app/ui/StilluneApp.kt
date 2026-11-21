@@ -164,7 +164,7 @@ fun StilluneApp(
                 if (destination == 2) Box(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding() + if (playback.track != null) miniPlayerInset else 0.dp)) {
                     HealthPage(model, onRead = { knowledgeOpen = true })
                 }
-                else if (destination == 1 && immersive) ImmersivePlayer(playback, artwork, ImmersionStyle.valueOf(immersionStyle),
+                else if (destination == 1 && immersive) ImmersivePlayer(playback, artwork, ImmersionStyle.fromSavedName(immersionStyle),
                     onStyle = { immersionStyle = it.name }, onToggle = model::toggle,
                     onPrevious = model::previous, onNext = model::next, onSeek = model::seek, onExit = { immersive = false })
                 else if (destination == 1) PlayerPage(playback, model, lyrics, lyricsVisible, artwork, fullScreen,
@@ -306,7 +306,7 @@ fun StilluneApp(
                             Text(when(choice) {
                                 ImmersionStyle.PARALLAX -> "倾斜手机，让封面轻轻浮动"
                                 ImmersionStyle.RIPPLES -> "真实播放能量与手部运动，化作柔和波纹"
-                                ImmersionStyle.PARTICLES -> "封面视差与节奏粒子，随音乐舒展"
+                                ImmersionStyle.HOLO_MOSAIC -> "封面铺成镀铬砖面，重音推光，轻摇掀砖"
                             }, color = InkMuted, fontSize = 12.sp, lineHeight = 19.sp)
                         }
                     }

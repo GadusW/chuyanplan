@@ -42,7 +42,12 @@ class TripleTapGate {
 }
 
 enum class ImmersionStyle(val title: String) {
-    PARALLAX("封面视差"), RIPPLES("节奏波纹"), PARTICLES("节奏粒子")
+    PARALLAX("封面视差"), RIPPLES("节奏波纹"), HOLO_MOSAIC("全息马赛克");
+
+    companion object {
+        fun fromSavedName(name: String): ImmersionStyle =
+            if (name == "PARTICLES") HOLO_MOSAIC else entries.firstOrNull { it.name == name } ?: PARALLAX
+    }
 }
 
 data class Tilt(val x: Float = 0f, val y: Float = 0f, val motion: Float = 0f, val available: Boolean = false,

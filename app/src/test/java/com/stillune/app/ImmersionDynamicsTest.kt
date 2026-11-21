@@ -51,27 +51,35 @@ class ImmersionDynamicsTest {
         assertTrue(loud.second < .5f && quiet.second < .5f)
     }
 
-    @Test fun attacksExplodeOutwardThenExpireAndPoolsStayBounded() {
-        val scene = ImmersionDynamics()
-        scene.advance(.016f, Tilt(), 0f, 1f)
-        val mote = scene.motes.first()
-        val radius = hypot(mote.x, mote.y)
-        repeat(20) { scene.advance(.016f, Tilt(), 0f, 0f) }
-        assertTrue(hypot(mote.x, mote.y) > radius + .04f)
-        repeat(1000) { scene.advance(.016f, Tilt(), 0f, 1f) }
-        assertEquals(176, scene.motes.size)
-        repeat(240) { scene.advance(.016f, Tilt(), 0f, 0f) }
-        assertTrue(scene.motes.all { it.age >= it.life })
-        assertTrue(scene.pulse < .001f)
+    @Test fun mosaicUsesOnlyRealOnsetsForAudioWavesAndKeepsThemBounded() {
+        val scene = HoloMosaicMotion()
+        repeat(200) {
+            val silent = scene.advance(.016f, Tilt(), 0f, 0f)
+            assertEquals(0f, silent.time, 0f)
+            assertTrue(silent.waves.isEmpty())
+        }
+        assertFalse(scene.active)
+        val steady = scene.advance(.016f, Tilt(), .5f, 0f)
+        assertTrue(steady.time > 0f && steady.waves.isEmpty())
+        val onset = scene.advance(.016f, Tilt(), .5f, .8f)
+        assertTrue(onset.waves.single().strength > 0f)
+        repeat(80) {
+            assertTrue(scene.advance(.016f, Tilt(), .5f, .8f).waves.size <= MOSAIC_WAVE_LIMIT)
+        }
+        repeat(160) { scene.advance(.016f, Tilt(), 0f, 0f) }
+        assertFalse(scene.active)
     }
 
-    @Test fun handCurrentSteersParticlesWithFrameRateIndependentDecay() {
-        val still = ImmersionDynamics(); val moving = ImmersionDynamics()
-        still.advance(.01f, Tilt(), 0f, 1f); moving.advance(.01f, Tilt(), 0f, 1f)
-        repeat(60) { still.advance(1f / 60, Tilt(), 0f, 0f) }
-        repeat(120) { moving.advance(1f / 120, Tilt(x = .8f), 0f, 0f) }
-        assertEquals(still.pulse, moving.pulse, .001f)
-        assertTrue(moving.motes[0].x > still.motes[0].x + .05f)
+    @Test fun mosaicSteersLightWithTiltAndFlipsIndependentlyOfMusic() {
+        val scene = HoloMosaicMotion()
+        val tilt = Tilt(x = .5f, y = -.4f, available = true)
+        val held = scene.advance(.016f, tilt, 0f, 0f)
+        assertTrue(held.lightX > 0f && held.lightY < 0f && held.waves.isEmpty())
+        val shake = tilt.copy(motion = .7f, shakeX = -.5f, shakeY = .4f)
+        val moved = scene.advance(.016f, shake, 0f, 0f)
+        assertTrue(moved.waves.single().let { it.strength < 0f && it.x < 0f && it.y > 0f })
+        repeat(30) { assertEquals(1, scene.advance(.016f, shake, 0f, 0f).waves.size) }
+        assertEquals(ImmersionStyle.HOLO_MOSAIC, ImmersionStyle.fromSavedName("PARTICLES"))
     }
 
     @Test fun directionalShakesPushFromOppositeSidesAndSprayFallsBeforeTheWaterSettles() {
