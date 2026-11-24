@@ -18,11 +18,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
@@ -34,8 +32,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stillune.app.health.*
 import kotlinx.coroutines.delay
-import java.time.*
-import java.time.format.DateTimeFormatter
+import java.time.ZoneId
 import java.util.Locale
 
 private fun Modifier.semanticsLabel(label: String) = semantics { contentDescription = label }
@@ -122,12 +119,7 @@ internal fun HearingContent(
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { delay(5_000); now = System.currentTimeMillis() } }
     val zone = ZoneId.systemDefault()
-    val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
-    val midnight = today.atStartOfDay(zone).toInstant().toEpochMilli()
-    val todayMs = records.filter { it.startMs >= midnight && it.startMs <= now }.sumOf { it.listenedMs }
-    val todayHeadphones = records.filter { it.startMs >= midnight && it.startMs <= now }.sumOf { it.headphoneMs }
-    val todayAbove = records.filter { it.startMs >= midnight && it.startMs <= now }.sumOf { it.abovePreferenceMs }
-    val weekMs = records.filter { it.startMs >= now - 7L * 86_400_000 && it.startMs <= now }.sumOf { it.listenedMs }
+    val history = remember(records, now, zone) { hearingHistory(records, now, zone) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp, 12.dp, 24.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -141,34 +133,14 @@ internal fun HearingContent(
             Text(if (settings.enabled) "已启用收听记录" else "开启收听记录与休息提醒", color = InkBlue, fontSize = 12.sp)
             Text("只记录本应用可观测的播放，不评定听力健康。", Modifier.padding(top = 6.dp), color = InkMuted, fontSize = 12.sp)
         }
-        item {
-            HorizontalDivider(Modifier.padding(top = 8.dp, bottom = 20.dp), color = InkMuted.copy(alpha = .18f))
-            Row(Modifier.fillMaxWidth()) {
-                DurationColumn("今日聆听", todayMs, Modifier.weight(1f))
-                DurationColumn("滚动 7 日", weekMs, Modifier.weight(1f))
+        item(key = "listening-calendar") {
+            ListeningCalendar(history, live.continuousMs)
+            if (history.days.none { it.listenedMs > 0 }) {
+                Text(
+                    if (settings.enabled) "最近 31 天还没有聆听记录。" else "开启护耳后开始记录聆听时长。",
+                    Modifier.padding(top = 4.dp), color = InkMuted, fontSize = 12.sp,
+                )
             }
-            Text("本段累计 ${hearingDuration(live.continuousMs)} · 暂停满 5 分钟后重新计段", Modifier.padding(top = 14.dp), color = InkMuted, fontSize = 12.sp)
-            Text("今日连接耳机 / 蓝牙时 ${hearingDuration(todayHeadphones)}\n超过当时提醒档位 ${hearingDuration(todayAbove)}", Modifier.padding(top = 8.dp), color = InkMuted, fontSize = 12.sp)
-        }
-        item {
-            Row(Modifier.fillMaxWidth().height(90.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
-                val days = (6 downTo 0).map { today.minusDays(it.toLong()) }
-                val values = days.map { day ->
-                    val start = day.atStartOfDay(zone).toInstant().toEpochMilli()
-                    val end = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-                    records.filter { it.startMs in start until end }.sumOf { it.listenedMs }
-                }
-                val largest = values.maxOrNull()?.coerceAtLeast(60_000) ?: 60_000L
-                days.forEachIndexed { index, day ->
-                    Column(Modifier.weight(1f).fillMaxHeight().semanticsLabel("${day.monthValue}月${day.dayOfMonth}日 ${hearingDuration(values[index])}"),
-                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                        Box(Modifier.width(12.dp).height(if (values[index] == 0L) 2.dp else (values[index].toFloat() / largest * 56).coerceAtLeast(3f).dp)
-                            .background(if (index == 6) InkAccent else InkBlue.copy(alpha = .45f), SquircleShape(3.dp)))
-                        Text(if (index == 6) "今天" else day.format(DateTimeFormatter.ofPattern("M/d")), Modifier.padding(top = 10.dp), color = InkMuted, fontSize = 10.sp)
-                    }
-                }
-            }
-            if (records.isEmpty()) Text("还没有记录。从下一次播放，慢慢积累。", Modifier.padding(top = 12.dp), color = InkMuted, fontSize = 12.sp)
             if (live.storageError) Text("记录未能写入本机，请检查存储空间；部分时长可能缺失。", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
             if (live.unobservedMs > 0) Text("本次存在未观测时段，未将它们当作零暴露。", color = InkMuted, fontSize = 12.sp)
         }
@@ -259,12 +231,6 @@ internal fun HearingContent(
     }
 }
 
-@Composable private fun DurationColumn(label: String, value: Long, modifier: Modifier) {
-    Column(modifier) {
-        Text(label, color = InkMuted, fontSize = 12.sp)
-        Text(hearingDuration(value), Modifier.padding(top = 8.dp), color = InkAccent, fontSize = 24.sp, fontWeight = FontWeight.Light)
-    }
-}
 @Composable private fun HearingSectionTitle(text: String) {
     Column {
         HorizontalDivider(Modifier.padding(top = 14.dp, bottom = 24.dp), color = InkMuted.copy(alpha = .18f))

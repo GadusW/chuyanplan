@@ -1,0 +1,46 @@
+{
+  "version": "0.24.15",
+  "versionCode": 47,
+  "unitTests": 40,
+  "artifacts": [
+    {
+      "name": "Stillune-0.24.15-arm64-debug.apk",
+      "bytes": 75306319,
+      "sha256": "ce9a4baba6e9160893713c66ce55053875c1c000548a87d59e36f0d5ade801db",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    },
+    {
+      "name": "Stillune-0.24.15-universal-debug.apk",
+      "bytes": 230213958,
+      "sha256": "f882a0ec7ce8a078017337dd7ba256e9bde9962b5374bb7fcee22fdf8676795b",
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "signer_sha256": "ec952e205f9c487f588f9a74ead304334bac3aab769d011fb043817a54924121"
+    }
+  ],
+  "originalSigningCertificatePreserved": true,
+  "identicalDexAcrossAbis": true,
+  "androidInstrumentationTestsPassed": 6,
+  "device": "Android API 36 x86_64 emulator",
+  "instrumentationTests": [
+    "com.stillune.app.HearingUiTest#healthIsThirdDestinationAndControlsAreHonestAndOperable",
+    "com.stillune.app.HearingUiTest#listeningCalendarSelectsDatesAndShowsTheirBreakdown",
+    "com.stillune.app.HearingRecordsTest"
+  ],
+  "verified": [
+    "Daily totals use local calendar days while the seven-day summary uses a rolling 168-hour window",
+    "Today, historical dates and empty dates can be selected and their durations update",
+    "Hearing controls, database migration, record deletion and reminders pass regression tests",
+    "The two APKs use the previous release signing certificate and identical executable code"
+  ],
+  "limitations": [
+    "Physical-device testing was outside this validation."
+  ]
+}
